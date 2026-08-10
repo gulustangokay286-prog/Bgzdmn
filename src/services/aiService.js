@@ -75,7 +75,7 @@ async function getRealtimeApiKeys() {
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export const aiService = {
-  async generateContent(prompt, model = 'gemini-3.1-flash-lite') {
+  async generateContent(prompt, preferredModel = 'gemini-2.5-flash') {
     const keys = await getRealtimeApiKeys();
 
     if (!keys || keys.length === 0) {
@@ -104,39 +104,39 @@ export const aiService = {
 
     const totalKeys = keys.length;
     const startIndex = currentKeyIndex % totalKeys;
+    const candidateModels = [preferredModel, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'].filter((v, i, a) => a.indexOf(v) === i);
 
     for (let attempts = 0; attempts < totalKeys; attempts++) {
       const keyIndex = (startIndex + attempts) % totalKeys;
       const key = keys[keyIndex];
 
-      try {
-        const res = await fetch(`${API_BASE}/${model}:generateContent?key=${key}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: bodyPayload
-        });
+      for (const m of candidateModels) {
+        try {
+          const res = await fetch(`${API_BASE}/${m}:generateContent?key=${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: bodyPayload
+          });
 
-        if (res.ok) {
-          const d = await res.json();
-          const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            currentKeyIndex = keyIndex;
-            return text;
+          if (res.ok) {
+            const d = await res.json();
+            const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              currentKeyIndex = keyIndex;
+              return text;
+            }
           }
-        }
 
-        if (res.status === 429 || res.status === 403) {
-          console.warn(`[Gemini AI] Key #${keyIndex + 1} kotası doldu (${res.status}), sıradaki key'e geçiliyor...`);
-          continue;
+          if (res.status === 429 || res.status === 403) {
+            console.warn(`[Gemini AI] Key #${keyIndex + 1} (${m}) kotası/erişimi kısıtlı (${res.status}), denenmeye devam ediliyor...`);
+            break;
+          }
+        } catch (err) {
+          console.error(`[Gemini AI] Key #${keyIndex + 1} (${m}) ağ hatası:`, err.message);
         }
-
-        const errBody = await res.text();
-        console.error(`[Gemini AI] Key #${keyIndex + 1} hatası (${res.status}):`, errBody);
-      } catch (err) {
-        console.error(`[Gemini AI] Key #${keyIndex + 1} ağ hatası:`, err.message);
       }
     }
 
-    return "⚠️ Tüm API anahtarlarının kotası dolmuş. Lütfen 1 dakika bekleyip tekrar deneyin.";
+    return "⚠️ Tüm API anahtarlarının kotası geçici olarak dolmuş. Lütfen 1 dakika bekleyip tekrar deneyin (kotalar her dakika otomatik yenilenmektedir).";
   }
 };
