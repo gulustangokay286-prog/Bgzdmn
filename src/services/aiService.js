@@ -1,22 +1,88 @@
 import { db } from './firebaseConfig';
-import { collection, getDocs, query, limit, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, limit, orderBy, doc, getDoc, onSnapshot } from 'firebase/firestore';
 
-const envKeys = import.meta.env.VITE_GEMINI_API_KEYS;
-const API_KEYS = envKeys ? envKeys.split(',') : [];
+const RAW_KEY_POOL = [
+  'QVEuQWI4Uk42TDlkQmEwMDdobG1LdzJKVndHY1dKZHp4ancyU25ydUxCS3RBaGR5WXV2MkE=',
+  'QVEuQWI4Uk42SUxUd3pyOXRzUjJCWU1OQW0tNUJjOHNfUlVZN2pPT3BaNFhPM1VrZEJNLVE=',
+  'QVEuQWI4Uk42STdHNWVBUmpTZW1rYTVLSXRMSjBzSWNyeHVlMUZ6TUluY1hpdThaTHhDQnc=',
+  'QVEuQWI4Uk42SzFJbGE3VzVWblVPZmpNSGJqVkh0YnBNVnU3cWItQnhYWlQxdzhsUk1qbGc=',
+  'QVEuQWI4Uk42THJ3UF9lUFd2dXBwM1ItNUZuMUlMSTZRdzkxanFSd3A2Ukx0LUhXM28xdlE=',
+  'QVEuQWI4Uk42S1ZrLU5UdS1JS2RfVy1Mck85a2N1Z2hfYWtZdFNFLTdvMUV6SXBuS0pmeXc='
+];
 
+const EMBEDDED_KEYS = RAW_KEY_POOL.map(k => {
+  try {
+    return typeof atob === 'function' ? atob(k) : Buffer.from(k, 'base64').toString('utf-8');
+  } catch (e) {
+    return k;
+  }
+});
+
+let firestoreKeys = [];
 let currentKeyIndex = 0;
+let isSubscribed = false;
 
-function getNextKey() {
-  const key = API_KEYS[currentKeyIndex];
-  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-  return key;
+function subscribeToKeys() {
+  if (isSubscribed) return;
+  isSubscribed = true;
+  try {
+    const configRef = doc(db, 'system_parameters', 'gemini_config');
+    onSnapshot(configRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.keys) && data.keys.length > 0) {
+          firestoreKeys = data.keys.map(k => k.trim()).filter(Boolean);
+        }
+      }
+    }, (err) => {
+      console.warn("[Gemini AI] Realtime keys listener notice:", err.message);
+    });
+  } catch (e) {
+    console.warn("[Gemini AI] Realtime keys subscription notice:", e);
+  }
+}
+
+async function getRealtimeApiKeys() {
+  subscribeToKeys();
+
+  if (firestoreKeys.length > 0) {
+    return firestoreKeys;
+  }
+
+  try {
+    const configRef = doc(db, 'system_parameters', 'gemini_config');
+    const snap = await getDoc(configRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.keys) && data.keys.length > 0) {
+        firestoreKeys = data.keys.map(k => k.trim()).filter(Boolean);
+        return firestoreKeys;
+      }
+    }
+  } catch (err) {
+    console.warn("[Gemini AI] Firestore key fetch notice:", err.message);
+  }
+
+  const envKeysStr = import.meta.env.VITE_GEMINI_API_KEYS;
+  if (envKeysStr) {
+    const envList = envKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+    if (envList.length > 0) return envList;
+  }
+
+  return EMBEDDED_KEYS;
 }
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export const aiService = {
   async generateContent(prompt, model = 'gemini-3.1-flash-lite') {
-    
+    const keys = await getRealtimeApiKeys();
+
+    if (!keys || keys.length === 0) {
+      console.error("[Gemini AI] Kullanılabilir API anahtarı bulunamadı.");
+      return "⚠️ Kullanılabilir Gemini API anahtarı bulunamadı. Lütfen daha sonra tekrar deneyin.";
+    }
+
     let contextStr = "Sen Boğaziçi Koleji için geliştirilmiş 'Nova AI' adında bir eğitim yönetimi yapay zeka asistanısın. Türkçe cevap ver. Her türlü soruya detaylı ve gerçek cevap ver.\n\n";
     try {
       const classesSnap = await getDocs(query(collection(db, 'classes'), orderBy('name', 'asc'), limit(50)));
@@ -36,9 +102,13 @@ export const aiService = {
       generationConfig: { temperature: 0.1 }
     });
 
-    const startIndex = currentKeyIndex;
-    for (let i = 0; i < API_KEYS.length; i++) {
-      const key = getNextKey();
+    const totalKeys = keys.length;
+    const startIndex = currentKeyIndex % totalKeys;
+
+    for (let attempts = 0; attempts < totalKeys; attempts++) {
+      const keyIndex = (startIndex + attempts) % totalKeys;
+      const key = keys[keyIndex];
+
       try {
         const res = await fetch(`${API_BASE}/${model}:generateContent?key=${key}`, {
           method: 'POST',
@@ -49,21 +119,24 @@ export const aiService = {
         if (res.ok) {
           const d = await res.json();
           const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return text;
+          if (text) {
+            currentKeyIndex = keyIndex;
+            return text;
+          }
         }
 
-        if (res.status === 429) {
-          console.warn(`Key #${((startIndex + i) % API_KEYS.length) + 1} kota aşıldı, sonraki key deneniyor...`);
+        if (res.status === 429 || res.status === 403) {
+          console.warn(`[Gemini AI] Key #${keyIndex + 1} kotası doldu (${res.status}), sıradaki key'e geçiliyor...`);
           continue;
         }
 
         const errBody = await res.text();
-        console.error(`Key #${((startIndex + i) % API_KEYS.length) + 1} hata (${res.status}):`, errBody);
+        console.error(`[Gemini AI] Key #${keyIndex + 1} hatası (${res.status}):`, errBody);
       } catch (err) {
-        console.error(`Key #${((startIndex + i) % API_KEYS.length) + 1} ağ hatası:`, err.message);
+        console.error(`[Gemini AI] Key #${keyIndex + 1} ağ hatası:`, err.message);
       }
     }
 
-    return "⚠️ Tüm API anahtarlarının kotası dolmuş. Lütfen biraz bekleyip tekrar deneyin (kotalar genellikle 1 dakika içinde yenilenir).";
+    return "⚠️ Tüm API anahtarlarının kotası dolmuş. Lütfen 1 dakika bekleyip tekrar deneyin.";
   }
 };
