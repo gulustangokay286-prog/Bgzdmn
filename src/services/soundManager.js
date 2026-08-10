@@ -19,13 +19,13 @@ class SoundManager {
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
-      osc.type = 'sine'; // Pürüzsüz ve klas bir zil sesi
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 notası (Parlak ve tatmin edici)
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1); // Hafif tizleşme efekti
+      osc.type = 'sine'; 
+      osc.frequency.setValueAtTime(880, ctx.currentTime); 
+      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1); 
 
       gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.02); // Hızlı giriş (Attack)
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6); // Yavaşça sönme (Decay)
+      gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.02); 
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6); 
 
       osc.connect(gainNode);
       gainNode.connect(ctx.destination);
@@ -44,9 +44,9 @@ class SoundManager {
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
-      osc.type = 'sawtooth'; // Sert ve uyarıcı bir ses
-      osc.frequency.setValueAtTime(150, ctx.currentTime); // Boğuk bir frekans
-      osc.frequency.setValueAtTime(120, ctx.currentTime + 0.1); // Frekans düşüşü (hata hissi)
+      osc.type = 'sawtooth'; 
+      osc.frequency.setValueAtTime(150, ctx.currentTime); 
+      osc.frequency.setValueAtTime(120, ctx.currentTime + 0.1); 
 
       gainNode.gain.setValueAtTime(0, ctx.currentTime);
       gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);

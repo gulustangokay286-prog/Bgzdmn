@@ -7,36 +7,31 @@ const BankManagementView = ({ initialTab = 'accounts', onClose }) => {
     const [accounts, setAccounts] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [checks, setChecks] = useState([]);
-    const [cashRegisters, setCashRegisters] = useState([]); // Needed for Virman
+    const [cashRegisters, setCashRegisters] = useState([]); 
     const [loading, setLoading] = useState(false);
     
-    // Account Form
     const [formBankName, setFormBankName] = useState('');
     const [formIban, setFormIban] = useState('');
     const [formBalance, setFormBalance] = useState('');
 
-    // Tx Form
     const [txType, setTxType] = useState('income');
     const [txAccount, setTxAccount] = useState('');
     const [txAmount, setTxAmount] = useState('');
     const [txTitle, setTxTitle] = useState('');
 
-    // Check Form
     const [chkType, setChkType] = useState('Çek');
     const [chkDir, setChkDir] = useState('Alınan');
     const [chkAmount, setChkAmount] = useState('');
     const [chkDue, setChkDue] = useState('');
     const [chkRelated, setChkRelated] = useState('');
 
-    // Virman Form
-    const [virmFromType, setVirmFromType] = useState('cash'); // cash or bank
+    const [virmFromType, setVirmFromType] = useState('cash'); 
     const [virmFromId, setVirmFromId] = useState('');
     const [virmToType, setVirmToType] = useState('bank');
     const [virmToId, setVirmToId] = useState('');
     const [virmAmount, setVirmAmount] = useState('');
     const [virmDesc, setVirmDesc] = useState('');
 
-    // POS Form
     const [posAccount, setPosAccount] = useState('');
     const [posAmount, setPosAmount] = useState('');
     const [posRate, setPosRate] = useState('2.5');
@@ -244,7 +239,7 @@ const BankManagementView = ({ initialTab = 'accounts', onClose }) => {
                 )}
             </div>
 
-            {/* SUB-VIEWS FOR FORMS */}
+            { }
             
             {activeTab === 'create_virman' && (
                 <div className="bg-white dark:bg-[#0f172a] rounded-[24px] border border-slate-200 dark:border-slate-800 p-6 flex-1 flex flex-col shadow-sm max-w-2xl mx-auto w-full mt-10">

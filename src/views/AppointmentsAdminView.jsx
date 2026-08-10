@@ -10,7 +10,6 @@ const AppointmentsAdminView = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -50,7 +49,6 @@ const AppointmentsAdminView = () => {
       });
 
       const currentPendingCount = data.filter(a => (a.status || 'pending') === 'pending').length;
-      
       
       if (currentPendingCount > prevPendingCountRef.current && !loading) {
          if ('Notification' in window && Notification.permission === 'granted') {
@@ -160,7 +158,7 @@ const AppointmentsAdminView = () => {
       
       <div className="w-full max-w-[1600px] flex flex-col flex-1 min-h-0">
 
-        {/* Title */}
+        { }
         <div className="flex flex-col shrink-0 mb-6">
           <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-widest">{currentDate}</span>
           <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-none">Randevular</h1>
@@ -174,7 +172,7 @@ const AppointmentsAdminView = () => {
         )}
 
         {selectedAppointment ? (
-          /* DETAIL VIEW */
+           
           <div className="flex-1 flex flex-col min-h-0 w-full">
             <button 
               onClick={() => setSelectedAppointment(null)}
@@ -245,10 +243,10 @@ const AppointmentsAdminView = () => {
             </div>
           </div>
         ) : (
-          /* LIST VIEW */
+           
           <div className="w-full flex-1 flex flex-col gap-6 min-h-0">
             
-            {/* Top Pending Alert Banner */}
+            { }
             {pendingCount > 0 && (
               <div 
                 onClick={() => setActiveTab('pending')}
@@ -267,9 +265,9 @@ const AppointmentsAdminView = () => {
             </div>
           )}
 
-          {/* Controls Header */}
+          { }
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 w-full mb-6 shrink-0">
-            {/* Tabs */}
+            { }
             <div className="flex items-center w-[calc(92%+16px)] sm:w-auto bg-slate-100 dark:bg-[#0f172a]/60 p-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/60 shrink-0">
               {['pending', 'approved', 'all'].map((tab) => {
                 const labels = { pending: 'Bekleyenler', approved: 'Onaylananlar', all: 'Tümü' };
@@ -297,7 +295,7 @@ const AppointmentsAdminView = () => {
               })}
             </div>
 
-            {/* Search & Actions */}
+            { }
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 shrink-0">
               <div className="relative flex items-center flex-1">
                 <Search size={15} className="absolute left-3.5 text-slate-400 pointer-events-none" />
@@ -324,7 +322,7 @@ const AppointmentsAdminView = () => {
             </div>
           </div>
 
-          {/* List Content */}
+          { }
           <div className="bg-transparent flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-8 flex flex-col gap-2.5">
               {loading ? (
@@ -357,7 +355,7 @@ const AppointmentsAdminView = () => {
                       className="bg-white dark:bg-[#0f172a] rounded-[16px] border border-slate-200/70 dark:border-slate-800/80 p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-300/90 dark:hover:border-slate-700 transition-all cursor-pointer group" 
                       onClick={() => setSelectedAppointment(app)}
                     >
-                      {/* Mobile Top Row: Title, Badge, Time */}
+                      { }
                       <div className="flex justify-between items-start sm:hidden w-full">
                         <div className="flex flex-col gap-1.5 pr-2">
                           <h3 className="font-bold text-[15px] text-slate-900 dark:text-white leading-tight">{app.parentName || 'İsimsiz Veli'}</h3>
@@ -373,9 +371,9 @@ const AppointmentsAdminView = () => {
                         </div>
                       </div>
 
-                      {/* Mobile Bottom Row / Desktop Full Row */}
+                      { }
                       <div className="flex items-center gap-3 sm:gap-4 w-full">
-                         {/* Date Circle */}
+                         { }
                          <div className={`w-11 h-11 shrink-0 rounded-2xl flex flex-col items-center justify-center border shadow-sm ${
                            isApproved ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
                            isCancelled ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' :
@@ -389,7 +387,7 @@ const AppointmentsAdminView = () => {
                            </span>
                          </div>
                          
-                         {/* Details */}
+                         { }
                          <div className="flex flex-col flex-1 min-w-0 justify-center">
                            <div className="hidden sm:flex items-center gap-2 mb-0.5">
                              <h3 className="font-bold text-[14px] text-slate-900 dark:text-white truncate">{app.parentName || 'İsimsiz Veli'}</h3>
@@ -404,13 +402,13 @@ const AppointmentsAdminView = () => {
                            </div>
                          </div>
 
-                         {/* Desktop Time */}
+                         { }
                          <div className="hidden sm:flex flex-col items-end shrink-0 ml-auto mr-3">
                            <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{app.time || '-'}</span>
                            <span className="text-[11px] font-medium text-slate-400 mt-0.5">{dateFormatted}</span>
                          </div>
 
-                         {/* Arrow */}
+                         { }
                          <div className="w-8 h-8 rounded-full bg-slate-100/70 dark:bg-slate-800 text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white group-hover:bg-white dark:group-hover:bg-slate-700 flex items-center justify-center transition-colors shrink-0 border border-slate-200/60 dark:border-slate-700">
                            <span className="text-[16px] leading-none mb-0.5 ml-0.5">&rsaquo;</span>
                          </div>

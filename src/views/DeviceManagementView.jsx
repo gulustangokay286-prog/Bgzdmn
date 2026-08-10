@@ -23,7 +23,7 @@ const DeviceManagementView = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // 1. Fetch Students from Users Collection (This includes Mobile App Device Locks)
+      
       const users = await firebaseService.fetchAllUsers();
       const studentList = users.filter(u => {
         const role = u.fields?.role?.stringValue?.toLowerCase() || '';
@@ -48,7 +48,6 @@ const DeviceManagementView = () => {
         };
       }).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
 
-      // 2. Fetch Device Locks from student_daily_locks Collection (QR Web App)
       const locksSnapshot = await getDocs(collection(db, 'student_daily_locks'));
       const locksMap = {};
       const todayStr = new Date().toISOString().split('T')[0];
@@ -88,11 +87,8 @@ const DeviceManagementView = () => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       
-      // 1. Üst Seviye Kullanıcı Kilitlerini Temizle (BÜTÜN TRACKING)
       await firebaseService.resetDeviceLock(selectedStudent.id);
 
-      // 2. Acımasız Temizlik (Query Bazlı)
-      // Öğrencinin sahip olduğu bütün cihaz kilitlerini bul ve yok et! (lastDeviceId'ye güvenmek yerine)
       const { query, where, orderBy, limit } = await import('firebase/firestore');
       
       const deviceLocksQuery = query(collection(db, 'device_locks'), where('ownerId', '==', selectedStudent.id));
@@ -107,13 +103,9 @@ const DeviceManagementView = () => {
         await deleteDoc(docSnapshot.ref).catch(() => {});
       });
 
-      // 3. Günlük Kilitleri Sil
       const studentDailyLockRef = doc(db, 'student_daily_locks', `${todayStr}_${selectedStudent.id}`);
       await deleteDoc(studentDailyLockRef).catch(() => {});
 
-      // 4. "AKILLI KİLİT KIRICI" (Eğer bu öğrenci başkasının cihazına takıldıysa)
-      // Öğrenci başkasının kilitlediği bir cihazdan girmeye çalışıp "Güvenlik İhlali" yediyse, 
-      // admin bu öğrenciye "Kilit Kaldır" dediğinde O CİHAZIN KİLİDİNİ de zorla kıralım!
       if (selectedStudent.tcNo) {
         const secQuery = query(
           collection(db, 'security_logs'), 
@@ -124,7 +116,7 @@ const DeviceManagementView = () => {
         const secSnap = await getDocs(secQuery).catch(() => ({ empty: true }));
         if (!secSnap.empty) {
           const lastAttempt = secSnap.docs[0].data();
-          // Sadece bugünün kayıtlarına bak
+          
           const logDate = lastAttempt.timestamp?.toDate ? lastAttempt.timestamp.toDate() : new Date();
           if (logDate.toISOString().split('T')[0] === todayStr) {
             if (lastAttempt.deviceId) {
@@ -137,7 +129,6 @@ const DeviceManagementView = () => {
         }
       }
       
-      // Optimistic UI updates
       setDeviceLocks(prev => {
         const newLocks = { ...prev };
         delete newLocks[selectedStudent.id];
@@ -175,7 +166,7 @@ const DeviceManagementView = () => {
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans pb-2 md:pb-6 overflow-x-hidden">
       
-      {/* Header section (Dashboard style) */}
+      { }
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-8 shrink-0 gap-4 w-full">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-medium text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wider">{currentDate}</span>
@@ -195,14 +186,14 @@ const DeviceManagementView = () => {
         </div>
       </div>
 
-      {/* Unified Minimalist Data Table */}
+      { }
       <div className="w-full flex-1 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl flex flex-col overflow-hidden shadow-sm">
         
-        {/* Horizontal Scroll Wrapper for Table */}
+        { }
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
           <div className="min-w-[700px] flex flex-col h-full">
             
-            {/* Table Header */}
+            { }
             <div className="flex items-center px-4 md:px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#1e293b]/50 shrink-0">
               <div className="flex-1 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</div>
               <div className="w-32 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">TC / Okul No</div>
@@ -210,7 +201,7 @@ const DeviceManagementView = () => {
               <div className="w-36 text-[12px] font-semibold text-slate-500 uppercase tracking-wider text-right">Aksiyon</div>
             </div>
 
-            {/* Table Body */}
+            { }
             <div className="flex-1">
               {filteredStudents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-slate-600 dark:text-slate-400">
@@ -230,7 +221,7 @@ const DeviceManagementView = () => {
                       className={`flex items-center px-4 md:px-6 py-3 border-b border-slate-100 dark:border-white/5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${idx === filteredStudents.length - 1 ? 'border-none' : ''}`}
                     >
                       
-                      {/* Student Info */}
+                      { }
                       <div className="flex-1 flex items-center gap-3">
                         <img 
                           src={student.profileImage} 
@@ -240,13 +231,13 @@ const DeviceManagementView = () => {
                         <span className="text-[13px] md:text-[14px] font-medium text-slate-800 dark:text-slate-200 truncate">{student.name}</span>
                       </div>
 
-                      {/* School Number / TC */}
+                      { }
                       <div className="w-32 text-[12px] md:text-[13px] text-slate-600 dark:text-slate-400 font-medium">
                         <div className="truncate">{student.tcNo || student.id}</div>
                         <div className="text-[10px] text-slate-400 opacity-75">{student.schoolNumber || '-'}</div>
                       </div>
 
-                      {/* Status Badge & Device Name */}
+                      { }
                       <div className="w-48 flex flex-col shrink-0 gap-1.5">
                         <div className="flex items-center">
                           <div className={`px-2 py-1 rounded text-[11px] md:text-[12px] font-semibold flex items-center gap-1.5 border ${isLocked ? 'border-emerald-200 text-emerald-700 bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-400 dark:bg-emerald-500/10' : 'border-slate-200 text-slate-600 bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:bg-slate-800'}`}>
@@ -270,7 +261,7 @@ const DeviceManagementView = () => {
                         )}
                       </div>
 
-                      {/* Action Button */}
+                      { }
                       <div className="w-36 flex justify-end shrink-0">
                         <button
                           onClick={() => handleUnlockClick(student)}
@@ -293,7 +284,7 @@ const DeviceManagementView = () => {
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      { }
       {showConfirmModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10">

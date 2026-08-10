@@ -5,7 +5,6 @@ import { financeService } from '../services/financeService';
 import dashboardIcon from '../assets/dashboard_icon.png';
 import { useLicense } from '../hooks/useLicense';
 
-
 const Sparkline = ({ type }) => {
   const isPositive = type === 'positive';
   const color = isPositive ? '#10b981' : '#f43f5e';
@@ -59,7 +58,6 @@ const StatCard = ({ title, value, icon: Icon, trend }) => (
     {trend !== undefined && <Sparkline type={trend > 0 ? 'positive' : 'negative'} />}
   </div>
 );
-
 
 const MainChart = ({ records }) => {
   const [hoveredMonth, setHoveredMonth] = useState(null);
@@ -161,7 +159,6 @@ const MainChart = ({ records }) => {
   );
 };
 
-
 const ProgressRing = ({ percentage, color = "#0f172a" }) => {
   const radius = 36;
   const circumference = radius * 2 * Math.PI;
@@ -226,7 +223,6 @@ const DashboardView = () => {
 
   const delayedPayments = studentPayments.filter(p => p.status === 'Gecikmiş Ödeme').length;
 
-
   const paidPayments = studentPayments.filter(p => p.status === 'Ödendi').length;
   const collectionRate = studentPayments.length > 0 ? Math.round((paidPayments / studentPayments.length) * 100) : 100;
 
@@ -240,7 +236,6 @@ const DashboardView = () => {
 
   const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Geriye dönük uyumluluk: Eski lisans anahtarlarında hiç '/dashboard/' alt modülü yoksa, hepsine izin ver
   const hasSubModules = license?.modules?.some(m => m.startsWith('/dashboard/'));
   const showWidget = (path) => {
     if (hasSubModules) return canAccess(path);
@@ -249,7 +244,7 @@ const DashboardView = () => {
 
   return (
     <div className="w-full flex flex-col font-sans gap-6 pb-6">
-      {/* Header */}
+      { }
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-2 w-full">
         <div className="flex items-center gap-5">
           <div className="flex flex-col">

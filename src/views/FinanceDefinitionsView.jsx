@@ -18,11 +18,9 @@ const FinanceDefinitionsView = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     
-    // Filter & Search states
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Tümü');
 
-    // Form state
     const [formName, setFormName] = useState('');
     const [formCode, setFormCode] = useState('');
     const [formType, setFormType] = useState('income');
@@ -92,7 +90,6 @@ const FinanceDefinitionsView = () => {
         }
     };
 
-    // Filtered lists
     const filteredDefs = definitions.filter(d => {
         const matchesSearch = (d.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || 
                               (d.code?.toLowerCase() || '').includes(searchQuery.toLowerCase());
@@ -105,10 +102,10 @@ const FinanceDefinitionsView = () => {
 
     return (
         <div className="w-full h-full font-sans bg-[#0b1120] text-slate-100 overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-8 flex flex-col items-center">
-            {/* Centered Container */}
+            { }
             <div className="w-full max-w-[760px] flex flex-col gap-8 pb-24">
                 
-                {/* Header Section */}
+                { }
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 border-b border-slate-700/80 pb-6 pt-2">
                     <div>
                         <h1 className="text-[22px] font-bold text-white tracking-tight flex items-center gap-3 uppercase">
@@ -125,7 +122,7 @@ const FinanceDefinitionsView = () => {
                     </button>
                 </div>
 
-                {/* Filter & Search Bar */}
+                { }
                 <div className="flex flex-col gap-4 w-full">
                     <div className="flex items-center gap-3 bg-[#0b1120] border-b border-slate-700 pb-2">
                         <Search size={16} className="text-slate-400"/>
@@ -137,7 +134,7 @@ const FinanceDefinitionsView = () => {
                         />
                     </div>
 
-                    {/* Category Filter Pills */}
+                    { }
                     <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
                         {CATEGORIES.map(cat => (
                             <button
@@ -151,10 +148,10 @@ const FinanceDefinitionsView = () => {
                     </div>
                 </div>
 
-                {/* Grid Area */}
+                { }
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full">
                     
-                    {/* Income Column */}
+                    { }
                     <div className="flex flex-col gap-3 w-full">
                         <div className="pb-3 border-b border-slate-700/80 flex items-center justify-between">
                             <h3 className="font-bold text-[13px] text-emerald-400 uppercase tracking-widest flex items-center gap-2">
@@ -200,7 +197,7 @@ const FinanceDefinitionsView = () => {
                         </div>
                     </div>
 
-                    {/* Expense Column */}
+                    { }
                     <div className="flex flex-col gap-3 w-full">
                         <div className="pb-3 border-b border-slate-700/80 flex items-center justify-between">
                             <h3 className="font-bold text-[13px] text-rose-400 uppercase tracking-widest flex items-center gap-2">
@@ -249,7 +246,7 @@ const FinanceDefinitionsView = () => {
                 </div>
             </div>
 
-            {/* Rich Detailed Modal */}
+            { }
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-[#0b1120] border border-slate-700 p-6 rounded-2xl w-full max-w-md shadow-2xl relative flex flex-col gap-5 max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -259,7 +256,7 @@ const FinanceDefinitionsView = () => {
                         </div>
                         
                         <form onSubmit={handleSave} className="flex flex-col gap-5">
-                            {/* Tip Seçimi */}
+                            { }
                             <div>
                                 <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block mb-2">İşlem Tipi</label>
                                 <div className="grid grid-cols-2 gap-3">
@@ -280,7 +277,7 @@ const FinanceDefinitionsView = () => {
                                 </div>
                             </div>
 
-                            {/* Tanım Adı */}
+                            { }
                             <div>
                                 <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block mb-2">Tanım Adı *</label>
                                 <input 
@@ -292,7 +289,7 @@ const FinanceDefinitionsView = () => {
                                 />
                             </div>
 
-                            {/* Kategori Seçimi */}
+                            { }
                             <div>
                                 <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block mb-2">Ana Kategori</label>
                                 <select 
@@ -306,7 +303,7 @@ const FinanceDefinitionsView = () => {
                                 </select>
                             </div>
 
-                            {/* Muhasebe Kodu & KDV Oranı */}
+                            { }
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block mb-2">Muhasebe Kodu</label>
@@ -332,7 +329,7 @@ const FinanceDefinitionsView = () => {
                                 </div>
                             </div>
 
-                            {/* Varsayılan Ödeme Yöntemi */}
+                            { }
                             <div>
                                 <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block mb-2">Varsayılan Ödeme Yöntemi</label>
                                 <select 
@@ -347,7 +344,7 @@ const FinanceDefinitionsView = () => {
                                 </select>
                             </div>
 
-                            {/* Açıklama / Notlar */}
+                            { }
                             <div>
                                 <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block mb-2">Açıklama / Notlar (Opsiyonel)</label>
                                 <textarea 

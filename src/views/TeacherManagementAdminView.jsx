@@ -36,7 +36,6 @@ const TeacherManagementAdminView = () => {
   const [isClassSelectModalOpen, setIsClassSelectModalOpen] = useState(false);
   const [isAiDashboardOpen, setIsAiDashboardOpen] = useState(false);
 
-  // İşlem menüsü ve yeni atama modalları
   const [openActionMenuFor, setOpenActionMenuFor] = useState(null);
   const [isClassAssignModalOpen, setIsClassAssignModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -82,7 +81,7 @@ const TeacherManagementAdminView = () => {
 
   useEffect(() => {
     setLoading(true);
-    // Real-time listener for users (teachers)
+    
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const allRestUsers = snapshot.docs.map(mapSdkToRest);
       const filtered = allRestUsers.filter(u => {
@@ -96,13 +95,11 @@ const TeacherManagementAdminView = () => {
       setLoading(false);
     });
     
-    // Real-time listener for 'schedule' collection
     const unsubSchedule = onSnapshot(query(collection(db, 'schedule')), (snap) => {
       const data1 = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setSchedules(data1);
     }, (err) => console.log("Schedule listen err:", err));
 
-    // Real-time listener for 'schedules' collection
     const unsubSchedules = onSnapshot(query(collection(db, 'schedules')), (snap) => {
       const data2 = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       if (data2.length > 0) {
@@ -190,7 +187,7 @@ const TeacherManagementAdminView = () => {
       markClean();
       setFormData(initialFormData);
       setEditingTeacher(null);
-      // Real-time listener (onSnapshot) will auto-update teachers
+      
     } catch (error) {
       console.error('Kaydetme hatası:', error);
       setFormError('Kayıt işlemi başarısız oldu: ' + error.message);
@@ -201,7 +198,6 @@ const TeacherManagementAdminView = () => {
   const handleDeleteTeacher = async (teacherDocId, name) => {
     setDeleteConfirm({ type: 'teacher', id: teacherDocId, name });
   };
-
 
   const confirmDeleteTeacher = async () => {
     if (!deleteConfirm) return;
@@ -216,7 +212,7 @@ const TeacherManagementAdminView = () => {
         await deleteDoc(doc(db, 'teacher_schedules', id)).catch(() => {});
       }
       setDeleteConfirm(null);
-      // Real-time listeners (onSnapshot) will auto-update teachers & schedules
+      
     } catch (error) {
       console.error("Silme hatası:", error);
     }
@@ -274,7 +270,7 @@ const TeacherManagementAdminView = () => {
       await persistAssignedClasses(activeTeacher, assignedClassesDraft);
       setIsClassAssignModalOpen(false);
       markClean();
-      // Real-time listener (onSnapshot) will auto-update teachers
+      
     } catch (error) {
       console.error('Sınıf atama hatası:', error);
       setFormError('Sınıf ataması kaydedilemedi.');
@@ -322,26 +318,23 @@ const TeacherManagementAdminView = () => {
     const teacherName = getTeacherName(activeTeacher);
     const classId = scheduleData.classId;
     const payload = {
-      // Class fields (Student Mobile App)
+      
       classId: classId,
       class_id: classId,
       className: `${classId} Sınıfı`,
       class_name: `${classId} Sınıfı`,
 
-      // Teacher fields (Teacher Mobile App)
       teacherId: getTeacherDocId(activeTeacher),
       teacher_id: getTeacherDocId(activeTeacher),
       teacherName: teacherName,
       teacher_name: teacherName,
 
-      // Course & Room fields
       courseName: courseName,
       course_name: courseName,
       subject: courseName,
       room: 'Belirtilmedi',
       classroom: 'Belirtilmedi',
 
-      // Timing fields
       dayIndex: parseInt(scheduleData.dayIndex),
       day_index: parseInt(scheduleData.dayIndex),
       lessonIndex: parseInt(scheduleData.lessonIndex),
@@ -352,7 +345,6 @@ const TeacherManagementAdminView = () => {
       endTime: selectedLesson.end,
       end_time: selectedLesson.end,
 
-      // Status
       status: 'active',
       type: 'lesson',
       hasAssignment: false,
@@ -410,7 +402,7 @@ return (
   <>
   <div className="absolute -top-[40px] -bottom-[40px] -left-[40px] -right-[40px] bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-8 md:p-12">
 
-    {/* HEADER SECTION */}
+    { }
     <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 w-full shrink-0 gap-6">
       <div className="flex items-center gap-5">
         <div className="flex flex-col">
@@ -420,9 +412,9 @@ return (
       </div>
     </div>
 
-    {/* STATS & SEARCH */}
+    { }
     <div className="flex flex-col gap-5 mb-8">
-      {/* Summary Pills + Inline Yeni Ekle Button */}
+      { }
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
           <Users size={14} className="text-slate-900 dark:text-white -ml-[3px]" />
@@ -439,7 +431,7 @@ return (
         </button>
       </div>
 
-      {/* Search Bar */}
+      { }
       <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
         <div className="relative flex-1 w-full flex items-center">
           <Search size={18} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
@@ -462,7 +454,7 @@ return (
       </div>
     </div>
 
-    {/* MAIN TABLE CARD */}
+    { }
     <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex flex-col overflow-hidden relative shadow-sm min-h-0">
       {loading ? (
         <div className="flex flex-col items-center justify-center h-48 w-full text-slate-500">
@@ -477,7 +469,7 @@ return (
       ) : (
         <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar flex flex-col">
           <div className="min-w-[800px] flex-1 flex flex-col relative pb-4">
-            {/* Table Headers */}
+            { }
             <div className="flex items-center text-slate-400 dark:text-slate-500 bg-transparent px-8 py-5 text-[11px] font-bold uppercase tracking-widest sticky top-0 z-10 shrink-0 border-b border-slate-100 dark:border-white/[0.06]">
               <div style={{ width: '30%' }}>Öğretmen Bilgisi</div>
               <div style={{ width: '20%' }}>Branş</div>
@@ -571,12 +563,12 @@ return (
       )}
     </div>
 
-    {/* Add / Edit Teacher Modal Popup */}
+    { }
     {isAddModalOpen && createPortal(
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-[460px] flex flex-col max-h-[90vh] overflow-hidden border border-slate-200/80 dark:border-slate-800/80 shadow-2xl">
           
-          {/* Modal Header */}
+          { }
           <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
@@ -599,7 +591,7 @@ return (
             </button>
           </div>
 
-          {/* Modal Form Body */}
+          { }
           <div className="p-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1">
             {formError && (
               <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-[12px] font-bold rounded-xl flex items-center justify-between">
@@ -609,7 +601,7 @@ return (
             )}
             <form id="addTeacherForm" onSubmit={handleSaveTeacher} className="flex flex-col gap-3.5 box-border">
               
-              {/* Ad Soyad & Branş */}
+              { }
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 box-border">
                 <div className="box-border">
                   <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Ad Soyad *</label>
@@ -659,7 +651,7 @@ return (
                 </div>
               </div>
 
-              {/* Telefon & E-posta */}
+              { }
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 box-border">
                 <div className="box-border">
                   <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Telefon Numarası *</label>
@@ -693,7 +685,7 @@ return (
                 </div>
               </div>
 
-              {/* TC Kimlik & Unvan */}
+              { }
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">TC Kimlik No</label>
@@ -723,7 +715,7 @@ return (
                 </div>
               </div>
 
-              {/* Atanan Sınıflar */}
+              { }
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Atanan Sınıflar (Virgülle Ayırın)</label>
                 <input
@@ -735,7 +727,7 @@ return (
                 />
               </div>
 
-              {/* Notlar / Açıklama */}
+              { }
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Notlar / Özel Açıklama</label>
                 <textarea
@@ -750,7 +742,7 @@ return (
             </form>
           </div>
 
-          {/* Modal Footer */}
+          { }
           <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0f172a] flex justify-end gap-3 rounded-b-[24px]">
             <button 
               type="button"
@@ -774,7 +766,7 @@ return (
       document.body
     )}
 
-    {/* Schedule Modal */}
+    { }
     {isScheduleModalOpen && activeTeacher && createPortal(
       <div className="fixed inset-0 bg-[#FAFAFA] dark:bg-[#0b1120] z-[9999] flex flex-col p-6 md:p-10 animate-in fade-in duration-200 overflow-hidden">
         <div className="flex items-center justify-between mb-6 w-full shrink-0">
@@ -883,7 +875,7 @@ return (
       document.body
     )}
 
-    {/* Class Select Modal */}
+    { }
     {isClassSelectModalOpen && createPortal(
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-sm shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
@@ -935,7 +927,7 @@ return (
       document.body
     )}
 
-    {/* Class Assign Modal (İşlem Menu) */}
+    { }
     {isClassAssignModalOpen && activeTeacher && createPortal(
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-md shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
@@ -1017,7 +1009,7 @@ return (
       document.body
     )}
 
-    {/* Task Assign Modal (Görev Atama) */}
+    { }
     {isTaskModalOpen && activeTeacher && createPortal(
       <div 
         className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
@@ -1027,7 +1019,7 @@ return (
           className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-md shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800"
           onClick={e => e.stopPropagation()}
         >
-          {/* Modal Header */}
+          { }
           <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
             <div className="flex items-baseline gap-2.5">
               <h2 className="text-[16px] font-bold text-slate-900 dark:text-white leading-none">Görev Atama</h2>
@@ -1042,7 +1034,7 @@ return (
             </button>
           </div>
 
-          {/* Form Body */}
+          { }
           <div className="p-5">
             {formError && (
               <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-[12px] font-bold rounded-xl flex items-center justify-between">
@@ -1101,7 +1093,7 @@ return (
             </form>
           </div>
 
-          {/* Modal Footer */}
+          { }
           <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0f172a] flex justify-end gap-3 rounded-b-[24px]">
             <button
               type="button"
@@ -1124,7 +1116,7 @@ return (
       document.body
     )}
 
-    {/* Delete Confirm */}
+    { }
     {deleteConfirm && createPortal(
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4 border border-slate-200 dark:border-slate-800">

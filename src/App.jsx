@@ -45,7 +45,6 @@ import ProfileView from './views/ProfileView';
 import CheatLogsAdminView from './views/CheatLogsAdminView';
 import DeviceManagementView from './views/DeviceManagementView';
 
-
 const NavItem = ({ to, icon: Icon, label, onClick }) => (
   <NavLink
     to={to}
@@ -60,7 +59,6 @@ const NavItem = ({ to, icon: Icon, label, onClick }) => (
 const Sidebar = ({ isOpen, onClose }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Use an effect to close the dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.sidebar-header')) {
@@ -73,7 +71,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   return (
     <>
-      {/* Mobile Overlay */}
+      { }
       {isOpen && (
         <div 
           className="fixed inset-0 bg-black/60 z-[90] md:hidden backdrop-blur-sm transition-opacity"
@@ -200,7 +198,7 @@ const App = () => {
           <div className="main-content bg-[var(--bg-base)] flex flex-col relative w-full">
             <div className="drag-region-top hidden md:block" />
             
-            {/* Mobile Header */}
+            { }
             <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[var(--bg-sidebar)] border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3">
                 <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors">

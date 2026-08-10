@@ -14,8 +14,7 @@ const LoginView = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Forgot Password States
-  const [view, setView] = useState('login'); // 'login' | 'forgot'
+  const [view, setView] = useState('login'); 
   const [resetSuccess, setResetSuccess] = useState('');
 
   const handleLogin = async (e) => {
@@ -24,7 +23,7 @@ const LoginView = () => {
     setLoading(true);
 
     try {
-      // Show "Verifying..." animation for at least 1.5 seconds for UX
+      
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
@@ -89,8 +88,6 @@ const LoginView = () => {
     setLoading(false);
   };
 
-  // FIX MAC/IOS OVERSCROLL (RUBBER-BANDING):
-  // Set the OS-level body/html background to the exact image (top half) and dark blue (bottom half)
   useEffect(() => {
     const originalHtmlBg = document.documentElement.style.background;
     const originalBodyBg = document.body.style.background;
@@ -111,7 +108,7 @@ const LoginView = () => {
   return (
     <div className="relative w-full min-h-[100dvh] flex flex-col bg-[#0f172a] overflow-x-hidden">
       
-      {/* Top Bright Section with Background Image */}
+      { }
       <div className="relative w-full min-h-[220px] md:min-h-[320px] h-[35vh] md:h-[40vh] shrink-0 flex flex-col items-center justify-center overflow-hidden">
         
         <div
@@ -120,7 +117,7 @@ const LoginView = () => {
         ></div>
         <div className="absolute inset-0 w-full h-full bg-gradient-to-t from-[#0f172a] via-[#0f172a]/60 to-[#0f172a]/10 z-0"></div>
 
-        {/* Header with Logo */}
+        { }
         <div className="relative z-10 flex flex-col items-center text-center px-4 mt-8 md:mt-0">
           <img src="/logo.png" alt="Logo" className="w-16 md:w-20 h-auto mb-4 md:mb-8 drop-shadow-2xl" />
           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-lg">
@@ -130,10 +127,10 @@ const LoginView = () => {
         </div>
       </div>
 
-      {/* Bottom Modernist Dark Section */}
+      { }
       <div className="relative flex-1 bg-[#0f172a] pt-12 md:pt-16 pb-8 md:pb-12 px-4 md:px-6 flex flex-col items-center justify-start z-10">
         
-        {/* Edu Texture Background */}
+        { }
         <div className="absolute z-0 pointer-events-none opacity-[0.03] overflow-hidden flex justify-center items-center" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="w-[200%] h-[200%] flex flex-wrap justify-center items-center gap-16 -rotate-12 scale-125 transform translate-y-32 pt-24">
             {Array.from({ length: 40 }).map((_, i) => (
@@ -148,7 +145,7 @@ const LoginView = () => {
           </div>
         </div>
 
-        {/* Semi-Circle Bend Warp with Text Inside Bending Along Path */}
+        { }
         <div className="absolute bottom-full left-0 w-full h-[70px] sm:h-[90px] md:h-[120px] pointer-events-none translate-y-[1px]">
           <svg
             className="w-full h-full text-[#0f172a]"
@@ -167,10 +164,10 @@ const LoginView = () => {
           </svg>
         </div>
 
-        {/* Inner Form Content Container */}
+        { }
         <div className="relative w-full max-w-[360px] flex flex-col items-center box-border z-10">
 
-          {/* Messages */}
+          { }
           {error && (
             <div className="flex items-center gap-2.5 p-3 bg-red-950/40 text-red-400 rounded-xl text-xs mb-5 border border-red-900/50 font-bold w-full box-border">
               <ShieldAlert size={16} className="shrink-0 text-red-500" />
@@ -184,7 +181,7 @@ const LoginView = () => {
             </div>
           )}
 
-          {/* Form */}
+          { }
           {view === 'login' ? (
             <form onSubmit={handleLogin} className="flex flex-col gap-3.5 w-full box-border">
 
@@ -212,9 +209,9 @@ const LoginView = () => {
                 />
               </div>
 
-              {/* Actions Row: Remember Me & Forgot Password */}
+              { }
               <div className="flex items-center justify-between w-full px-1 mt-1">
-                {/* Remember Me */}
+                { }
                 <div
                   onClick={() => setRememberMe(!rememberMe)}
                   className="flex items-center gap-3 cursor-pointer select-none group"
@@ -227,7 +224,7 @@ const LoginView = () => {
                   </span>
                 </div>
 
-                {/* Forgot Password Link */}
+                { }
                 <span 
                   onClick={() => { setView('forgot'); setError(''); setResetSuccess(''); }}
                   className="text-xs font-bold text-slate-500 hover:text-white cursor-pointer transition-colors mr-1"
@@ -297,7 +294,7 @@ const LoginView = () => {
             </form>
           )}
 
-          {/* Footer Rights */}
+          { }
           <div className="text-center mt-8 md:mt-12 w-full pb-4 md:pb-0">
             <p className="text-[10px] md:text-xs text-slate-500/70 font-medium tracking-wide">
               Pivot Akademi © {new Date().getFullYear()} Tüm hakları saklıdır.

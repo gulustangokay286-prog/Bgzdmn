@@ -1,6 +1,6 @@
-// Web Crypto API implementation of AES-256-CBC envelope
+
 export const cryptoService = {
-  // Must exactly match the backend key
+  
   keyString: 'BoGaziCi_Koleji_AES_256_Key_2026',
 
   async getKey() {

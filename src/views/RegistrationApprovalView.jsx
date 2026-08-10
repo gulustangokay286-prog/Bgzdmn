@@ -25,7 +25,6 @@ const RegistrationApprovalView = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Stats
   const totalPending = pendingUsers.length;
   const studentCount = pendingUsers.filter(u => {
     const r = u.fields?.role?.stringValue?.toLowerCase() || '';
@@ -40,7 +39,6 @@ const RegistrationApprovalView = () => {
     return r === 'teacher' || r === 'öğretmen';
   }).length;
 
-  // Search filter
   const filteredUsers = useMemo(() => {
     if (!searchText.trim()) return pendingUsers;
     const q = searchText.trim().toLowerCase();
@@ -62,7 +60,7 @@ const RegistrationApprovalView = () => {
     <>
       <div className="absolute -top-[40px] -bottom-[40px] -left-[40px] -right-[40px] bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-8 md:p-12">
 
-        {/* HEADER */}
+        { }
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 w-full shrink-0 gap-6">
           <div className="flex items-center gap-5">
             <div className="flex flex-col">
@@ -72,9 +70,9 @@ const RegistrationApprovalView = () => {
           </div>
         </div>
 
-        {/* STATS & SEARCH */}
+        { }
         <div className="flex flex-col gap-5 mb-8">
-          {/* Summary Pills + Yenile */}
+          { }
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
               <Users size={14} className="text-slate-900 dark:text-white -ml-[3px]" />
@@ -110,7 +108,7 @@ const RegistrationApprovalView = () => {
             </button>
           </div>
 
-          {/* Search Bar */}
+          { }
           <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
             <div className="relative flex-1 w-full flex items-center">
               <Search size={18} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
@@ -133,7 +131,7 @@ const RegistrationApprovalView = () => {
           </div>
         </div>
 
-        {/* MAIN CARD */}
+        { }
         {isFirstLoad ? (
           <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex items-center justify-center shadow-sm">
             <div className="flex flex-col items-center text-slate-500 dark:text-slate-400">
@@ -157,7 +155,7 @@ const RegistrationApprovalView = () => {
           <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex flex-col overflow-hidden relative shadow-sm min-h-0">
             <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar flex flex-col">
               <div className="min-w-[800px] flex-1 flex flex-col relative pb-4">
-                {/* Table Headers */}
+                { }
                 <div className="flex items-center text-slate-400 dark:text-slate-500 bg-transparent px-8 py-5 text-[11px] font-bold uppercase tracking-widest sticky top-0 z-10 shrink-0 border-b border-slate-100 dark:border-white/[0.06]">
                   <div style={{ width: '25%' }}>Ad Soyad</div>
                   <div style={{ width: '15%' }}>Kullanıcı Tipi</div>

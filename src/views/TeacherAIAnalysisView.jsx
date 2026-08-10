@@ -9,21 +9,20 @@ import novaAiIcon from '../assets/nova_ai_icon.png';
 const formatAnalysis = (text) => {
   if (!text) return '';
   
-  // Clean raw HTML & markdown noise
   let cleanText = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/---/g, '') // remove horizontal lines
-    .replace(/#{1,6}\s*/g, '') // remove markdown titles
-    .replace(/\*{1,4}/g, ''); // remove markdown bold asterisks
+    .replace(/---/g, '') 
+    .replace(/#{1,6}\s*/g, '') 
+    .replace(/\*{1,4}/g, ''); 
 
   const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
   
   return (
     <div className="space-y-4">
       {lines.map((line, idx) => {
-        // Handle key: value pairs (e.g. "Ders Yükü: Mevcut verilerde...")
+        
         if (line.includes(':') && !line.startsWith('http')) {
           const colonIndex = line.indexOf(':');
           const label = line.slice(0, colonIndex).trim();
@@ -45,7 +44,6 @@ const formatAnalysis = (text) => {
           }
         }
 
-        // Section title heuristic (short line without period)
         const isSectionTitle = line.length < 50 && !line.endsWith('.') && !line.endsWith(',');
         if (isSectionTitle) {
           return (
@@ -55,7 +53,6 @@ const formatAnalysis = (text) => {
           );
         }
 
-        // Normal paragraph
         return (
           <p key={idx} className="text-sm font-normal text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
             {line}
@@ -79,13 +76,11 @@ const TeacherAIAnalysisView = () => {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Real-time Firestore Listeners
   useEffect(() => {
     if (!teacherId) return;
 
     setLoading(true);
 
-    // 1. Real-time Teacher User Document
     const unsubUser = onSnapshot(doc(db, 'users', teacherId), (snapshot) => {
       if (snapshot.exists()) {
         setTeacher({ id: snapshot.id, ...snapshot.data() });
@@ -99,7 +94,6 @@ const TeacherAIAnalysisView = () => {
       setLoading(false);
     });
 
-    // 2. Real-time Schedules Listener ('schedules' collection)
     const unsubSchedules = onSnapshot(
       query(collection(db, 'schedules'), where('teacherId', '==', teacherId)),
       (snapshot) => {
@@ -109,7 +103,6 @@ const TeacherAIAnalysisView = () => {
       (err) => console.log("Schedules listen error:", err)
     );
 
-    // 3. Real-time Schedule Backup Listener ('schedule' collection)
     const unsubScheduleBackup = onSnapshot(
       query(collection(db, 'schedule'), where('teacherId', '==', teacherId)),
       (snapshot) => {
@@ -121,7 +114,6 @@ const TeacherAIAnalysisView = () => {
       (err) => console.log("Schedule backup listen error:", err)
     );
 
-    // 4. Real-time Mobile Activities Listener
     const unsubActivities = onSnapshot(
       query(collection(db, 'teacher_activities'), where('teacherId', '==', teacherId)),
       (snapshot) => {
@@ -139,7 +131,6 @@ const TeacherAIAnalysisView = () => {
     };
   }, [teacherId]);
 
-  // Trigger AI Analysis when teacher or schedule data changes
   useEffect(() => {
     if (teacher && !loading) {
       runAIAnalysis();
@@ -185,7 +176,6 @@ YUKARIDAKİ VERİLERE GÖRE DEĞERLENDİRME KURALLARI:
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Determine Dynamic Status (İyi, Gelişmeli, Yoğun, Yeterli Veri Yok)
   const getStatusBadge = () => {
     const hours = schedules.length;
     if (hours === 0) {
@@ -199,7 +189,6 @@ YUKARIDAKİ VERİLERE GÖRE DEĞERLENDİRME KURALLARI:
     }
   };
 
-  // ── Initial Fullscreen Loading Screen ──
   if (loading) {
     return (
       <div className="fixed inset-0 bg-slate-50 dark:bg-[#090D16] z-50 flex flex-col items-center justify-center p-6 transition-all duration-300">
@@ -222,7 +211,7 @@ YUKARIDAKİ VERİLERE GÖRE DEĞERLENDİRME KURALLARI:
     <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] text-slate-900 dark:text-slate-100 p-4 md:p-8 lg:p-12 transition-colors duration-200">
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* Top Header */}
+        { }
         <div className="flex items-center justify-between gap-4 pb-4">
           <div className="flex items-center gap-3">
             <button
@@ -263,7 +252,7 @@ YUKARIDAKİ VERİLERE GÖRE DEĞERLENDİRME KURALLARI:
           </div>
         </div>
 
-        {/* Minimal Borderless Stat Strip */}
+        { }
         <div className="flex flex-wrap items-center gap-6 py-3 border-y border-slate-200/60 dark:border-slate-800/60 text-xs">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-slate-400 dark:text-slate-500" />
@@ -297,10 +286,10 @@ YUKARIDAKİ VERİLERE GÖRE DEĞERLENDİRME KURALLARI:
           </div>
         </div>
 
-        {/* Clean Report Document Container */}
+        { }
         <div className="bg-white dark:bg-[#0E131F] border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 md:p-8 shadow-xs relative">
           
-          {/* Borderless overlay loading state with real loading spinner */}
+          { }
           {analyzing && (
             <div className="absolute inset-0 bg-white/75 dark:bg-[#0E131F]/80 backdrop-blur-xs flex items-center justify-center z-10 rounded-xl transition-all">
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">

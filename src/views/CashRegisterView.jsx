@@ -5,13 +5,12 @@ import { firebaseService } from '../services/firebase';
 import StudentSearch from '../components/StudentSearch';
 
 const CashRegisterView = () => {
-    const [activeTab, setActiveTab] = useState('transactions'); // definitions, transactions, session, student, create_tx, create_register
+    const [activeTab, setActiveTab] = useState('transactions'); 
     const [registers, setRegisters] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [definitions, setDefinitions] = useState([]);
     const [loading, setLoading] = useState(false);
     
-    // Form states
     const [formType, setFormType] = useState('income');
     const [formAmount, setFormAmount] = useState('');
     const [formTitle, setFormTitle] = useState('');
@@ -19,7 +18,6 @@ const CashRegisterView = () => {
     const [formRegister, setFormRegister] = useState('');
     const [formPaymentMethod, setFormPaymentMethod] = useState('Nakit Kasa');
     
-    // Student states
     const [users, setUsers] = useState([]);
     const [studentId, setStudentId] = useState(null);
     const [studentName, setStudentName] = useState(null);
@@ -53,7 +51,6 @@ const CashRegisterView = () => {
         ]);
         setRegisters(reg || []);
         
-        // Sort transactions by date desc
         const txArray = tx || [];
         txArray.sort((a, b) => new Date(b?.date || 0) - new Date(a?.date || 0));
         setTransactions(txArray);
@@ -117,7 +114,7 @@ const CashRegisterView = () => {
         <div className="absolute inset-0 bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-6 md:p-10 text-slate-900 dark:text-slate-100 transition-colors">
             <div className="w-full max-w-[1600px] flex flex-col flex-1 min-h-0 mx-auto">
 
-                {/* Header */}
+                { }
                 <div className="flex flex-col shrink-0 mb-6">
                     <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-widest">{currentDate}</span>
                     <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-none flex items-center gap-3">
@@ -125,7 +122,7 @@ const CashRegisterView = () => {
                     </h1>
                 </div>
 
-                {/* Summary */}
+                { }
                 <div className="w-full flex items-center justify-between px-5 py-4 bg-white dark:bg-[#0f172a] border border-slate-200/70 dark:border-slate-800/80 rounded-[24px] mb-6 shadow-sm shrink-0">
                     <div className="flex items-center gap-6">
                         <div>
@@ -140,7 +137,7 @@ const CashRegisterView = () => {
                     </div>
                 </div>
 
-                {/* Navigation Tabs */}
+                { }
                 <div className="flex items-center gap-2 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4 shrink-0 overflow-x-auto custom-scrollbar">
                     <TabButton active={activeTab==='transactions'} onClick={() => setActiveTab('transactions')} icon={ArrowRightLeft} label="Kasa İşlemleri" />
                     <TabButton active={activeTab==='definitions'} onClick={() => setActiveTab('definitions')} icon={FileText} label="Kasa Tanımları" />
@@ -148,7 +145,7 @@ const CashRegisterView = () => {
                     <TabButton active={activeTab==='session'} onClick={() => setActiveTab('session')} icon={Lock} label="Kasa Açma/Kapatma" />
                 </div>
 
-                {/* Content */}
+                { }
                 {activeTab === 'transactions' && (
                     <div className="bg-white dark:bg-[#0f172a] rounded-[24px] border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-[#0f172a]">
@@ -282,7 +279,6 @@ const CashRegisterView = () => {
                         <button className="px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl">Kasa Kapatma İşlemi Başlat</button>
                     </div>
                 )}
-
 
                 {activeTab === 'create_tx' && (
                     <div className="bg-white dark:bg-[#0f172a] rounded-[24px] border border-slate-200 dark:border-slate-800 p-6 flex-1 flex flex-col shadow-sm max-w-xl mx-auto w-full mt-10">

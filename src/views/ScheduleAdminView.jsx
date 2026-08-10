@@ -10,7 +10,6 @@ const days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"];
 const classesList = ["9A", "9B", "10A", "10B", "11A", "11B", "12A", "12B"];
 const roomsList = ["12A Sınıfı", "12B Sınıfı", "11A Sınıfı", "11B Sınıfı", "10A Sınıfı", "10B Sınıfı", "9A Sınıfı", "9B Sınıfı", "Fizik Lab", "Kimya Lab", "Spor Salonu", "Müzik Odası"];
 
-
 const lessonPeriods = [
   { label: "1. Ders", time: "08:30 - 09:15", start: "08:30", end: "09:15" },
   { label: "2. Ders", time: "09:30 - 10:15", start: "09:30", end: "10:15" },
@@ -21,7 +20,6 @@ const lessonPeriods = [
   { label: "7. Ders", time: "15:00 - 15:45", start: "15:00", end: "15:45" },
   { label: "8. Ders", time: "16:00 - 16:45", start: "16:00", end: "16:45" }
 ];
-
 
 const findLessonIndex = (startTime) => {
   if (!startTime) return -1;
@@ -100,7 +98,6 @@ const ScheduleAdminView = () => {
     setIsSaving(true);
     const selectedLesson = lessonPeriods[formData.lessonIndex];
     
-    // Find the teacher's ID
     const selectedTeacherObj = teacherList.find(t => 
       (t.fields?.full_name?.stringValue || t.fields?.fullName?.stringValue) === formData.teacherName
     );
@@ -189,13 +186,11 @@ const ScheduleAdminView = () => {
   const currentSchedules = schedules.filter(s => s.classId === selectedClass || s.class_id === selectedClass);
   const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  
   const getScheduleForCell = (dayIdx, periodIdx) => {
     const period = lessonPeriods[periodIdx];
     return currentSchedules.find(s => {
       const sDayIndex = parseInt(s.dayIndex);
       if (sDayIndex !== dayIdx) return false;
-      
       
       if (s.lessonIndex !== undefined && s.lessonIndex !== null) {
         return parseInt(s.lessonIndex) === periodIdx;
@@ -221,7 +216,7 @@ const ScheduleAdminView = () => {
 
       <div className="flex flex-col md:flex-row bg-white dark:bg-[#0f172a] rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex-1 w-full min-h-0 overflow-hidden">
         
-        {/* Sınıf Seçimi Sidebar */}
+        { }
         <div className="w-full md:w-[260px] flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#1e293b]/50 max-h-[40vh] md:max-h-none">
           <div className="p-4 border-b border-slate-200 dark:border-white/10 shrink-0 hidden md:block">
             <h3 className="text-[12px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest px-2">Sınıf Seçimi</h3>
@@ -250,7 +245,7 @@ const ScheduleAdminView = () => {
           </div>
         </div>
 
-        {/* İçerik */}
+        { }
         <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-[#0f172a]">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-white/10 shrink-0">
             <h2 className="text-[18px] font-bold text-slate-900 dark:text-white">{selectedClass} Haftalık Ders Programı</h2>

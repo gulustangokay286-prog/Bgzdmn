@@ -39,7 +39,6 @@ const AttendanceLiveView = () => {
     };
     fetchUsers();
 
-
     const liveScansRef = query(ref(rtdb, 'qr_system/live_scans'), limitToLast(50));
     
     let isInitialLoad = true;
@@ -71,7 +70,7 @@ const AttendanceLiveView = () => {
       setLiveRecords(sortedRecords);
       
       if (!isInitialLoad && records.length > 0) {
-        // play sound if there's a new record
+        
         soundManager.playSuccessDing();
       }
       isInitialLoad = false;

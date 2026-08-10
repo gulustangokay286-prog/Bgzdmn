@@ -20,7 +20,7 @@ import GradesAdminView from './GradesAdminView';
 import CounselingAdminView from './CounselingAdminView';
 
 const EbosPortalView = () => {
-    const [topMenu, setTopMenu] = useState('kurum'); // kurum, kasa, banka
+    const [topMenu, setTopMenu] = useState('kurum'); 
     const [leftMenu, setLeftMenu] = useState('personel'); 
     const [activeModule, setActiveModule] = useState(null);
 
@@ -112,7 +112,6 @@ const EbosPortalView = () => {
             );
         }
 
-        // KASA
         if(topMenu === 'kasa' && leftMenu === 'islem') {
             return (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 p-8">
@@ -144,7 +143,6 @@ const EbosPortalView = () => {
             );
         }
 
-        // BANKA
         if(topMenu === 'banka' && leftMenu === 'hesap') {
             return (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 p-4 md:p-8">
@@ -166,7 +164,7 @@ const EbosPortalView = () => {
     };
 
     const renderActiveModule = () => {
-        // Finance Modules
+        
         if(activeModule === 'finance_defs') return <FinanceDefinitionsView onClose={() => setActiveModule(null)} />;
         if(activeModule === 'system_params') return <SystemParametersView onClose={() => setActiveModule(null)} />;
         if(activeModule === 'finance_reports') return <FinanceReportsView onClose={() => setActiveModule(null)} />;
@@ -175,7 +173,6 @@ const EbosPortalView = () => {
         if(activeModule?.startsWith('cash_')) return <CashRegisterView initialTab={activeModule.split('_')[1]} onClose={() => setActiveModule(null)} />;
         if(activeModule?.startsWith('bank_')) return <BankManagementView initialTab={activeModule.split('_')[1]} onClose={() => setActiveModule(null)} />;
         
-        // General Academic/Admin Modules (mapped to portal)
         if(activeModule === 'ogrenci_yonetim') return <UsersView />;
         if(activeModule === 'devam_yonetim') return <AttendanceAdminView />;
         if(activeModule === 'sinav_yonetim') return <GradesAdminView />;
@@ -187,7 +184,7 @@ const EbosPortalView = () => {
     if (activeModule) {
         return (
             <div className="relative w-full h-full bg-[#0b1120] flex flex-col font-sans transition-colors">
-                {/* Sleek Active Module Header */}
+                { }
                 <div className="px-8 py-4 bg-[#0b1120] text-white flex items-center gap-4 shrink-0 border-b border-slate-700/80 z-10">
                     <button 
                         onClick={() => setActiveModule(null)} 
@@ -208,7 +205,7 @@ const EbosPortalView = () => {
 
     return (
         <div className="w-full h-full flex-1 flex flex-col font-sans overflow-hidden transition-colors bg-[#f8fafc] dark:bg-[#0b1120]">
-            {/* Top Navigation with Crisp Divider */}
+            { }
             <div className="w-full flex flex-col md:flex-row items-center justify-between px-8 py-6 bg-[#0b1120] border-b border-slate-700/80 shrink-0 z-20">
                 <div className="flex items-center gap-4 mb-6 md:mb-0">
                     <span className="text-[16px] font-extrabold text-white tracking-widest uppercase">Pivot Portal</span>
@@ -229,7 +226,7 @@ const EbosPortalView = () => {
                     >
                         Teknik Destek
                     </a>
-                    {/* Invisible dummy block to keep exactly the same margin/padding spacing as before */}
+                    { }
                     <div className="flex items-center gap-3 invisible select-none pointer-events-none">
                         <Users size={16} />
                         <span className="text-[11px] font-bold uppercase tracking-wider">Admin</span>
@@ -238,7 +235,7 @@ const EbosPortalView = () => {
             </div>
 
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-                {/* Left Sidebar with Crisp Divider */}
+                { }
                 <div className="w-full md:w-[260px] bg-[#0b1120] border-r border-slate-700/80 flex flex-col shrink-0 max-h-[40vh] md:max-h-full">
                     <div className="flex-1 overflow-y-auto py-6 px-6 flex flex-row md:flex-col custom-scrollbar gap-2">
                         {getLeftMenuItems().map(item => (
@@ -253,13 +250,13 @@ const EbosPortalView = () => {
                     </div>
                 </div>
 
-                {/* Main Content Area */}
+                { }
                 <div className="flex-1 overflow-y-auto bg-[#0b1120] custom-scrollbar flex flex-col">
                     <div className="px-8 py-6 shrink-0">
                         <h1 className="text-[28px] font-bold text-white tracking-tight">{currentMenuLabel}</h1>
                         <p className="text-[13px] text-slate-400 mt-1">İlgili işlemleri aşağıdan seçerek yönetebilirsiniz.</p>
                     </div>
-                    {/* Horizontal Divider under title */}
+                    { }
                     <div className="h-px w-full bg-slate-700/80"></div>
                     <div className="flex-1 p-2">
                         {renderActionIcons()}
@@ -267,7 +264,7 @@ const EbosPortalView = () => {
                 </div>
             </div>
 
-            {/* Bottom Status Bar with Crisp Divider */}
+            { }
             <div className="h-8 bg-[#0f172a] border-t border-slate-700/80 flex items-center justify-between px-6 text-[11px] font-bold text-slate-500 shrink-0">
                 <div className="flex items-center gap-6">
                     <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span> Sistem Aktif</span>

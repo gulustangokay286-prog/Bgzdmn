@@ -27,24 +27,21 @@ const QRGeneratorAdminView = () => {
   const CYCLE_DURATION = 3500;
   const isDark = qrTheme === 'dark';
 
-  // Sync isRefreshingRef with state
   useEffect(() => { isRefreshingRef.current = isRefreshing; }, [isRefreshing]);
 
-  // Sync body/html background with theme (prevents dark navy bleeding through)
   useEffect(() => {
     const bg = isDark ? '#0b1120' : '#f1f5f9';
     document.body.style.backgroundColor = bg;
     document.body.style.backgroundImage = 'none';
     document.documentElement.style.backgroundColor = bg;
     return () => {
-      // Restore defaults on unmount
+      
       document.body.style.backgroundColor = '';
       document.body.style.backgroundImage = '';
       document.documentElement.style.backgroundColor = '';
     };
   }, [isDark]);
 
-  // ─── SINGLE TIMER: Updates countdown text + clock via direct DOM (ZERO re-renders) ───
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -84,7 +81,6 @@ const QRGeneratorAdminView = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // ─── Cheat alert listener ─────────────────────────────────────────────────
   useEffect(() => {
     const q = query(collection(db, 'security_logs'), orderBy('timestamp', 'desc'), limit(5));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -105,7 +101,6 @@ const QRGeneratorAdminView = () => {
     return () => unsubscribe();
   }, []);
 
-  // ─── Generate QR data ─────────────────────────────────────────────────────
   const generateCode = useCallback(() => {
     const timestamp = Math.floor(Date.now() / 1000);
     setQrData(`https://bgz-mobil.web.app/qr?type=${selectedType}&sessionId=${currentSessionId}&timestamp=${timestamp}`);
@@ -132,7 +127,6 @@ const QRGeneratorAdminView = () => {
 
   useEffect(() => { generateCode(); }, [generateCode]);
 
-  // ─── Manual refresh ───────────────────────────────────────────────────────
   const refreshQR = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
@@ -144,7 +138,6 @@ const QRGeneratorAdminView = () => {
     }, 300);
   };
 
-  // ─── Fullscreen ───────────────────────────────────────────────────────────
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen().catch(err => {
@@ -168,7 +161,7 @@ const QRGeneratorAdminView = () => {
       className={`absolute inset-0 z-10 flex items-center justify-center font-sans p-4 sm:p-6 transition-colors duration-500 overflow-auto ${isDark ? 'text-white' : 'text-slate-900'
         }`}
     >
-      {/* Orijinal conic-gradient animasyonu — @property ile */}
+      { }
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400&family=Quicksand:wght@300;400&family=Mali:wght@300;400&family=Fredoka:wght@300;400&display=swap');
         @property --progress-angle {
@@ -191,10 +184,10 @@ const QRGeneratorAdminView = () => {
       <div className={`relative z-10 w-full flex flex-col items-center transition-all duration-500 ${isFullscreen ? 'max-w-[1280px]' : 'max-w-[1080px]'
         }`}>
 
-        {/* Top Header / Info Bar */}
+        { }
         <div className={`relative w-full flex flex-col md:flex-row justify-between items-center mb-6 px-5 py-3.5 border rounded-2xl gap-4 transition-colors duration-500 ${isDark ? 'bg-slate-900/80 border-slate-800 shadow-lg' : 'bg-white border-slate-200 shadow-md'
           }`}>
-          {/* Left: System Title + Verified Icon + Date */}
+          { }
           <div className="flex items-center gap-2">
             <img
               src="/verified.png"
@@ -209,7 +202,7 @@ const QRGeneratorAdminView = () => {
             </div>
           </div>
 
-          {/* Center: 100% Geometrically Centered Mode Selector */}
+          { }
           <div className={`md:absolute md:left-1/2 md:-translate-x-1/2 flex items-center p-1 rounded-full border transition-all duration-300 ${isDark
             ? 'bg-slate-800/60 border-slate-700/60'
             : 'bg-slate-100/80 border-slate-200/80 shadow-inner'
@@ -234,9 +227,7 @@ const QRGeneratorAdminView = () => {
             </button>
           </div>
 
-
-
-          {/* Right: Digital Clock + Action Buttons */}
+          { }
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Clock size={16} className={isDark ? 'text-indigo-400' : 'text-indigo-600'} />
@@ -272,12 +263,11 @@ const QRGeneratorAdminView = () => {
           </div>
         </div>
 
-        {/* Main Content Box (Focused on QR Codes) */}
+        { }
         <div className={`border rounded-[32px] p-8 sm:p-12 w-full flex flex-col items-center justify-center transition-all duration-500 ${isDark ? 'bg-slate-900/90 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'
           }`}>
 
-
-          {/* QR Cards Area */}
+          { }
           <div className="w-full flex justify-center relative">
             {cheatAlert && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-red-600/95 rounded-[28px] backdrop-blur-md p-6 border-4 border-red-500 shadow-2xl">
@@ -295,7 +285,7 @@ const QRGeneratorAdminView = () => {
             {selectedType === 'institution_gate' ? (
               <div className={`flex flex-col sm:flex-row items-center w-full py-4 transition-all ${isFullscreen ? 'justify-between px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'justify-between px-2 sm:px-5 lg:px-8 gap-4 sm:gap-6'
                 }`}>
-                {/* Entry QR */}
+                { }
                 <div className="relative flex flex-col items-center justify-center">
                   <div
                     key={currentSessionId}
@@ -322,11 +312,10 @@ const QRGeneratorAdminView = () => {
                   </div>
                 </div>
 
-                {/* Center Column — Branding */}
+                { }
                 <div className="flex flex-col items-center justify-center my-auto text-center" style={{ maxWidth: '470px', padding: '30px 10px' }}>
 
-
-                  {/* Large title */}
+                  { }
                   <h2 className={`font-black leading-[1.12] pb-1 ${isFullscreen ? 'text-[40px] sm:text-[48px]' : 'text-[32px] sm:text-[38px]'}`}
                     style={{ letterSpacing: '-1.5px', color: isDark ? '#f7f9fc' : '#0f172a', textShadow: isDark ? '0 5px 28px rgba(0,0,0,.28)' : 'none' }}
                   >
@@ -335,7 +324,7 @@ const QRGeneratorAdminView = () => {
                       }`}>Geçiş Sistemi</span>
                   </h2>
 
-                  {/* Red Flourish Underline (Shifted 2.3px Higher Up -> -10.3px) */}
+                  { }
                   <div className="w-full flex justify-center -mt-2" style={{ transform: 'translateY(-10.3px)' }}>
                     <svg
                       width="190"
@@ -345,7 +334,7 @@ const QRGeneratorAdminView = () => {
                       xmlns="http://www.w3.org/2000/svg"
                       className="w-[150px] sm:w-[185px] h-auto"
                     >
-                      {/* Red Flourish with Upward Inverted Bend on Middle Stroke */}
+                      { }
                       <path
                         d="M 28 8 Q 100 -1 172 8 Q 179 9.5 152 11 Q 112 12.5 72 19 Q 60 21 78 22 Q 108 19 138 25"
                         stroke="#ef4444"
@@ -356,13 +345,13 @@ const QRGeneratorAdminView = () => {
                     </svg>
                   </div>
 
-                  {/* Description */}
+                  { }
                   <p className={`mt-3 ${isFullscreen ? 'text-[15px]' : 'text-[13px]'} font-medium leading-[1.65]`}
                     style={{ color: isDark ? '#8997ad' : '#475569', maxWidth: '390px' }}
                   >
                     QR kod teknolojisi ile hızlı, güvenli ve temassız öğrenci, personel giriş-çıkış yönetimi.
                   </p>
-                  {/* Cylindrical Timer Button */}
+                  { }
                   <button
                     onClick={refreshQR}
                     className={`mt-7 inline-flex items-center gap-2 px-5 py-2 rounded-full font-bold text-[12px] border transition-all duration-300 hover:scale-105 active:scale-95 ${isDark
@@ -377,7 +366,7 @@ const QRGeneratorAdminView = () => {
                   </button>
                 </div>
 
-                {/* Exit QR */}
+                { }
                 <div className="relative flex flex-col items-center justify-center">
                   <div
                     key={currentSessionId}
@@ -433,7 +422,7 @@ const QRGeneratorAdminView = () => {
             )}
           </div>
 
-          {/* Bottom Refresh Status — Cylindrical Pill */}
+          { }
           {selectedType !== 'institution_gate' && (
             <div className="mt-8 flex justify-center">
               <button
@@ -451,7 +440,7 @@ const QRGeneratorAdminView = () => {
             </div>
           )}
 
-          {/* Footer Branding — Pure, Minimalist & Smooth */}
+          { }
           <div className="mt-10 w-full flex flex-col items-center justify-center select-none">
             <span className={`text-[11px] font-semibold tracking-[3px] uppercase mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'
               }`}>

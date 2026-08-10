@@ -96,14 +96,14 @@ const GradesAdminView = () => {
   return (
     <div className="w-full h-full flex flex-col font-sans overflow-hidden bg-transparent">
       
-      {/* Header */}
+      { }
       <div className="px-6 py-6 shrink-0 border-b border-slate-200 dark:border-white/5 bg-transparent">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Not Yönetimi</h1>
       </div>
 
       <div className="flex-1 flex min-h-0 relative">
         
-        {/* Left Panel: Search */}
+        { }
         <div className={`${studentId ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] flex-shrink-0 flex-col border-r border-slate-200 dark:border-white/5 bg-transparent`}>
           {loading ? (
             <div className="flex items-center justify-center h-full text-slate-500">
@@ -121,7 +121,7 @@ const GradesAdminView = () => {
           )}
         </div>
 
-        {/* Right Panel: Content */}
+        { }
         <div className={`${studentId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 bg-transparent`}>
           {!studentId ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 p-8 text-center">
@@ -131,7 +131,7 @@ const GradesAdminView = () => {
           ) : (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               
-              {/* Student Info Header */}
+              { }
               <div className="px-6 py-6 md:px-10 border-b border-slate-200 dark:border-white/5 bg-transparent flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-3">
                   <button onClick={() => setStudentId(null)} className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-full transition-colors">
@@ -159,7 +159,7 @@ const GradesAdminView = () => {
               
               <div className="p-6 md:p-10 flex flex-col gap-10 max-w-5xl">
 
-                {/* Form Section */}
+                { }
                 <section>
                   <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                     <GraduationCap size={18} className="text-slate-500" /> Yeni Not Girişi
@@ -244,7 +244,7 @@ const GradesAdminView = () => {
 
                 <hr className="border-slate-200 dark:border-white/5" />
 
-                {/* Past Grades */}
+                { }
                 <section>
                   <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                     <CalendarDays size={18} className="text-slate-500" /> Geçmiş Notlar

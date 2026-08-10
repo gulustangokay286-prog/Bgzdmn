@@ -49,10 +49,10 @@ const SystemParametersView = () => {
 
     return (
         <div className="w-full h-full font-sans bg-[#0b1120] text-slate-100 overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-8 flex flex-col items-center">
-            {/* Centered Single Column Container */}
+            { }
             <div className="w-full max-w-[760px] flex flex-col gap-8 pb-24">
                 
-                {/* Header */}
+                { }
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 border-b border-slate-700/80 pb-6 pt-2">
                     <div>
                         <h1 className="text-[22px] font-bold text-white tracking-tight flex items-center gap-3 uppercase">
@@ -76,10 +76,10 @@ const SystemParametersView = () => {
                     </div>
                 </div>
 
-                {/* Form Sections (Single Column Vertical Stack) */}
+                { }
                 <form onSubmit={handleSave} className="flex flex-col gap-10 w-full">
                     
-                    {/* Section 1: Genel Kurumsal Ayarlar */}
+                    { }
                     <div className="flex flex-col gap-5 w-full">
                         <div className="pb-3 border-b border-slate-700/80">
                             <h3 className="font-bold text-[13px] text-slate-300 uppercase tracking-widest flex items-center gap-2">
@@ -115,7 +115,7 @@ const SystemParametersView = () => {
                                 />
                             </div>
 
-                            {/* Switch 1 */}
+                            { }
                             <div className="pt-2 flex items-center justify-between border-b border-slate-800/60 pb-4">
                                 <div className="pr-4">
                                     <span className="text-[13px] font-bold text-white block">Sistem Bakım Modu</span>
@@ -132,7 +132,7 @@ const SystemParametersView = () => {
                         </div>
                     </div>
 
-                    {/* Section 2: Devam & Bildirim Parametreleri */}
+                    { }
                     <div className="flex flex-col gap-5 w-full">
                         <div className="pb-3 border-b border-slate-700/80">
                             <h3 className="font-bold text-[13px] text-slate-300 uppercase tracking-widest flex items-center gap-2">
@@ -151,7 +151,7 @@ const SystemParametersView = () => {
                                 />
                             </div>
 
-                            {/* Switch 2 */}
+                            { }
                             <div className="pt-2 flex items-center justify-between border-b border-slate-800/60 pb-4">
                                 <div className="pr-4">
                                     <span className="text-[13px] font-bold text-white block">Yoklamada Otomatik Veli SMS'i</span>
@@ -214,7 +214,7 @@ const SystemParametersView = () => {
                         </div>
                     </div>
 
-                    {/* Submit Button at Bottom */}
+                    { }
                     <div className="pt-6 border-t border-slate-700/80 flex justify-end">
                         <button 
                             type="submit" 

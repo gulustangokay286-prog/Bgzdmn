@@ -8,7 +8,6 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
     const [payrolls, setPayrolls] = useState([]);
     const [loading, setLoading] = useState(false);
     
-    // Form state for Personnel
     const [formTc, setFormTc] = useState('');
     const [formName, setFormName] = useState('');
     const [formPosition, setFormPosition] = useState('Öğretmen');
@@ -19,21 +18,19 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
     const [formGross, setFormGross] = useState('');
     const [formHourly, setFormHourly] = useState('');
 
-    // Form state for Payroll
     const [payPerson, setPayPerson] = useState('');
     const [payMonth, setPayMonth] = useState((new Date().getMonth() + 1).toString());
     const [payYear, setPayYear] = useState(new Date().getFullYear().toString());
-    const [payType, setPayType] = useState('Aylık Maaş'); // Aylık Maaş, Saatlik Ücret, Prim
+    const [payType, setPayType] = useState('Aylık Maaş'); 
     const [payGross, setPayGross] = useState('');
     const [payDeduct, setPayDeduct] = useState('');
     const [payExtra, setPayExtra] = useState('');
     const [payNet, setPayNet] = useState('');
-    const [payHours, setPayHours] = useState(''); // for hourly
+    const [payHours, setPayHours] = useState(''); 
 
     useEffect(() => {
         fetchData();
         
-        // Auto-select tab logic based on incoming props from portal
         if(initialTab === 'personnel_list') setActiveTab('list');
         if(initialTab === 'personnel_payroll') setActiveTab('payroll');
         if(initialTab === 'personnel_hourly') { setActiveTab('create_payroll'); setPayType('Saatlik Ücret'); }
@@ -82,7 +79,6 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
         }
     };
 
-    // Auto calculate net salary when inputs change
     useEffect(() => {
         if(payType === 'Saatlik Ücret' && payPerson) {
             const p = personnel.find(x => x.id === payPerson);
@@ -104,7 +100,7 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
         const p = personnel.find(x => x.id === id);
         if(p && payType === 'Aylık Maaş') {
             setPayGross(p.grossSalary);
-            // Default deduction logic (roughly 30% for SGK+Tax in typical TR setup, simplifying here)
+            
             const sgk = p.grossSalary * 0.15;
             const tax = p.grossSalary * 0.15;
             setPayDeduct((sgk + tax).toFixed(2));
@@ -114,7 +110,7 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
     return (
         <div className="w-full h-full flex flex-col overflow-hidden font-sans bg-[#0b1120] text-slate-900 dark:text-slate-100">
             
-            {/* Top Header */}
+            { }
             <div className="w-full px-8 py-6 flex items-center justify-between border-b border-slate-800 shrink-0">
                 <h2 className="text-[18px] font-bold text-white tracking-wide flex items-center gap-3 uppercase">
                     <Users size={24} className="text-white" />
@@ -124,13 +120,13 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
             
             <div className="flex-1 flex overflow-hidden">
                 
-                {/* Left Sidebar */}
+                { }
                 <div className="w-[260px] flex flex-col shrink-0 border-r border-slate-800 p-6 gap-2">
                     <SidebarTab active={activeTab==='list'} onClick={() => setActiveTab('list')} icon={UserCheck} label="Kayıtlar" />
                     <SidebarTab active={activeTab==='payroll'} onClick={() => setActiveTab('payroll')} icon={Calculator} label="Bordro" />
                 </div>
 
-                {/* Main Content Area */}
+                { }
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                 
                 {activeTab === 'list' && (
@@ -237,7 +233,7 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
                         </div>
                     </div>
                 )}
-            {/* Personnel Create Sub-View */}
+            { }
             {activeTab === 'create_personnel' && (
                 <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
                     <h2 className="font-bold text-[15px] text-slate-300 uppercase tracking-widest mb-6 border-b border-slate-800 pb-4">Yeni Personel Kaydı</h2>
@@ -267,7 +263,7 @@ const PersonnelView = ({ initialTab = 'list', onClose }) => {
                 </div>
             )}
 
-            {/* Payroll Create Sub-View */}
+            { }
             {activeTab === 'create_payroll' && (
                 <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
                     <h2 className="font-bold text-[15px] text-slate-300 uppercase tracking-widest mb-6 border-b border-slate-800 pb-4">Hakediş & Bordro Hazırlama</h2>

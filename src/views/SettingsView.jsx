@@ -101,7 +101,7 @@ const SettingsView = () => {
 
       <div className="flex flex-col max-w-4xl gap-16 pb-12">
 
-        {/* Kurum Parametreleri */}
+        { }
         <section className="flex flex-col md:flex-row gap-8 md:gap-16">
           <div className="md:w-1/3 shrink-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">Kurum Bilgileri</h2>
@@ -163,7 +163,7 @@ const SettingsView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* Kurum Konum Ayarları */}
+        { }
         <section className="flex flex-col md:flex-row gap-8 md:gap-16">
           <div className="md:w-1/3 shrink-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">GPS Konum Tanımı</h2>
@@ -226,7 +226,7 @@ const SettingsView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* Bildirim Yönetimi */}
+        { }
         <section className="flex flex-col md:flex-row gap-8 md:gap-16">
           <div className="md:w-1/3 shrink-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">Bildirimler</h2>
@@ -272,7 +272,7 @@ const SettingsView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* Sistem Durumu */}
+        { }
         <section className="flex flex-col md:flex-row gap-8 md:gap-16">
           <div className="md:w-1/3 shrink-0">
             <h2 className="text-[16px] font-semibold text-rose-600 mb-2">Tehlikeli Alan</h2>

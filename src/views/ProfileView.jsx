@@ -22,7 +22,6 @@ const ProfileView = () => {
         setAdminName(currentUser.displayName);
       }
       
-      // Fetch profile image from Firestore
       const fetchProfile = async () => {
         try {
           const docRef = doc(db, 'users', currentUser.uid);
@@ -95,10 +94,8 @@ const ProfileView = () => {
       const data = await response.json();
       const imageUrl = data.secure_url;
 
-      // Update state
       setProfileImage(imageUrl);
 
-      // Save to Firestore
       const auth = getAuth();
       const currentUser = auth.currentUser;
       if (currentUser) {
@@ -123,7 +120,7 @@ const ProfileView = () => {
     <div className="absolute inset-0 bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto font-sans flex flex-col p-8 md:p-12 lg:px-24">
       <div className="max-w-4xl w-full mx-auto flex flex-col gap-8">
         
-        {/* Header Section */}
+        { }
         <div className="flex flex-col md:flex-row items-center md:items-end gap-6 pb-8 border-b border-slate-200 dark:border-white/10">
           
           <div 
@@ -136,7 +133,7 @@ const ProfileView = () => {
               adminName.charAt(0).toUpperCase()
             )}
             
-            {/* Hover overlay for upload */}
+            { }
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               {isUploading ? (
                 <Loader2 className="w-8 h-8 text-slate-900 dark:text-white animate-spin" />
@@ -145,7 +142,7 @@ const ProfileView = () => {
               )}
             </div>
             
-            {/* Uploading overlay (persists while uploading) */}
+            { }
             {isUploading && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
                 <Loader2 className="w-8 h-8 text-slate-900 dark:text-white animate-spin" />
@@ -153,7 +150,7 @@ const ProfileView = () => {
             )}
           </div>
           
-          {/* Hidden File Input */}
+          { }
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -173,7 +170,7 @@ const ProfileView = () => {
           </div>
         </div>
 
-        {/* Info Grid */}
+        { }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-[#0f172a] rounded-[24px] border border-slate-200 dark:border-white/10 shadow-sm p-8 flex flex-col gap-6">
             <h2 className="text-[16px] font-bold text-slate-800 dark:text-slate-200">İletişim Bilgileri</h2>

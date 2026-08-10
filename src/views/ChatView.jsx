@@ -27,7 +27,6 @@ const ChatView = () => {
   
   const messagesEndRef = useRef(null);
   
-  // File & Audio Upload States
   const [selectedFile, setSelectedFile] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -42,7 +41,6 @@ const ChatView = () => {
   const adminName = (currentUser && currentUser.displayName) ? currentUser.displayName : 'Muharrem Özkan';
   const [adminProfileData, setAdminProfileData] = useState(null);
 
-  // Fetch admin's own profile data (for profile photo)
   useEffect(() => {
     if (!adminId || adminId === 'admin_fallback') return;
     const unsubscribe = onSnapshot(doc(db, 'users', adminId), (docSnap) => {
@@ -53,7 +51,6 @@ const ChatView = () => {
     return () => unsubscribe();
   }, [adminId]);
 
-  // Profilin veritabanında (users) bulunduğundan emin olalım ki mobil uygulama bağlanıyor ekranında asılı kalmasın.
   useEffect(() => {
     if (currentUser) {
       setDoc(doc(db, 'users', currentUser.uid), {
@@ -65,7 +62,6 @@ const ChatView = () => {
     }
   }, [currentUser, adminName]);
 
-  // Fetch users for sidebar
   useEffect(() => {
     const loadUsers = async () => {
       const allUsers = await firebaseService.fetchAllUsers();
@@ -76,7 +72,6 @@ const ChatView = () => {
     loadUsers();
   }, []);
 
-  // Search filter
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredUsers(users);
@@ -95,8 +90,6 @@ const ChatView = () => {
 
   const [adminConversations, setAdminConversations] = useState([]);
 
-  
-  // Presence Effect
   useEffect(() => {
     if (!adminId || adminId === 'admin_fallback') return;
     
@@ -119,8 +112,6 @@ const ChatView = () => {
     };
   }, [adminId]);
 
-
-  // Adminin dahil olduğu tüm konuşmaları bir kez hafızaya alıyoruz (Performans Optimizasyonu)
   useEffect(() => {
     if (!adminId || adminId === 'admin_fallback') return;
     
@@ -137,8 +128,6 @@ const ChatView = () => {
     return () => unsubscribe();
   }, [adminId]);
 
-  
-  // RTDB Listener for Partner Status and Typing
   useEffect(() => {
     if (!activeUser || !activeConversationId) {
       setPartnerStatus(null);
@@ -164,8 +153,6 @@ const ChatView = () => {
     };
   }, [activeUser, activeConversationId]);
 
-
-  // Find or listen to conversation when active user changes
   useEffect(() => {
     if (!activeUser) return;
     
@@ -176,12 +163,11 @@ const ChatView = () => {
       try {
         const userId = activeUser.name.split('/').pop();
         
-        // Bellekteki konuşmalar arasından eşleşeni bul (Sıfır gecikme!)
         const existingConvo = adminConversations.find(c => c.participantIds && c.participantIds.includes(userId));
 
         if (existingConvo) {
           setActiveConversationId(existingConvo.id);
-          // Varsa mesajları dinle
+          
           const msgsQuery = query(
             collection(db, `conversations/${existingConvo.id}/messages`), 
             orderBy('createdAt', 'asc')
@@ -207,7 +193,6 @@ const ChatView = () => {
     return () => unsubscribeMessages();
   }, [activeUser, adminConversations]);
 
-  
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
     
@@ -304,7 +289,6 @@ const ChatView = () => {
     setNewMessage('');
     setSelectedFile(null);
 
-    // Reset my typing state immediately
     if (activeConversationId) set(ref(rtdb, `/typing/${activeConversationId}/${adminId}`), false);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     
@@ -323,7 +307,6 @@ const ChatView = () => {
       } catch (err) {}
     }
 
-    // 0. Optimistic Instant Preview Message
     const tempId = 'temp_' + Date.now();
     const tempMsg = {
       id: tempId,
@@ -346,7 +329,6 @@ const ChatView = () => {
         fileUrl = await uploadFileToCloudinary(currentFile, msgType);
       }
 
-      // 1. Eğer konuşma yoksa oluştur
       if (!finalConvoId) {
         const newConvoRef = await addDoc(collection(db, 'conversations'), {
           participantIds: [adminId, userId],
@@ -374,7 +356,6 @@ const ChatView = () => {
         });
       }
 
-      // 2. Mesajı subcollection'a ekle
       const msgObj = {
         conversationId: finalConvoId,
         senderId: adminId,
@@ -388,7 +369,6 @@ const ChatView = () => {
       
       await addDoc(collection(db, `conversations/${finalConvoId}/messages`), msgObj);
       
-      // 3. Konuşmayı (Conversation) güncelle
       await updateDoc(doc(db, `conversations`, finalConvoId), {
         latestMessage: msgType === 'text' ? content : (msgType === 'audio' ? '🎤 Sesli Mesaj' : (msgType === 'image' ? '📷 Fotoğraf' : '📁 Dosya')),
         latestMessageTimestamp: serverTimestamp(),
@@ -400,7 +380,7 @@ const ChatView = () => {
     } catch (error) {
       console.error('Mesaj gönderme hatası:', error);
     } finally {
-      // Allow 400ms for the 320ms bounce animation to finish completely before removing preview
+      
       setTimeout(() => {
         setPendingMessages(prev => prev.filter(m => m.id !== tempId));
       }, 400);
@@ -413,7 +393,7 @@ const ChatView = () => {
     if (!confirmClear) return;
 
     try {
-      // 1. Mark conversation as deletedBy admin
+      
       const convoDoc = await getDocs(query(collection(db, `conversations`), where("__name__", "==", activeConversationId)));
       if (!convoDoc.empty) {
         const docData = convoDoc.docs[0].data();
@@ -425,7 +405,6 @@ const ChatView = () => {
         }
       }
       
-      // Clear local state
       setMessages([]);
       setActiveConversationId(null);
       setActiveUser(null);
@@ -441,7 +420,6 @@ const ChatView = () => {
     return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Helper to resolve user avatar URL from various Firestore schemas
   const getAvatarUrl = (u) => {
     if (!u) return null;
     const url = u.avatarUrl || u.avatar || u.photoURL || u.profileImage || u.profile_image || u.profileImageUrl || 
@@ -453,19 +431,16 @@ const ChatView = () => {
     return (url && url !== 'null' && url !== 'undefined' && url.trim() !== '') ? url : null;
   };
 
-  // Render Avatar Badge or Photo with image load error handling
   const renderAvatar = (u, name, sizeClass = "w-10 h-10 text-[14px]") => {
     const avatarUrl = getAvatarUrl(u);
     const initial = (name || 'U').charAt(0).toUpperCase();
     
-    // Determine the role and gender for mockups
     const roleRaw = (u?.fields?.role?.stringValue || u?.role || '').toLowerCase();
     const isStudent = roleRaw === 'student' || roleRaw === 'öğrenci';
     const isTeacher = roleRaw === 'teacher' || roleRaw === 'öğretmen';
     const genderRaw = (u?.fields?.gender?.stringValue || u?.gender || '').toLowerCase();
     const isFemale = genderRaw === 'kız' || genderRaw === 'kadın' || genderRaw === 'female' || genderRaw === 'kiz';
 
-    // Pick gender-based student mockup
     const getStudentMockup = () => {
       if (isFemale) {
         const girls = ['/mockups/girl_student_1.png', '/mockups/girl_student_2.png'];
@@ -487,7 +462,7 @@ const ChatView = () => {
               if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
             }}
           />
-          {/* Fallback upon image load failure */}
+          { }
           <div className="w-full h-full items-center justify-center absolute inset-0 z-0" style={{ display: 'none' }}>
             {isStudent ? (
               <img src={getStudentMockup()} alt="Student Mockup" className="w-full h-full object-cover" />
@@ -501,7 +476,6 @@ const ChatView = () => {
       );
     }
 
-    // Default mockups when no avatarUrl is provided
     if (isStudent) {
       return (
         <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 border border-slate-700/60 shadow-sm relative bg-slate-800 flex items-center justify-center`}>
@@ -533,10 +507,8 @@ const ChatView = () => {
     );
   };
 
-  // Pending messages for optimistic UI
   const [pendingMessages, setPendingMessages] = useState([]);
 
-  // Role helpers
   const getRoleLabel = (role) => {
     const r = (role || '').toLowerCase();
     if (r === 'student' || r === 'öğrenci') return 'Öğrenci';
@@ -561,9 +533,9 @@ const ChatView = () => {
     <div className="absolute inset-0 flex flex-col font-sans overflow-hidden bg-[#0b1120] z-30">
       <div className="w-full h-full mx-auto bg-[#0b1120] overflow-hidden flex">
         
-        {/* SOL PANEL (KİŞİLER) */}
+        { }
         <div className={`${activeUser ? 'hidden md:flex' : 'flex'} w-full md:w-[380px] bg-[#0b1120] border-r border-slate-800/80 flex-col h-full shrink-0`}>
-          {/* Sol Header */}
+          { }
           <div className="h-[70px] bg-[#131c31] px-4 flex items-center justify-between border-b border-slate-800/80">
             <div className="flex items-center gap-3">
               {renderAvatar(adminProfileData, adminName, "w-10 h-10 text-[14px]")}
@@ -593,7 +565,7 @@ const ChatView = () => {
             </div>
           </div>
 
-          {/* Arama Alanı */}
+          { }
           <div className="p-3 border-b border-slate-800/80 bg-[#0b1120]">
             <div className="bg-[#1e293b] rounded-xl flex items-center px-4 py-2 border border-slate-700/60">
               <Search size={18} className="text-slate-400 mr-3 shrink-0" />
@@ -607,7 +579,7 @@ const ChatView = () => {
             </div>
           </div>
 
-          {/* Kullanıcı Listesi */}
+          { }
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#0b1120]">
             {loading ? (
               <div className="p-4 text-center text-slate-400 text-[13px]">Kişiler yükleniyor...</div>
@@ -651,11 +623,11 @@ const ChatView = () => {
           </div>
         </div>
 
-        {/* SAĞ PANEL (SOHBET ALANI) */}
+        { }
         <div className={`${activeUser ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-[#080d1a] h-full relative`}>
           {activeUser ? (
             <>
-              {/* Sağ Header */}
+              { }
               <div className="h-[70px] bg-[#131c31] px-4 md:px-6 flex items-center justify-between border-b border-slate-800/80 shrink-0 z-30 shadow-sm">
                 <div className="flex items-center gap-3 md:gap-4">
                   <button onClick={() => setActiveUser(null)} className="md:hidden p-2 -ml-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors flex items-center justify-center">
@@ -717,7 +689,7 @@ const ChatView = () => {
                 </div>
               </div>
               
-              {/* Mesajlarda Arama Çubuğu */}
+              { }
               {showSearch && (
                 <div className="bg-[#0f172a] px-4 py-2.5 border-b border-slate-800 z-20 flex items-center shadow-md shrink-0">
                   <div className="flex-1 bg-[#1e293b] rounded-xl flex items-center px-4 py-2 border border-slate-700/60">
@@ -737,7 +709,7 @@ const ChatView = () => {
                 </div>
               )}
 
-              {/* Mesajlar Listesi */}
+              { }
               <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-[8%] py-6 flex flex-col gap-2.5 z-10 relative bg-[#080d1a]">
                 
                 <div className="text-center mb-6">
@@ -770,7 +742,6 @@ const ChatView = () => {
                     const msgTime = msg.createdAt?.toDate ? msg.createdAt.toDate().getTime() : (msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now());
                     const isRecent = (Date.now() - msgTime) < 3000;
                     
-                    // Optimistic sent messages bounce instantly; incoming or newly added messages bounce once on arrival
                     const isNew = msg.isOptimistic || (isLast && isRecent);
                     const animClass = isNew ? 'animate-wp-pop' : '';
 
@@ -784,7 +755,7 @@ const ChatView = () => {
                             marginLeft: !isMe && !showTail ? 8 : 0
                           }}
                         >
-                          {/* Slightly Thickened Curved SVG Tail */}
+                          { }
                           {showTail && isMe && (
                             <svg width="16" height="18" viewBox="0 0 16 18" className="absolute bottom-[-0.5px] -right-[7px] -z-10" style={{ transform: 'rotate(45deg)' }}>
                               <path d="M 0 2 C 8 11, 13 13, 16 13.5 C 11 16.5, 4 15.5, 0 13.5 Z" fill="#005c4b" />
@@ -798,7 +769,7 @@ const ChatView = () => {
 
                           <div className={`pl-[10px] pt-[6px] pb-[7px] relative ${msg.type === 'image' || msg.type === 'video' ? 'pr-[10px]' : 'pr-[56px]'}`}>
                             
-                            {/* File / Media Rendering */}
+                            { }
                             {msg.type === 'image' && msg.fileUrl && (
                               <div className="mb-1 relative rounded-lg overflow-hidden group">
                                 <img src={msg.fileUrl} alt="attachment" className="max-h-[300px] w-auto object-cover rounded-lg" />
@@ -851,10 +822,10 @@ const ChatView = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Mesaj Yazma Alanı */}
+              { }
               <div className="bg-[#080d1a] px-3 py-2.5 flex-col flex gap-2 z-20 shrink-0 relative">
                 
-                {/* File Preview */}
+                { }
                 {selectedFile && (
                   <div className="flex items-center justify-between bg-[#1e293b] p-3 rounded-xl border border-slate-700/50">
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -929,7 +900,7 @@ const ChatView = () => {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-[#080d1a] relative border-b-[6px] border-indigo-500">
               
-              {/* WhatsApp Web Style Empty State Graphics */}
+              { }
               <div className="flex flex-col items-center mb-8 relative z-10">
                 <div className="flex items-center justify-center gap-4 text-slate-500 mb-6">
                   <Laptop size={120} strokeWidth={1} />
@@ -943,7 +914,7 @@ const ChatView = () => {
                 </p>
               </div>
 
-              {/* End-to-end encryption badge at bottom */}
+              { }
               <div className="absolute bottom-10 flex items-center justify-center gap-1.5 text-[12px] text-slate-500 font-medium w-full">
                 <Lock size={12} />
                 <span>Uçtan uca şifrelenmiştir</span>

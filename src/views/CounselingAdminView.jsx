@@ -16,14 +16,12 @@ const CounselingAdminView = () => {
   
   const [activeTab, setActiveTab] = useState('notes');
 
-  
   const [noteContent, setNoteContent] = useState('');
   const [testName, setTestName] = useState('Beck Depresyon Envanteri');
   const [testResult, setTestResult] = useState('');
   const [parentNote, setParentNote] = useState('');
   const [behaviorType, setBehaviorType] = useState('Olumlu');
   const [behaviorNote, setBehaviorNote] = useState('');
-  
   
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -38,7 +36,6 @@ const CounselingAdminView = () => {
 
   const { markDirty, markClean, isDirty } = useUnsavedChanges();
 
-  
   const getActualRiskData = () => {
     if (!studentId) return null;
     const absents = attendanceData.filter(a => a.fields?.status?.stringValue === 'absent' || a.fields?.status?.stringValue === 'late' || a.fields?.status?.stringValue === 'devamsiz').length;
@@ -46,7 +43,6 @@ const CounselingAdminView = () => {
     const totalGrades = gradesData.reduce((sum, g) => sum + Number(g.fields?.score?.integerValue || g.fields?.score?.doubleValue || 0), 0);
     const gpa = gradesData.length > 0 ? (totalGrades / gradesData.length).toFixed(2) : '0.00';
 
-    
     const attendancePercentage = Math.max(0, 100 - (absents * 1.1)).toFixed(0);
     
     let attendanceRisk = 'Düşük'; let gpaRisk = 'Düşük'; let overallRisk = 'Düşük';
@@ -205,7 +201,7 @@ const CounselingAdminView = () => {
 
       <div className="flex flex-col md:flex-row bg-white dark:bg-[#0f172a] rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex-1 w-full min-h-0 overflow-hidden relative">
         
-        {/* Öğrenci Seçimi Sidebar */}
+        { }
         <div className={`${studentId ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] flex-shrink-0 flex-col border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#1e293b]/50`}>
           <div className="p-4 border-b border-slate-200 dark:border-white/10">
             <h3 className="text-[12px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest px-2">Öğrenci Seçimi</h3>
@@ -226,7 +222,7 @@ const CounselingAdminView = () => {
           </div>
         </div>
 
-        {/* İçerik Alanı */}
+        { }
         <div className={`${studentId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 bg-white dark:bg-[#0f172a]`}>
           {!studentId ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 bg-slate-50 dark:bg-[#1e293b]/30 p-12 w-full">
@@ -239,7 +235,7 @@ const CounselingAdminView = () => {
           ) : (
             <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
               
-              {/* Header */}
+              { }
               <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center px-4 md:px-8 py-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#1e293b]/50 shrink-0">
                 <div className="flex items-center gap-3 md:gap-5">
                   <button onClick={() => setStudentId(null)} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors">

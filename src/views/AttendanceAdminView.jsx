@@ -7,7 +7,7 @@ import useUnsavedChanges from '../hooks/useUnsavedChanges';
 import UnsavedBanner from '../components/UnsavedBanner';
 
 const AttendanceAdminView = () => {
-  const [viewMode, setViewMode] = useState('student'); // 'student' | 'teacher' | 'personnel'
+  const [viewMode, setViewMode] = useState('student'); 
   const [allUsers, setAllUsers] = useState([]);
   const [users, setUsers] = useState([]);
   
@@ -59,7 +59,6 @@ const AttendanceAdminView = () => {
     setLoadingPast(true);
     const records = await academicService.fetchStudentAttendance(sid);
     
-    // Sort records descending by date
     records.sort((a, b) => {
         const timeA = a.fields?.date?.timestampValue ? new Date(a.fields.date.timestampValue).getTime() : 0;
         const timeB = b.fields?.date?.timestampValue ? new Date(b.fields.date.timestampValue).getTime() : 0;
@@ -174,7 +173,6 @@ const AttendanceAdminView = () => {
     }, 0).toString().replace('.', ',');
   };
 
-  // Sadece Rapor eklenebilecek "Özürsüz" geçmiş devamsızlık günlerini filtrele
   const absentDays = pastAttendance.filter(r => {
       const status = r.fields?.status?.stringValue;
       const cName = r.fields?.courseName?.stringValue || r.fields?.course_name?.stringValue || '';
@@ -184,14 +182,14 @@ const AttendanceAdminView = () => {
   return (
     <div className="w-full h-full flex-1 flex flex-col bg-white dark:bg-[#0f172a] rounded-[24px] shadow-sm border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-sans selection:bg-blue-100 overflow-hidden">
       
-      {/* HEADER */}
+      { }
       <div className="px-10 py-8 bg-white dark:bg-[#0f172a] flex flex-col md:flex-row md:items-end justify-between gap-6 shrink-0 border-b border-slate-200 dark:border-white/10">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight text-slate-900 dark:text-white">Devamsızlık</h1>
           <p className="text-[15px] font-medium text-slate-600 dark:text-slate-400 mt-1">Sistemdeki tüm geçiş ve yoklama kayıtlarını inceleyin.</p>
         </div>
         
-        {/* Apple Style Segmented Control */}
+        { }
         <div className="flex p-1 bg-slate-50 dark:bg-[#1e293b] rounded-[10px]">
           {['student', 'teacher', 'personnel'].map(mode => (
             <button 
@@ -209,10 +207,10 @@ const AttendanceAdminView = () => {
         </div>
       </div>
 
-      {/* MAIN LAYOUT */}
+      { }
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         
-        {/* SIDEBAR */}
+        { }
         <div className={`${studentId ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f172a] flex-col`}>
           <div className="p-4 border-b border-slate-200 dark:border-white/10">
             <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider pl-2">
@@ -235,7 +233,7 @@ const AttendanceAdminView = () => {
           </div>
         </div>
 
-        {/* CONTENT */}
+        { }
         <div className={`${studentId ? 'flex' : 'hidden md:flex'} flex-1 bg-white dark:bg-[#0f172a] flex-col overflow-hidden relative`}>
           {!studentId ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-600 dark:text-slate-400">
@@ -245,7 +243,7 @@ const AttendanceAdminView = () => {
           ) : (
             <div className="flex-1 overflow-y-auto pb-20">
               
-              {/* Profile Header */}
+              { }
               <div className="px-6 md:px-12 py-8 md:py-10 border-b border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div className="flex items-center gap-3">
                   <button onClick={() => setStudentId(null)} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors">
@@ -257,7 +255,7 @@ const AttendanceAdminView = () => {
                   </div>
                 </div>
                 
-                {/* Minimal Stats */}
+                { }
                 <div className="flex gap-4">
                   <div className="px-5 py-3 rounded-2xl bg-slate-50 dark:bg-[#1e293b] flex flex-col items-center min-w-[100px]">
                     <span className="text-[20px] font-medium text-slate-900 dark:text-white">
@@ -274,7 +272,7 @@ const AttendanceAdminView = () => {
                 </div>
               </div>
 
-              {/* Actions */}
+              { }
               <div className="px-12 py-8">
                 <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white mb-4">Hızlı İşlemler</h3>
                 <div className="flex flex-wrap gap-4">
@@ -304,7 +302,7 @@ const AttendanceAdminView = () => {
                 </div>
               </div>
 
-              {/* Past Records */}
+              { }
               <div className="px-12 py-4">
                 <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white mb-6">Geçmiş Kayıtlar</h3>
                 
@@ -375,9 +373,9 @@ const AttendanceAdminView = () => {
         </div>
       </div>
       
-      {/* MODALS */}
+      { }
 
-      {/* Rapor İşle Modal */}
+      { }
       {showReportModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
@@ -425,7 +423,7 @@ const AttendanceAdminView = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      { }
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-sm shadow-2xl p-6 flex flex-col items-center text-center">

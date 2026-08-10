@@ -4,7 +4,6 @@ import { dbService } from '../services/dbService';
 import { collection, addDoc, updateDoc, doc, getDocs, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 
-
 const TEMPLATES = [
   { id: 1, title: 'Tatil Bildirimi', content: 'Sayın Velilerimiz ve Sevgili Öğrencilerimiz,\n\n[Tarih] tarihinde resmi tatil sebebiyle okulumuzda eğitime 1 (bir) gün ara verilecektir. \n\nİyi tatiller dileriz.' },
   { id: 2, title: 'Veli Toplantısı', content: 'Değerli Velimiz,\n\n[Tarih] Cumartesi günü saat [Saat]\'da okulumuz konferans salonunda genel veli toplantısı gerçekleştirilecektir. Katılımlarınızı önemle rica ederiz.' },
@@ -17,7 +16,6 @@ const AnnouncementsAdminView = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('new');
 
-
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isPinned, setIsPinned] = useState(false);
@@ -26,9 +24,7 @@ const AnnouncementsAdminView = () => {
   const [formError, setFormError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-
   const [editingDoc, setEditingDoc] = useState(null);
-
 
   const [viewingInteractions, setViewingInteractions] = useState(null);
   const [interactions, setInteractions] = useState({ reactions: [], comments: [], loading: false });
@@ -127,7 +123,6 @@ const AnnouncementsAdminView = () => {
     setActiveTab('new');
   };
 
-
   const openEditModal = (docId, dTitle, dContent, dPinned, dImageUrl, dRawTime) => {
     setEditingDoc({ id: docId, title: dTitle, content: dContent, isPinned: dPinned, imageUrl: dImageUrl, rawTime: dRawTime, newFile: null });
   };
@@ -160,7 +155,6 @@ const AnnouncementsAdminView = () => {
     }
     setIsSaving(false);
   };
-
 
   const openInteractions = async (docId, title) => {
     setViewingInteractions({ id: docId, title });

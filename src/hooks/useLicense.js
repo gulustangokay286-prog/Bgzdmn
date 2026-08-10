@@ -54,7 +54,7 @@ export function useLicense() {
 
   const canAccess = (path) => {
     if (!license) return false;
-    if (license.status === 'revoked') return false; // Patron iptal ettiyse HİÇBİR ŞEYE giremez
+    if (license.status === 'revoked') return false; 
     if (path === '/dashboard' || path === '/profile') return true;
     
     const modules = license.modules || [];

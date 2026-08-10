@@ -2,9 +2,7 @@ import { db, collection, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc } fr
 import { financeService } from './financeService';
 
 class PersonnelService {
-    // ==========================================
-    // PERSONEL KAYITLARI
-    // ==========================================
+    
     async getPersonnel() {
         try {
             const snap = await getDocs(collection(db, 'personnel'));
@@ -39,9 +37,6 @@ class PersonnelService {
         }
     }
 
-    // ==========================================
-    // MAAŞ BORDRO VE PUANTAJ
-    // ==========================================
     async getPayrolls() {
         try {
             const snap = await getDocs(collection(db, 'payroll'));
@@ -76,12 +71,10 @@ class PersonnelService {
             
             const data = payrollSnap.data();
             
-            // Get personnel name for the transaction title
             const pRef = doc(db, 'personnel', data.personnelId);
             const pSnap = await getDoc(pRef);
             const pName = pSnap.exists() ? pSnap.data().name : 'Personel';
 
-            // Add cash transaction (Expense)
             const txTitle = `${pName} - ${data.month}/${data.year} ${data.type} Ödemesi`;
             await financeService.addCashTransaction(
                 cashRegisterId, 
@@ -94,7 +87,6 @@ class PersonnelService {
                 '-'
             );
 
-            // Update status
             await updateDoc(payrollRef, { status: 'Ödendi' });
             return true;
         } catch (error) {

@@ -7,10 +7,9 @@ const PushNotificationAdminView = () => {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   
-  const [sendingState, setSendingState] = useState('idle'); // idle, fetching, sending, success, error
+  const [sendingState, setSendingState] = useState('idle'); 
   const [progressPercent, setProgressPercent] = useState(0);
 
-  // Smooth progress animation effect
   useEffect(() => {
     let interval;
     if (sendingState === 'fetching') {
@@ -37,7 +36,7 @@ const PushNotificationAdminView = () => {
     setSendingState('fetching');
     
     try {
-      // 1. Fetch parents
+      
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('role', 'in', ['parent', 'veli']));
       const snapshot = await getDocs(q);
@@ -55,7 +54,6 @@ const PushNotificationAdminView = () => {
       
       setSendingState('sending');
       
-      // 2. Add to global_notifications
       await addDoc(collection(db, 'global_notifications'), {
         title,
         message,
@@ -65,7 +63,6 @@ const PushNotificationAdminView = () => {
         readBy: []
       });
 
-      // 3. Send WhatsApp broadcast
       if (phoneNumbers.length > 0) {
         const { getAuth } = await import('firebase/auth');
         const { cryptoService } = await import('../services/cryptoService');
@@ -129,7 +126,7 @@ const PushNotificationAdminView = () => {
 
       <div className="flex flex-col lg:flex-row gap-8 md:gap-16 pb-12 w-full max-w-6xl">
         
-        {/* Left Side: Info */}
+        { }
         <div className="lg:w-1/3 shrink-0 flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">WhatsApp Toplu Gönderim</h2>
@@ -149,7 +146,7 @@ const PushNotificationAdminView = () => {
           </div>
         </div>
 
-        {/* Right Side: Form */}
+        { }
         <div className="lg:w-2/3 relative flex flex-col">
           
           {sendingState !== 'idle' && (

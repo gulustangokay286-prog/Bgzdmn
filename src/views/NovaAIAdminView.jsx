@@ -10,7 +10,7 @@ import novaAiIcon from '../assets/nova_ai_icon.png';
 
 const formatMarkdown = (text) => {
   if (!text) return '';
-  // HTML Escape to prevent XSS via AI Prompt Injection (Stored XSS)
+  
   let escapedText = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -34,7 +34,6 @@ const NovaAIAdminView = () => {
   const [messages, setMessages] = useState([]);
   const [chatHistory, setChatHistory] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
-  
   
   const [isThinking, setIsThinking] = useState(false);
   

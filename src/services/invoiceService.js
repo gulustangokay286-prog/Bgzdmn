@@ -25,7 +25,7 @@ class InvoiceService {
                 vatRate: numVatRate,
                 vatAmount: vatAmount,
                 totalAmount: totalAmount,
-                status: 'Bekliyor', // Bekliyor, Ödendi, İptal
+                status: 'Bekliyor', 
                 date: new Date().toISOString().split('T')[0],
                 createdAt: new Date().toISOString()
             });
@@ -36,9 +36,9 @@ class InvoiceService {
     }
 
     async payInvoice(invoiceId, targetType, targetId) {
-        // targetType: 'cash' or 'bank'
+        
         try {
-            // Get invoice data
+            
             const invoices = await this.getInvoices();
             const inv = invoices.find(x => x.id === invoiceId);
             if (!inv) return false;

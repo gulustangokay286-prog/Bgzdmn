@@ -98,7 +98,7 @@ html {
   background-color: #0b1120;
 }
 
-/* ── Global Dark Mode Form & Select Adaptations ── */
+ 
 select option {
   background-color: #ffffff;
   color: #0f172a;
@@ -115,7 +115,7 @@ select {
   color-scheme: light dark;
 }
 
-/* Custom Selection Highlight (fixes grey selection band) */
+ 
 ::selection {
   background-color: rgba(99, 102, 241, 0.35);
   color: inherit;
@@ -131,7 +131,7 @@ select {
     radial-gradient(circle at bottom left, rgba(153, 27, 27, 0.03), transparent 40%);
 }
 
-/* OVERRIDE CHROME/SAFARI AUTOFILL INNER BOX */
+ 
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
@@ -361,7 +361,7 @@ textarea::placeholder {
   font-weight: 400;
 }
 
-/* Nova AI textarea - override global styles */
+ 
 textarea.nova-ai-input {
   background: transparent !important;
   backdrop-filter: none !important;

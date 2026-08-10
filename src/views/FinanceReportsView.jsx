@@ -9,7 +9,7 @@ import {
 const FinanceReportsView = ({ onClose }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [timeFilter, setTimeFilter] = useState('all'); // month, year, all
+    const [timeFilter, setTimeFilter] = useState('all'); 
     
     const handleExportCSV = () => {
         if (!transactions || transactions.length === 0) {
@@ -19,15 +19,14 @@ const FinanceReportsView = ({ onClose }) => {
         
         const filtered = getFilteredData();
         
-        // Define CSV Headers
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // UTF-8 BOM for Excel
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
         csvContent += "Tarih,Islem Tipi,Kategori,Baslik,Tutar (TL),Kasa ID\n";
         
         filtered.forEach(t => {
             const dateStr = t.date ? t.date.split('T')[0] : '';
             const typeStr = t.type === 'income' ? 'Gelir' : 'Gider';
             const catStr = t.category || '';
-            const titleStr = (t.title || '').replace(/,/g, ' '); // Avoid CSV commas
+            const titleStr = (t.title || '').replace(/,/g, ' '); 
             const amountStr = t.amount || 0;
             const regStr = t.registerId || '';
             
@@ -54,7 +53,6 @@ const FinanceReportsView = ({ onClose }) => {
         fetchTx();
     }, []);
 
-    // Helper: Filter by time
     const getFilteredData = () => {
         const now = new Date();
         return transactions.filter(t => {
@@ -76,12 +74,11 @@ const FinanceReportsView = ({ onClose }) => {
     const totalExpense = filteredTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
     const netBalance = totalIncome - totalExpense;
 
-    // Prepare data for Bar Chart (Monthly Comparison if year/all, Daily if month)
     const getBarChartData = () => {
         const map = {};
         filteredTx.forEach(t => {
             if(!t.date) return;
-            // Group by Month (YYYY-MM)
+            
             const label = timeFilter === 'month' ? t.date.split('T')[0] : t.date.substring(0, 7);
             if(!map[label]) map[label] = { name: label, Gelir: 0, Gider: 0 };
             if(t.type === 'income') map[label].Gelir += Number(t.amount);
@@ -90,7 +87,6 @@ const FinanceReportsView = ({ onClose }) => {
         return Object.values(map).sort((a,b) => a.name.localeCompare(b.name));
     };
 
-    // Prepare data for Pie Chart (Expenses by Category)
     const getExpensePieData = () => {
         const map = {};
         filteredTx.filter(t => t.type === 'expense').forEach(t => {
@@ -121,7 +117,7 @@ const FinanceReportsView = ({ onClose }) => {
                     </button>
                 </div>
 
-                {/* Summary Cards */}
+                { }
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white dark:bg-[#0f172a] p-6 rounded-[24px] border border-slate-200/80 dark:border-slate-800/80 shadow-sm relative overflow-hidden">
                         <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 dark:bg-emerald-900/10 rounded-full flex items-center justify-center">

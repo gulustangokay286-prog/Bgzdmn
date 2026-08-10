@@ -23,10 +23,6 @@ const auth = getAuth(app);
 const storage = getStorage(app);
 const rtdb = getDatabase(app);
 
-
-
-
-
 export const mapSdkToRest = (docSnapshot) => {
   const data = docSnapshot.data();
   const fields = {};
@@ -56,7 +52,6 @@ export const mapSdkToRest = (docSnapshot) => {
     fields
   };
 };
-
 
 export const unwrapRestPayload = (fieldsObj) => {
   const data = {};

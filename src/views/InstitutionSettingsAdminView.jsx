@@ -9,7 +9,7 @@ const InstitutionSettingsAdminView = () => {
   const [successMsg, setSuccessMsg] = useState('');
   
   const [settings, setSettings] = useState({
-    closedDays: ['Pazar'], // Kapalı günler
+    closedDays: ['Pazar'], 
     openingHour: '08:00',
     closingHour: '18:00',
     lunchBreakStart: '12:00',
@@ -108,7 +108,7 @@ const InstitutionSettingsAdminView = () => {
 
       <div className="bg-white dark:bg-[#0f172a] rounded-2xl shadow-sm border border-slate-200 dark:border-white/10 p-8 space-y-10">
         
-        {/* Mesai Saatleri */}
+        { }
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -119,7 +119,7 @@ const InstitutionSettingsAdminView = () => {
           </div>
           
           <div className="flex flex-col gap-10 mt-4">
-            {/* Açılış Saati - TEK BAŞINA */}
+            { }
             <div className="flex flex-col gap-3 w-full max-w-[300px]">
               <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300 tracking-wider">AÇILIŞ SAATİ</label>
               <input 
@@ -131,7 +131,7 @@ const InstitutionSettingsAdminView = () => {
               />
             </div>
 
-            {/* Kapanış Saati - TEK BAŞINA */}
+            { }
             <div className="flex flex-col gap-3 w-full max-w-[300px]">
               <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300 tracking-wider">KAPANIŞ SAATİ</label>
               <input 
@@ -147,7 +147,7 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* Öğle Arası */}
+        { }
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -158,7 +158,7 @@ const InstitutionSettingsAdminView = () => {
           </div>
           
           <div className="flex flex-col gap-10 mt-4">
-            {/* Başlangıç Saati - TEK BAŞINA */}
+            { }
             <div className="flex flex-col gap-3 w-full max-w-[300px]">
               <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300 tracking-wider">BAŞLANGIÇ SAATİ</label>
               <input 
@@ -170,7 +170,7 @@ const InstitutionSettingsAdminView = () => {
               />
             </div>
 
-            {/* Bitiş Saati - TEK BAŞINA */}
+            { }
             <div className="flex flex-col gap-3 w-full max-w-[300px]">
               <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300 tracking-wider">BİTİŞ SAATİ</label>
               <input 
@@ -186,7 +186,7 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* Kapalı Günler */}
+        { }
         <section className="flex flex-col md:flex-row items-start">
           <div className="md:w-[300px] shrink-0 md:mr-10 mb-6 md:mb-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">

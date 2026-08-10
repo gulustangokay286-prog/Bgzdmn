@@ -11,7 +11,6 @@ const InvoiceManagementView = ({ onClose }) => {
     const [activeTab, setActiveTab] = useState('list');
     const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
 
-    // Form
     const [invNo, setInvNo] = useState('');
     const [invName, setInvName] = useState('');
     const [invTax, setInvTax] = useState('');
@@ -19,8 +18,7 @@ const InvoiceManagementView = ({ onClose }) => {
     const [invBase, setInvBase] = useState('');
     const [invVat, setInvVat] = useState('20');
 
-    // Pay Form
-    const [payTargetType, setPayTargetType] = useState('cash'); // cash or bank
+    const [payTargetType, setPayTargetType] = useState('cash'); 
     const [payTargetId, setPayTargetId] = useState('');
 
     useEffect(() => {

@@ -10,7 +10,6 @@ const CafeteriaAdminView = () => {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -154,7 +153,7 @@ const CafeteriaAdminView = () => {
                     </div>
                   )}
 
-                  {/* Header */}
+                  { }
                   <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center gap-3.5 bg-slate-50/50 dark:bg-[#1e293b]/40">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${isToday ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20' : 'bg-white dark:bg-[#0f172a] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800'}`}>
                       <Calendar size={18} />
@@ -165,7 +164,7 @@ const CafeteriaAdminView = () => {
                     </div>
                   </div>
 
-                  {/* Body Items */}
+                  { }
                   <div className="p-4 sm:p-5 flex-1 flex flex-col gap-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-500/20 shrink-0">
@@ -208,7 +207,7 @@ const CafeteriaAdminView = () => {
                     </div>
                   </div>
 
-                  {/* Footer */}
+                  { }
                   <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/70 dark:bg-[#1e293b]/50 flex items-center justify-between gap-3">
                      <div className="text-[12px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-3 min-w-0">
                        <div className="shrink-0">
@@ -243,7 +242,7 @@ const CafeteriaAdminView = () => {
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-[400px] flex flex-col max-h-[85vh] overflow-hidden border border-slate-200/80 dark:border-slate-800/80 shadow-2xl">
             
-            {/* Modal Header */}
+            { }
             <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/60">
               <div className="flex items-center gap-4">
                 <div className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -264,7 +263,7 @@ const CafeteriaAdminView = () => {
               </button>
             </div>
             
-            {/* Modal Form Body */}
+            { }
             <div className="p-4 sm:p-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1">
               {formError && (
                 <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-[12px] font-bold rounded-xl flex items-center justify-between">
@@ -274,7 +273,7 @@ const CafeteriaAdminView = () => {
               )}
               <form id="menuForm" onSubmit={handleSave} className="flex flex-col gap-3 box-border">
                 
-                {/* Tarih */}
+                { }
                 <div className="w-[calc(50%+135px)]">
                   <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Tarih *</label>
                   <input 
@@ -287,7 +286,7 @@ const CafeteriaAdminView = () => {
                   />
                 </div>
 
-                {/* Çorba & Ana Yemek */}
+                { }
                 <div className="grid grid-cols-2 gap-3 w-full box-border min-w-0">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Çorba</label>
@@ -313,7 +312,7 @@ const CafeteriaAdminView = () => {
                   </div>
                 </div>
 
-                {/* Yardımcı Yemek & Tatlı */}
+                { }
                 <div className="grid grid-cols-2 gap-3 w-full box-border min-w-0">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Yardımcı Yemek</label>
@@ -339,7 +338,7 @@ const CafeteriaAdminView = () => {
                   </div>
                 </div>
 
-                {/* Kalori & Alerjen */}
+                { }
                 <div className="grid grid-cols-2 gap-3 w-full box-border min-w-0">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Toplam Kalori (kcal)</label>
@@ -367,7 +366,7 @@ const CafeteriaAdminView = () => {
               </form>
             </div>
 
-            {/* Modal Footer */}
+            { }
             <div className="px-5 py-3 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-100 dark:border-slate-800/60 flex justify-end items-center gap-2.5 rounded-b-[24px]">
               <button 
                 type="button"

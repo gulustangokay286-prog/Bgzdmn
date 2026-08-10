@@ -13,7 +13,6 @@ const TransportAdminView = () => {
   const [filterStatus, setFilterStatus] = useState('Tümü');
   const [viewMode, setViewMode] = useState('list'); 
 
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -166,13 +165,13 @@ const TransportAdminView = () => {
     <div className="absolute inset-0 bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-6 md:p-10">
       <div className="w-full max-w-[1600px] flex flex-col flex-1 min-h-0">
         
-        {/* Title Header */}
+        { }
         <div className="flex flex-col shrink-0 mb-6">
           <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-widest">{currentDate}</span>
           <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-none">Servis & Ulaşım</h1>
         </div>
 
-        {/* Stats Summary Banner */}
+        { }
         <div className="w-[calc(92%-11px)] sm:w-full flex items-center justify-between px-5 py-4 sm:py-3 bg-white dark:bg-[#0f172a] border border-slate-200/70 dark:border-slate-800/80 rounded-2xl mb-6 shadow-sm">
           <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2.5 sm:gap-6 text-[13px] font-medium text-slate-600 dark:text-slate-300">
             <span className="flex items-center gap-2"><Bus size={16} className="text-indigo-500"/> Toplam Servis: <strong className="font-bold text-slate-900 dark:text-white">{stats.total}</strong></span>
@@ -183,9 +182,9 @@ const TransportAdminView = () => {
           </div>
         </div>
 
-        {/* Controls Header - Matching Appointments View Exactly */}
+        { }
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 w-full mb-6 shrink-0">
-          {/* Status Tabs */}
+          { }
           <div className="flex items-center justify-center sm:justify-start bg-slate-100 dark:bg-slate-800/60 p-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/60 shrink-0">
             {['Tümü', 'Aktif', 'Bakımda', 'Pasif'].map(status => (
               <button
@@ -202,7 +201,7 @@ const TransportAdminView = () => {
             ))}
           </div>
 
-          {/* Search & Layout Toggle & Action Button */}
+          { }
           <div className="flex items-center justify-end gap-3 shrink-0">
             <div className="relative flex items-center flex-1 sm:flex-none">
               <Search size={15} className="absolute left-3.5 text-slate-400 pointer-events-none" />
@@ -237,7 +236,7 @@ const TransportAdminView = () => {
           </div>
         </div>
 
-        {/* Content Area */}
+        { }
         <div className="flex-1 w-full relative">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 w-full text-slate-400">
@@ -256,7 +255,7 @@ const TransportAdminView = () => {
                 <div key={t.id} className="group bg-white dark:bg-[#0f172a] rounded-[32px] p-1 border border-slate-200/80 dark:border-slate-800/80 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col relative overflow-hidden">
                   
                   <div className="p-6 pb-5">
-                    {/* Top Status & Plate */}
+                    { }
                     <div className="flex justify-between items-start mb-5">
                       <div>
                         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
@@ -277,7 +276,7 @@ const TransportAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Route Details */}
+                    { }
                     <div className="flex items-start gap-3 mb-6 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <MapPin size={18} className="text-indigo-500 shrink-0 mt-0.5" strokeWidth={2.5}/>
                       <div>
@@ -292,7 +291,7 @@ const TransportAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Driver & Capacity */}
+                    { }
                     <div className="flex justify-between items-end">
                       <div className="flex items-center gap-2">
                         <User size={18} className="text-slate-400 dark:text-slate-500" strokeWidth={2} />
@@ -314,7 +313,7 @@ const TransportAdminView = () => {
                     </div>
                   </div>
 
-                  {/* Status Indicator Line */}
+                  { }
                   <div className={`h-1.5 w-full mt-auto ${t.status === 'Aktif' ? 'bg-emerald-500' : t.status === 'Bakımda' ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
                 </div>
               ))}
@@ -328,10 +327,10 @@ const TransportAdminView = () => {
                   onClick={() => openModal(t)}
                 >
                   
-                  {/* Unified Responsive Row */}
+                  { }
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full">
                     
-                    {/* Plate, Status & Mobile Capacity */}
+                    { }
                     <div className="flex flex-col w-full sm:w-[140px] shrink-0">
                       <div className="flex justify-between items-start w-full">
                         <div className="flex flex-col gap-1 pr-2">
@@ -341,7 +340,7 @@ const TransportAdminView = () => {
                           </div>
                           <h3 className="font-bold text-[16px] font-mono text-slate-900 dark:text-white leading-tight">{t.plateNumber || 'PLK-YOK'}</h3>
                         </div>
-                        {/* Mobile Capacity Badge */}
+                        { }
                         <div className="flex flex-col items-start shrink-0 sm:hidden">
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-bold uppercase tracking-wider mt-1">
                             <Users size={12} />
@@ -351,7 +350,7 @@ const TransportAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Route Details */}
+                    { }
                     <div className="flex items-start sm:items-center gap-2 w-full sm:flex-1 min-w-0">
                       <MapPin size={16} className="text-indigo-500 shrink-0 mt-0.5 sm:mt-0"/>
                       <div className="flex flex-col">
@@ -359,7 +358,7 @@ const TransportAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Driver */}
+                    { }
                     <div className="flex items-center gap-2 w-full sm:flex-1 min-w-0 mt-1 sm:mt-0">
                       <User size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
                       <div className="flex flex-col">
@@ -368,7 +367,7 @@ const TransportAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Desktop Capacity */}
+                    { }
                     <div className="hidden sm:flex items-center gap-2 shrink-0 w-[120px]">
                       <Users size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
                       <div className="flex flex-col items-start">
@@ -377,7 +376,7 @@ const TransportAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Actions */}
+                    { }
                     <div className="flex items-center justify-end gap-3 shrink-0 ml-auto sm:ml-4 mt-2 sm:mt-0 border-t border-slate-100 dark:border-slate-800/60 sm:border-0 pt-3 sm:pt-0 w-full sm:w-auto">
                       <button 
                         onClick={(e) => { e.stopPropagation(); openModal(t); }} 
@@ -393,7 +392,7 @@ const TransportAdminView = () => {
                       >
                         <Trash2 size={16} />
                       </button>
-                      {/* Mobile Arrow for affordance */}
+                      { }
                       <div className="sm:hidden w-8 h-8 rounded-full bg-slate-100/70 dark:bg-slate-800 text-slate-400 flex items-center justify-center ml-auto">
                         <span className="text-[16px] leading-none mb-0.5 ml-0.5">&rsaquo;</span>
                       </div>
@@ -406,12 +405,12 @@ const TransportAdminView = () => {
         </div>
       </div>
 
-      {/* Centered Modal Popup */}
+      { }
       {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#0f172a] rounded-[24px] w-full max-w-[400px] flex flex-col max-h-[85vh] overflow-hidden border border-slate-200/80 dark:border-slate-800/80 shadow-2xl">
             
-            {/* Modal Header */}
+            { }
             <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/60">
               <div className="flex items-center gap-4">
                 <div className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -432,7 +431,7 @@ const TransportAdminView = () => {
               </button>
             </div>
             
-            {/* Modal Form Body */}
+            { }
             <div className="p-4 sm:p-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1">
               {formError && (
                 <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-[12px] font-bold rounded-xl flex items-center justify-between">
@@ -442,7 +441,7 @@ const TransportAdminView = () => {
               )}
               <form id="transportForm" onSubmit={handleSave} className="flex flex-col gap-3 box-border">
                 
-                {/* Plaka & Kapasite */}
+                { }
                 <div className="grid grid-cols-2 gap-3 w-full box-border min-w-0">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Araç Plakası *</label>
@@ -470,7 +469,7 @@ const TransportAdminView = () => {
                   </div>
                 </div>
 
-                {/* Şoför Bilgileri */}
+                { }
                 <div className="flex flex-col gap-3">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Şoför Adı Soyadı *</label>
@@ -498,7 +497,7 @@ const TransportAdminView = () => {
                   </div>
                 </div>
 
-                {/* Güzergah Tanımı */}
+                { }
                 <div className="flex flex-col gap-3">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Ana Güzergah *</label>
@@ -525,7 +524,7 @@ const TransportAdminView = () => {
                   </div>
                 </div>
 
-                {/* Servis Durumu */}
+                { }
                 <div>
                   <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1 ml-0.5">Servis Durumu</label>
                   <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/60 rounded-xl">
@@ -547,7 +546,7 @@ const TransportAdminView = () => {
               </form>
             </div>
 
-            {/* Modal Footer */}
+            { }
             <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0f172a] flex justify-end gap-3 rounded-b-[24px]">
               <button 
                 type="button"

@@ -1,9 +1,7 @@
 import { db, collection, getDocs, addDoc, updateDoc, doc, mapSdkToRest, deleteDoc } from './firebaseConfig';
 
 class FinanceService {
-    // ==========================================
-    // KASA TANIMLARI (CASH REGISTERS)
-    // ==========================================
+    
     async getCashRegisters() {
         try {
             const snap = await getDocs(collection(db, 'cash_registers'));
@@ -25,9 +23,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // KASA İŞLEMLERİ (CASH TRANSACTIONS)
-    // ==========================================
     async getCashTransactions() {
         try {
             const snap = await getDocs(collection(db, 'cash_transactions'));
@@ -49,9 +44,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // KASA AÇMA / KAPATMA (CASH SESSIONS)
-    // ==========================================
     async getCashSessions() {
         try {
             const snap = await getDocs(collection(db, 'cash_sessions'));
@@ -73,9 +65,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // GELİR / GİDER TANIMLARI (FINANCE DEFINITIONS)
-    // ==========================================
     async getDefinitions() {
         try {
             const snap = await getDocs(collection(db, 'finance_definitions'));
@@ -96,9 +85,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // BANKA HESAPLARI (BANK ACCOUNTS)
-    // ==========================================
     async getBankAccounts() {
         try {
             const snap = await getDocs(collection(db, 'bank_accounts'));
@@ -119,9 +105,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // BANKA İŞLEMLERİ (BANK TRANSACTIONS)
-    // ==========================================
     async getBankTransactions() {
         try {
             const snap = await getDocs(collection(db, 'bank_transactions'));
@@ -142,9 +125,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // ÇEK / SENET TAKİBİ
-    // ==========================================
     async getChecksAndNotes() {
         try {
             const snap = await getDocs(collection(db, 'checks_notes'));
@@ -174,9 +154,6 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // ÖĞRENCİ TAHSİLATLARI (MEVCUT YAPIYI KORU)
-    // ==========================================
     async fetchStudentPayments() {
         try {
             const querySnapshot = await getDocs(collection(db, 'finance_student_payments'));
@@ -201,7 +178,7 @@ class FinanceService {
 
     async addStudentPayment(studentId, amount, paymentMethod, studentName, date) {
         try {
-            // Ana kasaya veya genel kayda da ekle
+            
             await this.addCashTransaction('Genel', `${studentName} Taksit Ödemesi`, amount, 'income', 'Eğitim Ücreti', paymentMethod, date, '-');
             
             const record = await this.initOrGetStudentPayment(studentId);
@@ -231,7 +208,6 @@ class FinanceService {
         }
     }
 
-    // Helper: calculate balance from transactions
     calculateBalance(transactions) {
         let bal = 0.0;
         for (const doc of transactions) {
@@ -242,23 +218,18 @@ class FinanceService {
         return bal;
     }
 
-    // ==========================================
-    // VIRMAN (ÇİFT TARAFLI TRANSFER)
-    // ==========================================
     async transferFunds(fromType, fromId, toType, toId, amount, description) {
-        // fromType/toType: 'cash' or 'bank'
+        
         try {
             const dateStr = new Date().toISOString().split('T')[0];
             const numAmount = Number(amount);
 
-            // 1. Çıkış İşlemi
             if (fromType === 'cash') {
                 await this.addCashTransaction(fromId, `Virman Çıkışı: ${description}`, numAmount, 'expense', 'Transfer', 'Nakit', dateStr, '-');
             } else if (fromType === 'bank') {
                 await this.addBankTransaction(fromId, `Virman Çıkışı: ${description}`, numAmount, 'expense', dateStr, 'Transfer');
             }
 
-            // 2. Giriş İşlemi
             if (toType === 'cash') {
                 await this.addCashTransaction(toId, `Virman Girişi: ${description}`, numAmount, 'income', 'Transfer', 'Nakit', dateStr, '-');
             } else if (toType === 'bank') {
@@ -272,24 +243,17 @@ class FinanceService {
         }
     }
 
-    // ==========================================
-    // POS İŞLEMLERİ
-    // ==========================================
     async processPosTransaction(bankAccountId, amount, commissionRate, description) {
         try {
             const numAmount = Number(amount);
             const numRate = Number(commissionRate);
             
-            // Komisyon Kesintisi
             const commission = numAmount * (numRate / 100);
             const netAmount = numAmount - commission;
 
             const dateStr = new Date().toISOString().split('T')[0];
             
-            // Bankaya Net Tutarın Geçmesi
             await this.addBankTransaction(bankAccountId, `POS Tahsilat: ${description}`, netAmount, 'income', dateStr, `Brüt: ${numAmount} - Komisyon(%${numRate}): ${commission}`);
-            
-            // Komisyonu Gider Olarak da Ayrı Gösterebiliriz (İsteğe bağlı, şimdilik sadece net tutar geliri eklendi)
             
             return true;
         } catch (error) {

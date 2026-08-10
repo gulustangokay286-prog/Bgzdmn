@@ -23,7 +23,7 @@ const StudentGateAdminView = () => {
 
   const loadData = async () => {
     try {
-      // 1. Load Users
+      
       const users = await firebaseService.fetchAllUsers();
       const studentList = users.filter(u => {
         const role = u.fields?.role?.stringValue?.toLowerCase() || '';
@@ -44,7 +44,6 @@ const StudentGateAdminView = () => {
 
       setStudents(studentList);
 
-      // 2. Load Statuses from gate_status via RTDB
       try {
         const statusRef = ref(rtdb, 'qr_system/gate_status');
         const todayStr = new Date().toISOString().split('T')[0];
@@ -81,16 +80,14 @@ const StudentGateAdminView = () => {
     const currentStatus = studentStatusMap[student.id] || 'outside';
     const newStatus = currentStatus === 'inside' ? 'exit' : 'entry';
 
-    // 1. Optimistic UI Update (Işık Hızında Tepki)
     setStudentStatusMap(prev => ({
       ...prev,
       [student.id]: newStatus === 'entry' ? 'inside' : 'outside'
     }));
 
     soundManager.playSuccessDing();
-    setProcessingId(null); // Buton kilidini anında aç
+    setProcessingId(null); 
 
-    // 2. Arka Planda Veritabanı Güncellemeleri (Await etmeden)
     try {
       const logData = {
         studentId: student.id,
@@ -114,7 +111,6 @@ const StudentGateAdminView = () => {
       
       update(ref(rtdb), updates).catch(err => console.error("Gate status yazma hatası:", err));
 
-      // WhatsApp notification in background
       sendWhatsAppNotification(student.id, student.name, newStatus, now)
         .catch(waErr => console.error("WhatsApp bildirim hatası:", waErr));
 
@@ -138,7 +134,7 @@ const StudentGateAdminView = () => {
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans pb-2 md:pb-6 overflow-x-hidden">
       
-      {/* Header section (Dashboard style) */}
+      { }
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-8 shrink-0 gap-4 w-full">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-medium text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wider">{currentDate}</span>
@@ -156,14 +152,14 @@ const StudentGateAdminView = () => {
         </div>
       </div>
 
-      {/* Unified Minimalist Data Table */}
+      { }
       <div className="w-full flex-1 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl flex flex-col overflow-hidden shadow-sm">
         
-        {/* Horizontal Scroll Wrapper for Table */}
+        { }
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
           <div className="min-w-[650px] flex flex-col h-full">
             
-            {/* Table Header */}
+            { }
             <div className="flex items-center px-4 md:px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#1e293b]/50 shrink-0">
               <div className="flex-1 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</div>
               <div className="w-28 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Okul No</div>
@@ -171,7 +167,7 @@ const StudentGateAdminView = () => {
               <div className="w-36 text-[12px] font-semibold text-slate-500 uppercase tracking-wider text-right">Aksiyon</div>
             </div>
 
-            {/* Table Body */}
+            { }
             <div className="flex-1">
               {filteredStudents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-slate-600 dark:text-slate-400">
@@ -190,7 +186,7 @@ const StudentGateAdminView = () => {
                       className={`flex items-center px-4 md:px-6 py-3 border-b border-slate-100 dark:border-white/5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${idx === filteredStudents.length - 1 ? 'border-none' : ''}`}
                     >
                       
-                      {/* Student Info */}
+                      { }
                       <div className="flex-1 flex items-center gap-3">
                         <img 
                           src={student.profileImage} 
@@ -200,12 +196,12 @@ const StudentGateAdminView = () => {
                         <span className="text-[13px] md:text-[14px] font-medium text-slate-800 dark:text-slate-200 truncate">{student.name}</span>
                       </div>
 
-                      {/* School Number */}
+                      { }
                       <div className="w-28 text-[12px] md:text-[13px] text-slate-600 dark:text-slate-400 font-medium">
                         {student.schoolNumber || '-'}
                       </div>
 
-                      {/* Status Badge */}
+                      { }
                       <div className="w-36 flex items-center shrink-0">
                         <div className={`px-2 py-1 rounded text-[11px] md:text-[12px] font-semibold flex items-center gap-1.5 border ${isInside ? 'border-emerald-200 text-emerald-700 bg-emerald-50' : 'border-amber-200 text-amber-700 bg-amber-50'}`}>
                           {isInside ? <DoorClosed size={12} /> : <DoorOpen size={12} />}
@@ -213,7 +209,7 @@ const StudentGateAdminView = () => {
                         </div>
                       </div>
 
-                      {/* Action Button */}
+                      { }
                       <div className="w-36 flex justify-end shrink-0">
                         <button
                           onClick={() => handleAction(student)}

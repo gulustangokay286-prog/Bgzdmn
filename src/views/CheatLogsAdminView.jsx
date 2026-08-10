@@ -67,7 +67,6 @@ const CheatLogsAdminView = () => {
     return null;
   };
 
-  // Grouped logs: same ownerTc + attemptedTc pair → single group
   const groupedLogs = useMemo(() => {
     const logsWithNames = logs.map(log => {
       const origName = getUserNameByTc(log.originalOwnerTc) || log.originalOwnerName;
@@ -77,7 +76,6 @@ const CheatLogsAdminView = () => {
       return { ...log, computedOrigName: origName, computedAttName: attName, origPhoto, attPhoto };
     });
 
-    // Filter by search
     const filtered = logsWithNames.filter(log => 
       (log.message || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (log.computedOrigName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,7 +84,6 @@ const CheatLogsAdminView = () => {
       (log.attemptedStudentTc || '').includes(searchTerm)
     );
 
-    // Group by TC pair
     const map = new Map();
     filtered.forEach(log => {
       const key = `${log.originalOwnerTc || '?'}_${log.attemptedStudentTc || '?'}`;
@@ -105,7 +102,6 @@ const CheatLogsAdminView = () => {
       map.get(key).entries.push(log);
     });
 
-    // Sort groups by most recent entry
     return Array.from(map.values()).sort((a, b) => {
       const aTime = a.entries[0]?.timestamp?.toDate?.() || new Date(a.entries[0]?.timestamp || 0);
       const bTime = b.entries[0]?.timestamp?.toDate?.() || new Date(b.entries[0]?.timestamp || 0);
@@ -136,7 +132,7 @@ const CheatLogsAdminView = () => {
 
   return (
     <div className="w-full flex-1 flex flex-col font-sans gap-6 pb-6">
-      {/* Header */}
+      { }
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end w-full shrink-0 gap-6 mb-2">
         <div className="flex items-center gap-5">
           <div className="flex flex-col">
@@ -164,7 +160,7 @@ const CheatLogsAdminView = () => {
         </div>
       </div>
 
-      {/* Warning Banner */}
+      { }
       {!loading && totalViolations > 0 && (
         <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
           <ShieldAlert size={20} className="text-red-600 dark:text-red-400 shrink-0" strokeWidth={2} />
@@ -174,7 +170,7 @@ const CheatLogsAdminView = () => {
         </div>
       )}
 
-      {/* Main Card */}
+      { }
       <div className="bg-white dark:bg-[#0f172a] rounded-[24px] md:rounded-[32px] border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
         <div className="flex-1 overflow-y-auto">
           {loading ? (
@@ -199,12 +195,12 @@ const CheatLogsAdminView = () => {
 
                 return (
                   <div key={group.key}>
-                    {/* Group Row */}
+                    { }
                     <div 
                       onClick={() => toggleGroup(group.key)}
                       className="flex items-center gap-4 px-5 md:px-6 py-5 cursor-pointer hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors active:bg-slate-100/70 dark:active:bg-white/[0.04]"
                     >
-                      {/* Stacked Avatars */}
+                      { }
                       <div className="relative w-11 h-11 shrink-0">
                         {group.origPhoto ? (
                           <img src={group.origPhoto} alt="" className="absolute top-0 left-0 w-7 h-7 rounded-full object-cover ring-2 ring-white dark:ring-[#0f172a] shadow-xs z-10" />
@@ -222,7 +218,7 @@ const CheatLogsAdminView = () => {
                         )}
                       </div>
 
-                      {/* Names & TC */}
+                      { }
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 text-[15px] leading-snug">
                           <span className="font-semibold text-slate-900 dark:text-white truncate">{group.computedOrigName || 'Bilinmiyor'}</span>
@@ -236,7 +232,7 @@ const CheatLogsAdminView = () => {
                         </div>
                       </div>
 
-                      {/* Right side */}
+                      { }
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="px-2.5 py-1 rounded-full text-[12px] font-semibold bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-500/20 tabular-nums">
                           {count > 1 ? `${count} İhlal` : 'İhlal'}
@@ -251,16 +247,16 @@ const CheatLogsAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Expanded Detail */}
+                    { }
                     {isExpanded && (
                       <div className="px-5 md:px-6 pb-6 pt-3 bg-slate-50/60 dark:bg-white/[0.01] border-t border-slate-100 dark:border-white/5">
-                        {/* Warning Header inside details */}
+                        { }
                         <div className="flex items-center gap-2 mb-3 text-[12px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
                           <ShieldAlert size={15} />
                           <span>QR Kod Yanıltma / Usulsüz Okutma Tespit Edildi</span>
                         </div>
 
-                        {/* Person cards */}
+                        { }
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                           <div className="flex flex-col p-4 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/5 shadow-xs">
                             <div className="flex items-center gap-4">
@@ -305,7 +301,7 @@ const CheatLogsAdminView = () => {
                           </div>
                         </div>
 
-                        {/* Timeline */}
+                        { }
                         <div className="rounded-xl bg-white dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 overflow-hidden">
                           <div className="px-4 py-2.5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                             <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">

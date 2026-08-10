@@ -12,7 +12,6 @@ const UsersView = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -90,7 +89,6 @@ const UsersView = () => {
     document.body.removeChild(link);
   };
 
-
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -109,7 +107,6 @@ const UsersView = () => {
           const tc_kimlik = cols[2];
           const password = tc_kimlik && tc_kimlik.length >= 6 ? tc_kimlik : '12345678';
 
-          // Role normalization
           let rawRole = cols[1].toLowerCase();
           if (rawRole.includes('öğrenci') || rawRole === 'ogrenci') rawRole = 'student';
           if (rawRole.includes('öğretmen') || rawRole === 'ogretmen') rawRole = 'teacher';
@@ -187,7 +184,7 @@ const UsersView = () => {
     <>
       <div className="absolute -top-[40px] -bottom-[40px] -left-[40px] -right-[40px] bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-8 md:p-12">
 
-        {/* HEADER SECTION */}
+        { }
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 w-full shrink-0 gap-6">
           <div className="flex items-center gap-5">
             <div className="flex flex-col">
@@ -233,9 +230,9 @@ const UsersView = () => {
           </div>
         </div>
 
-        {/* STATS & SEARCH/FILTER TOOLBAR */}
+        { }
         <div className="flex flex-col gap-5 mb-8">
-          {/* Summary Pills */}
+          { }
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
               <Users size={14} className="text-slate-900 dark:text-white -ml-[3px]" />
@@ -256,9 +253,9 @@ const UsersView = () => {
             </div>
           </div>
 
-          {/* Minimalist Search Bar & Filters */}
+          { }
           <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
-            {/* Search Input */}
+            { }
             <div className="relative flex-1 w-full flex items-center">
               <Search size={18} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
               <input
@@ -278,7 +275,7 @@ const UsersView = () => {
               )}
             </div>
 
-            {/* Filter Controls */}
+            { }
             <div className="flex flex-col sm:flex-row w-full lg:w-auto gap-3 shrink-0">
               <div className="relative w-full sm:w-48 flex items-center">
                 <Filter size={16} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
@@ -316,7 +313,7 @@ const UsersView = () => {
           </div>
         </div>
 
-        {/* Main Users Table Card */}
+        { }
         <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex flex-col overflow-hidden relative shadow-sm min-h-0">
           <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar flex flex-col">
             <div className="min-w-[800px] flex-1 flex flex-col relative pb-4">
@@ -368,7 +365,7 @@ const UsersView = () => {
 
       </div>
 
-      {/* Import Preview Modal */}
+      { }
       {showImportModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-[#0f172a] rounded-[24px] shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">

@@ -1,7 +1,6 @@
 import { db } from './firebaseConfig';
 import { collection, getDocs, query, limit, orderBy, doc, getDoc } from 'firebase/firestore';
 
-// ── Round-Robin API Key Havuzu ──
 const envKeys = import.meta.env.VITE_GEMINI_API_KEYS;
 const API_KEYS = envKeys ? envKeys.split(',') : [];
 
@@ -17,7 +16,7 @@ const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export const aiService = {
   async generateContent(prompt, model = 'gemini-3.1-flash-lite') {
-    // Build context
+    
     let contextStr = "Sen Boğaziçi Koleji için geliştirilmiş 'Nova AI' adında bir eğitim yönetimi yapay zeka asistanısın. Türkçe cevap ver. Her türlü soruya detaylı ve gerçek cevap ver.\n\n";
     try {
       const classesSnap = await getDocs(query(collection(db, 'classes'), orderBy('name', 'asc'), limit(50)));
@@ -37,7 +36,6 @@ export const aiService = {
       generationConfig: { temperature: 0.1 }
     });
 
-    // 6 key'i sırayla dene — biri 429 dönerse sonrakine geç
     const startIndex = currentKeyIndex;
     for (let i = 0; i < API_KEYS.length; i++) {
       const key = getNextKey();
@@ -54,13 +52,11 @@ export const aiService = {
           if (text) return text;
         }
 
-        // 429 = kota aşıldı → sonraki key'e geç
         if (res.status === 429) {
           console.warn(`Key #${((startIndex + i) % API_KEYS.length) + 1} kota aşıldı, sonraki key deneniyor...`);
           continue;
         }
 
-        // Başka hata → logla ve sonraki key'e geç
         const errBody = await res.text();
         console.error(`Key #${((startIndex + i) % API_KEYS.length) + 1} hata (${res.status}):`, errBody);
       } catch (err) {
@@ -68,7 +64,6 @@ export const aiService = {
       }
     }
 
-    // Tüm key'ler tükendiyse hata mesajı
     return "⚠️ Tüm API anahtarlarının kotası dolmuş. Lütfen biraz bekleyip tekrar deneyin (kotalar genellikle 1 dakika içinde yenilenir).";
   }
 };

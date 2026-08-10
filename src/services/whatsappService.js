@@ -62,7 +62,6 @@ export const sendWhatsAppNotification = async (userId, studentName, action, date
 
     const message = `🏛 *Kurum Bilgilendirme Sistemi*\n\nSayın Velimiz,\nÖğrencimiz *${studentName}* bugün saat *${timeStr}* itibarıyla kuruma *${actionLabel}* yapmıştır.\n\n📍 Durum: ${statusEmoji}\n📅 Tarih: ${dateStr}\n\nİyi günler dileriz.`;
 
-    // Get the JWT Token
     const { getAuth } = await import('firebase/auth');
     const { cryptoService } = await import('./cryptoService');
     const auth = getAuth();
