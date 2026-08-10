@@ -14,6 +14,7 @@ const SettingsView = () => {
     schoolName: 'Boğaziçi Koleji',
     academicYear: '2025-2026',
     activeTerm: '1',
+    geminiApiKey: '',
     maintenanceMode: false,
     whatsappNotifications: true,
     smsNotifications: false,
@@ -116,6 +117,19 @@ const SettingsView = () => {
                 onChange={handleChange}
                 className="w-full px-4 py-2.5 bg-transparent border-b border-slate-300 focus:border-slate-900 outline-none text-[15px] text-slate-900 dark:text-white transition-colors placeholder:text-slate-600 dark:text-slate-400"
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-medium text-slate-700 dark:text-slate-300">Nova AI (Gemini API Anahtarı)</label>
+              <input
+                type="password"
+                name="geminiApiKey"
+                value={settings.geminiApiKey || ''}
+                onChange={handleChange}
+                placeholder="AI_zaSy..."
+                className="w-full px-4 py-2.5 bg-transparent border-b border-slate-300 focus:border-slate-900 outline-none text-[15px] text-slate-900 dark:text-white transition-colors placeholder:text-slate-400"
+              />
+              <p className="text-[11px] text-slate-400">Google Gemini API key girildiğinde Firestore üzerinden doğrudan bağlanılır (Asla uyku moduna geçmez).</p>
             </div>
 
             <div className="flex gap-6">

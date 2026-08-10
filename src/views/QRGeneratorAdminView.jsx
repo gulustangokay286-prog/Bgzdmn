@@ -15,7 +15,7 @@ const QRGeneratorAdminView = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [cheatAlert, setCheatAlert] = useState(null);
-  
+
   const containerRef = useRef(null);
   const secondsTextRef = useRef(null);
   const clockTimeRef = useRef(null);
@@ -24,7 +24,7 @@ const QRGeneratorAdminView = () => {
   const cycleStartRef = useRef(Date.now());
   const isRefreshingRef = useRef(false);
 
-  const CYCLE_DURATION = 3500; 
+  const CYCLE_DURATION = 3500;
   const isDark = qrTheme === 'dark';
 
   // Sync isRefreshingRef with state
@@ -165,12 +165,12 @@ const QRGeneratorAdminView = () => {
     <div
       ref={containerRef}
       style={{ background: isDark ? '#0b1120' : '#f1f5f9' }}
-      className={`absolute inset-0 z-10 flex items-center justify-center font-sans p-4 sm:p-6 transition-colors duration-500 overflow-auto ${
-        isDark ? 'text-white' : 'text-slate-900'
-      }`}
+      className={`absolute inset-0 z-10 flex items-center justify-center font-sans p-4 sm:p-6 transition-colors duration-500 overflow-auto ${isDark ? 'text-white' : 'text-slate-900'
+        }`}
     >
       {/* Orijinal conic-gradient animasyonu — @property ile */}
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400&family=Quicksand:wght@300;400&family=Mali:wght@300;400&family=Fredoka:wght@300;400&display=swap');
         @property --progress-angle {
           syntax: '<angle>';
           initial-value: 0deg;
@@ -188,65 +188,60 @@ const QRGeneratorAdminView = () => {
         }
       `}</style>
 
-      <div className={`relative z-10 w-full flex flex-col items-center transition-all duration-500 ${
-        isFullscreen ? 'max-w-[1240px]' : 'max-w-[920px]'
-      }`}>
+      <div className={`relative z-10 w-full flex flex-col items-center transition-all duration-500 ${isFullscreen ? 'max-w-[1280px]' : 'max-w-[1080px]'
+        }`}>
 
         {/* Top Header / Info Bar */}
-        <div className={`w-full flex flex-col md:flex-row justify-between items-center mb-6 px-4 py-3.5 border rounded-2xl gap-4 transition-colors duration-500 ${
-          isDark ? 'bg-slate-900/80 border-slate-800 shadow-lg' : 'bg-white border-slate-200 shadow-md'
-        }`}>
-          {/* Left: System Title + Verified Icon */}
-          <div className="flex items-center gap-3">
-            <img 
-              src="/verified.png" 
-              alt="Sistem Güvende" 
-              className="w-6 h-6 object-contain saturate-200 contrast-150 brightness-75 hue-rotate-[90deg]"
+        <div className={`relative w-full flex flex-col md:flex-row justify-between items-center mb-6 px-5 py-3.5 border rounded-2xl gap-4 transition-colors duration-500 ${isDark ? 'bg-slate-900/80 border-slate-800 shadow-lg' : 'bg-white border-slate-200 shadow-md'
+          }`}>
+          {/* Left: System Title + Verified Icon + Date */}
+          <div className="flex items-center gap-2">
+            <img
+              src="/verified.png"
+              alt="Sistem Güvende"
+              className="w-7 h-7 object-contain saturate-200 contrast-150 brightness-75 hue-rotate-[90deg] shrink-0"
             />
-            <div className="flex flex-col">
-              <h1 className={`text-[15px] font-extrabold leading-[1.2] translate-y-[7px] ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Chenki • Sistem Güvende ve Aktif
+            <div className="flex flex-col justify-center gap-0.5">
+              <h1 className={`text-[15px] font-extrabold leading-none translate-y-[4px] ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Sistem Güvende ve Aktif
               </h1>
-              <span ref={clockDateRef} className="text-[10px] font-bold uppercase tracking-[1.6px] mt-2 -translate-y-[4px]" style={{ color: '#76859d' }}></span>
+              <span ref={clockDateRef} className="text-[10px] font-bold uppercase tracking-[1.6px] leading-none text-[#76859d]"></span>
             </div>
           </div>
 
-          {/* Center: Mode Selector (Yoklama / Turnike) */}
-          <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Mod:</span>
-            <div className={`flex items-center p-1 rounded-full border ${
-              isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+          {/* Center: 100% Geometrically Centered Mode Selector */}
+          <div className={`md:absolute md:left-1/2 md:-translate-x-1/2 flex items-center p-1 rounded-full border transition-all duration-300 ${isDark
+            ? 'bg-slate-800/60 border-slate-700/60'
+            : 'bg-slate-100/80 border-slate-200/80 shadow-inner'
             }`}>
-              <button
-                onClick={() => setSelectedType('attendance')}
-                className={`px-4 py-1.5 rounded-full text-[12px] font-bold transition-all ${
-                  selectedType === 'attendance'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-700/50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')
+            <button
+              onClick={() => setSelectedType('attendance')}
+              className={`px-4 py-1.5 rounded-full text-[12px] font-bold transition-all duration-300 ${selectedType === 'attendance'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : (isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900')
                 }`}
-              >
-                Yoklama
-              </button>
-              <button
-                onClick={() => setSelectedType('institution_gate')}
-                className={`px-4 py-1.5 rounded-full text-[12px] font-bold transition-all ${
-                  selectedType === 'institution_gate'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-700/50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')
+            >
+              Yoklama
+            </button>
+            <button
+              onClick={() => setSelectedType('institution_gate')}
+              className={`px-4 py-1.5 rounded-full text-[12px] font-bold transition-all duration-300 ${selectedType === 'institution_gate'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : (isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900')
                 }`}
-              >
-                Turnike
-              </button>
-            </div>
+            >
+              Turnike
+            </button>
           </div>
+
+
 
           {/* Right: Digital Clock + Action Buttons */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Clock size={16} className={isDark ? 'text-indigo-400' : 'text-indigo-600'} />
-              <span ref={clockTimeRef} className={`text-[22px] font-extrabold tracking-tight tabular-nums ${
-                isDark ? 'text-white' : 'text-slate-800'
-              }`}>
+              <span ref={clockTimeRef} className={`text-[22px] font-extrabold tracking-tight tabular-nums ${isDark ? 'text-white' : 'text-slate-800'
+                }`}>
               </span>
             </div>
 
@@ -255,22 +250,20 @@ const QRGeneratorAdminView = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setQrTheme(t => t === 'dark' ? 'light' : 'dark')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[12px] border transition-all ${
-                  isDark
-                    ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[12px] border transition-all ${isDark
+                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                  : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
+                  }`}
               >
                 {isDark ? <Sun size={14} /> : <Moon size={14} />}
                 {isDark ? 'Beyaz' : 'Karanlık'}
               </button>
               <button
                 onClick={toggleFullscreen}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[12px] border transition-all ${
-                  isDark
-                    ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[12px] border transition-all ${isDark
+                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                  : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
+                  }`}
               >
                 {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
                 {isFullscreen ? 'Çık' : 'Tam Ekran'}
@@ -280,9 +273,9 @@ const QRGeneratorAdminView = () => {
         </div>
 
         {/* Main Content Box (Focused on QR Codes) */}
-        <div className={`border rounded-[32px] p-8 sm:p-12 w-full flex flex-col items-center justify-center transition-all duration-500 ${
-          isDark ? 'bg-slate-900/90 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'
-        }`}>
+        <div className={`border rounded-[32px] p-8 sm:p-12 w-full flex flex-col items-center justify-center transition-all duration-500 ${isDark ? 'bg-slate-900/90 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'
+          }`}>
+
 
           {/* QR Cards Area */}
           <div className="w-full flex justify-center relative">
@@ -300,9 +293,8 @@ const QRGeneratorAdminView = () => {
             )}
 
             {selectedType === 'institution_gate' ? (
-              <div className={`flex flex-col sm:flex-row items-center w-full py-4 transition-all ${
-                isFullscreen ? 'justify-between px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'justify-between px-2 sm:px-5 lg:px-8 gap-4 sm:gap-6'
-              }`}>
+              <div className={`flex flex-col sm:flex-row items-center w-full py-4 transition-all ${isFullscreen ? 'justify-between px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'justify-between px-2 sm:px-5 lg:px-8 gap-4 sm:gap-6'
+                }`}>
                 {/* Entry QR */}
                 <div className="relative flex flex-col items-center justify-center">
                   <div
@@ -310,9 +302,8 @@ const QRGeneratorAdminView = () => {
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#10b981' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] p-7 shadow-2xl flex flex-col items-center border transition-all ${
-                    isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
-                  }`}>
+                  <div className={`relative z-10 rounded-[30px] p-7 shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
+                    }`}>
                     <span className="text-[18px] font-black tracking-widest text-emerald-500 mb-5 uppercase">GİRİŞ YAP</span>
                     <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
                       <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
@@ -333,69 +324,56 @@ const QRGeneratorAdminView = () => {
 
                 {/* Center Column — Branding */}
                 <div className="flex flex-col items-center justify-center my-auto text-center" style={{ maxWidth: '470px', padding: '30px 10px' }}>
-                  {/* CHENKİ badge with decorative lines */}
-                  <div className="flex items-center justify-center gap-2.5 mb-4 w-full translate-x-[8px]">
-                    <div className="w-[27px] h-[1px]" style={{ background: 'linear-gradient(90deg, transparent, #665dff)' }} />
-                    <span className="text-[14px] font-black tracking-[5px] pl-[5px] uppercase" style={{ color: '#8d86ff' }}>CHENKİ</span>
-                    <div className="w-[27px] h-[1px]" style={{ background: 'linear-gradient(270deg, transparent, #665dff)' }} />
-                  </div>
+
 
                   {/* Large title */}
                   <h2 className={`font-black leading-[1.12] pb-1 ${isFullscreen ? 'text-[40px] sm:text-[48px]' : 'text-[32px] sm:text-[38px]'}`}
-                    style={{ letterSpacing: '-1.5px', color: '#f7f9fc', textShadow: '0 5px 28px rgba(0,0,0,.28)' }}
+                    style={{ letterSpacing: '-1.5px', color: isDark ? '#f7f9fc' : '#0f172a', textShadow: isDark ? '0 5px 28px rgba(0,0,0,.28)' : 'none' }}
                   >
                     Akıllı
-                    <span className="block mt-2 pb-1" style={{
-                      background: 'linear-gradient(100deg, #ffffff 0%, #dfe5f0 100%)',
-                      WebkitBackgroundClip: 'text',
-                      backgroundClip: 'text',
-                      color: 'transparent'
-                    }}>Geçiş Sistemi</span>
+                    <span className={`block mt-2 pb-1 ${isDark ? 'bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent' : 'text-[#1e40af]'
+                      }`}>Geçiş Sistemi</span>
                   </h2>
 
-                  {/* Description */}
-                  <p className={`mt-5 ${isFullscreen ? 'text-[15px]' : 'text-[13px]'} font-medium leading-[1.65]`}
-                    style={{ color: '#8997ad', maxWidth: '390px' }}
-                  >
-                    QR kod teknolojisi ile hızlı, güvenli ve temassız personel giriş-çıkış yönetimi.
-                  </p>
-
-                  {/* Feature tags — Slightly Cylindrical Pills */}
-                  <div className="flex items-center justify-center flex-wrap gap-2 mt-5">
-                    {['QR GEÇİŞ', 'ANLIK KONTROL', 'GÜVENLİ ERİŞİM'].map(tag => (
-                      <span key={tag} className="py-1.5 px-3.5 rounded-full text-[10px] font-bold tracking-[0.25px]"
-                        style={{
-                          color: '#9da9bb',
-                          background: 'rgba(255,255,255,.035)',
-                          border: '1px solid rgba(255,255,255,.045)'
-                        }}
-                      >{tag}</span>
-                    ))}
+                  {/* Red Flourish Underline (Shifted 2.3px Higher Up -> -10.3px) */}
+                  <div className="w-full flex justify-center -mt-2" style={{ transform: 'translateY(-10.3px)' }}>
+                    <svg
+                      width="190"
+                      height="30"
+                      viewBox="0 0 190 30"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-[150px] sm:w-[185px] h-auto"
+                    >
+                      {/* Red Flourish with Upward Inverted Bend on Middle Stroke */}
+                      <path
+                        d="M 28 8 Q 100 -1 172 8 Q 179 9.5 152 11 Q 112 12.5 72 19 Q 60 21 78 22 Q 108 19 138 25"
+                        stroke="#ef4444"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </div>
 
-                  {/* www.chenki.net link with gradient underline */}
-                  <a href="https://www.chenki.net" target="_blank" rel="noopener noreferrer"
-                    className={`relative inline-block mt-7 font-black text-white no-underline hover:-translate-y-0.5 transition-transform ${isFullscreen ? 'text-[24px] sm:text-[27px]' : 'text-[20px] sm:text-[23px]'}`}
-                    style={{ letterSpacing: '-0.4px' }}
+                  {/* Description */}
+                  <p className={`mt-3 ${isFullscreen ? 'text-[15px]' : 'text-[13px]'} font-medium leading-[1.65]`}
+                    style={{ color: isDark ? '#8997ad' : '#475569', maxWidth: '390px' }}
                   >
-                    www.chenki.net
-                    <div className="absolute left-0 right-0 -bottom-[7px] h-[2px] rounded-full opacity-85"
-                      style={{ background: 'linear-gradient(90deg, #5c63ff, #9758ff, #f04476)' }}
-                    />
-                  </a>
-
-                  {/* Timer */}
+                    QR kod teknolojisi ile hızlı, güvenli ve temassız öğrenci, personel giriş-çıkış yönetimi.
+                  </p>
+                  {/* Cylindrical Timer Button */}
                   <button
                     onClick={refreshQR}
-                    className={`mt-8 inline-flex items-center gap-2 ${isFullscreen ? 'h-[34px] px-3.5 text-[12px]' : 'h-[30px] px-3 text-[11px]'} font-semibold rounded-[10px] transition-all`}
-                    style={{
-                      color: '#b4bfce',
-                      background: 'rgba(255,255,255,.035)',
-                      border: '1px solid rgba(255,255,255,.035)'
-                    }}
+                    className={`mt-7 inline-flex items-center gap-2 px-5 py-2 rounded-full font-bold text-[12px] border transition-all duration-300 hover:scale-105 active:scale-95 ${isDark
+                      ? 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-600 shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-700 hover:text-slate-900 shadow-md hover:shadow-lg'
+                      }`}
                   >
-                    <RefreshCcw size={14} className={isRefreshing ? 'animate-spin' : ''} style={{ color: '#77869d' }} />
-                    <span ref={selectedType === 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums">3.5 saniye kaldı</span>
+                    <RefreshCcw size={13} className={`transition-transform ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
+                    <span ref={selectedType === 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums tracking-wide">
+                      3.5 saniye kaldı
+                    </span>
                   </button>
                 </div>
 
@@ -406,9 +384,8 @@ const QRGeneratorAdminView = () => {
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#ef4444' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] p-7 shadow-2xl flex flex-col items-center border transition-all ${
-                    isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
-                  }`}>
+                  <div className={`relative z-10 rounded-[30px] p-7 shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
+                    }`}>
                     <span className="text-[18px] font-black tracking-widest text-rose-500 mb-5 uppercase">ÇIKIŞ YAP</span>
                     <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
                       <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
@@ -434,9 +411,8 @@ const QRGeneratorAdminView = () => {
                   className={`absolute -inset-5 rounded-[40px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                   style={{ '--border-color': '#6366f1' }}
                 />
-                <div className={`relative z-10 rounded-[32px] p-8 shadow-2xl flex flex-col items-center border ${
-                  isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-indigo-50/70 border-indigo-100'
-                }`}>
+                <div className={`relative z-10 rounded-[32px] p-8 shadow-2xl flex flex-col items-center border ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-indigo-50/70 border-indigo-100'
+                  }`}>
                   <span className="text-[20px] font-black tracking-widest text-indigo-500 mb-5 uppercase">YOKLAMA</span>
                   <div className="relative p-5 bg-white rounded-[26px] shadow-md flex items-center justify-center overflow-hidden">
                     <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
@@ -457,40 +433,40 @@ const QRGeneratorAdminView = () => {
             )}
           </div>
 
-          {/* Bottom Refresh Status — shown only in Yoklama mode */}
+          {/* Bottom Refresh Status — Cylindrical Pill */}
           {selectedType !== 'institution_gate' && (
             <div className="mt-8 flex justify-center">
               <button
                 onClick={refreshQR}
-                className={`flex items-center gap-2 border px-4 py-2 rounded-full text-[12px] font-bold shadow-sm transition-all ${
-                  isDark
-                    ? 'bg-slate-800/90 border-slate-700 text-slate-300 hover:text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900'
-                }`}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[12px] font-bold border transition-all duration-300 hover:scale-105 active:scale-95 ${isDark
+                  ? 'bg-slate-800/90 border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-700 hover:text-slate-900 shadow-md hover:shadow-lg'
+                  }`}
               >
-                <RefreshCcw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-                <span ref={selectedType !== 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums">3.5 saniye kaldı</span>
+                <RefreshCcw size={13} className={`transition-transform ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
+                <span ref={selectedType !== 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums tracking-wide">
+                  3.5 saniye kaldı
+                </span>
               </button>
             </div>
           )}
 
-          {/* Footer Branding — Gradient Footer */}
-          <div className="mt-8 w-full flex items-center justify-center gap-3.5 select-none">
-            <span className={`${isFullscreen ? 'text-[10px]' : 'text-[9px]'} font-black tracking-[4px] uppercase`}
-              style={{ color: '#808da2' }}
-            >
+          {/* Footer Branding — Pure, Minimalist & Smooth */}
+          <div className="mt-10 w-full flex flex-col items-center justify-center select-none">
+            <span className={`text-[11px] font-semibold tracking-[3px] uppercase mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'
+              }`}>
               POWERED BY
             </span>
-            <span className={`${isFullscreen ? 'text-[22px]' : 'text-[20px]'} font-black tracking-[0.3px]`}
-              style={{
-                background: 'linear-gradient(90deg, #6965ff 0%, #a558ff 48%, #ef5279 100%)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                color: 'transparent'
-              }}
+            <a
+              href="https://www.chenki.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`no-underline font-normal tracking-wide transition-all duration-300 hover:opacity-80 hover:scale-105 ${isFullscreen ? 'text-[26px] sm:text-[30px]' : 'text-[22px] sm:text-[26px]'
+                } ${isDark ? 'text-white' : 'text-slate-900'}`}
+              style={{ fontFamily: "'Comfortaa', sans-serif", wordSpacing: '-4px', letterSpacing: '0.5px', fontWeight: 300 }}
             >
-              www.chenki.net
-            </span>
+              www . chenki . net
+            </a>
           </div>
         </div>
       </div>

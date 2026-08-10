@@ -109,14 +109,20 @@ const ScheduleAdminView = () => {
     try {
       const dataToSave = {
         classId: formData.classId,
+        class_id: formData.classId,
         courseName: formData.courseName,
+        course_name: formData.courseName,
         teacherName: formData.teacherName,
+        teacher_name: formData.teacherName,
         teacherId: teacherId,
+        teacher_id: teacherId,
         room: formData.room,
         dayIndex: parseInt(formData.dayIndex),
+        day_index: parseInt(formData.dayIndex),
         startTime: selectedLesson.start,
         endTime: selectedLesson.end,
         lessonIndex: parseInt(formData.lessonIndex),
+        lesson_index: parseInt(formData.lessonIndex),
         hasAssignment: formData.hasAssignment,
         createdAt: serverTimestamp()
       };
@@ -125,6 +131,9 @@ const ScheduleAdminView = () => {
         dataToSave.assignmentDetails = formData.assignmentDetails;
       }
       await addDoc(collection(db, 'schedule'), dataToSave);
+      await addDoc(collection(db, 'schedules'), dataToSave);
+      await addDoc(collection(db, 'student_schedules'), dataToSave);
+      await addDoc(collection(db, 'teacher_schedules'), dataToSave);
       setIsModalOpen(false);
       setFormData({ 
         ...formData, 
@@ -149,7 +158,11 @@ const ScheduleAdminView = () => {
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      await deleteDoc(doc(db, 'schedule', deleteConfirm.id));
+      const id = deleteConfirm.id;
+      await deleteDoc(doc(db, 'schedule', id)).catch(() => {});
+      await deleteDoc(doc(db, 'schedules', id)).catch(() => {});
+      await deleteDoc(doc(db, 'student_schedules', id)).catch(() => {});
+      await deleteDoc(doc(db, 'teacher_schedules', id)).catch(() => {});
     } catch (error) {
       console.error('Silme hatası:', error);
     }

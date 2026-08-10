@@ -22,7 +22,8 @@ import RegistrationApprovalView from './views/RegistrationApprovalView';
 import UsersView from './views/UsersView';
 import GradesAdminView from './views/GradesAdminView';
 import AttendanceAdminView from './views/AttendanceAdminView';
-import EbosPortalView from './views/EbosPortalView';import QRGeneratorAdminView from './views/QRGeneratorAdminView';
+import EbosPortalView from './views/EbosPortalView';
+import QRGeneratorAdminView from './views/QRGeneratorAdminView';
 import AttendanceLiveView from './views/AttendanceLiveView';
 import TeacherManagementAdminView from './views/TeacherManagementAdminView';
 import ScheduleAdminView from './views/ScheduleAdminView';
@@ -32,8 +33,9 @@ import CafeteriaAdminView from './views/CafeteriaAdminView';
 import AppointmentsAdminView from './views/AppointmentsAdminView';
 import TransportAdminView from './views/TransportAdminView';
 import CounselingAdminView from './views/CounselingAdminView';
-import NovaAIAdminView from './views/NovaAIAdminView';
 import ChatView from './views/ChatView';
+import NovaAIAdminView from './views/NovaAIAdminView';
+import TeacherAIAnalysisView from './views/TeacherAIAnalysisView';
 import SettingsView from './views/SettingsView';
 import InstitutionSettingsAdminView from './views/InstitutionSettingsAdminView';
 import SecurityLogsView from './views/SecurityLogsView';
@@ -224,6 +226,7 @@ const App = () => {
               <Route path="/qr" element={<RequireLicense requiredPath="/qr"><QRGeneratorAdminView /></RequireLicense>} />
               <Route path="/live-attendance" element={<RequireLicense requiredPath="/live-attendance"><AttendanceLiveView /></RequireLicense>} />
               <Route path="/teachers" element={<RequireLicense requiredPath="/teachers"><TeacherManagementAdminView /></RequireLicense>} />
+              <Route path="/teachers/ai-analysis/:teacherId" element={<RequireLicense requiredPath="/teachers"><TeacherAIAnalysisView /></RequireLicense>} />
               <Route path="/schedule" element={<RequireLicense requiredPath="/schedule"><ScheduleAdminView /></RequireLicense>} />
               <Route path="/announcements" element={<RequireLicense requiredPath="/announcements"><AnnouncementsAdminView /></RequireLicense>} />
               <Route path="/device-management" element={<RequireLicense requiredPath="/student-gate"><DeviceManagementView /></RequireLicense>} />

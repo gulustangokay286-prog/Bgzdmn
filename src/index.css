@@ -98,6 +98,29 @@ html {
   background-color: #0b1120;
 }
 
+/* ── Global Dark Mode Form & Select Adaptations ── */
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.dark select option,
+[data-theme='dark'] select option,
+html.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+select {
+  color-scheme: light dark;
+}
+
+/* Custom Selection Highlight (fixes grey selection band) */
+::selection {
+  background-color: rgba(99, 102, 241, 0.35);
+  color: inherit;
+}
+
 #root {
   display: flex;
   height: 100dvh;
