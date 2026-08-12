@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ArrowRight, Clock, AlertTriangle, ChevronDown, ShieldAlert, AlertCircle, UserX } from 'lucide-react';
+import { Search, ArrowRight, Clock, AlertTriangle, ChevronDown, ShieldAlert, AlertCircle, UserX, Trash2 } from 'lucide-react';
 import { db } from '../services/firebaseConfig';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, getDocs, deleteDoc } from 'firebase/firestore';
 import { firebaseService } from '../services/firebase';
 
 const CheatLogsAdminView = () => {
@@ -130,9 +130,27 @@ const CheatLogsAdminView = () => {
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleClearLogs = async () => {
+    if (!window.confirm("Tüm güvenlik ihlali kayıtları veritabanından kalıcı olarak silinecektir. Emin misiniz?")) return;
+    try {
+      setLoading(true);
+      const snap = await getDocs(collection(db, 'security_logs'));
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref).catch(() => {});
+      }
+      setLogs([]);
+      alert("Tüm ihlal kayıtları başarıyla silindi.");
+    } catch (e) {
+      console.error("Silme hatası:", e);
+      alert("İhlal kayıtları silinirken hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="w-full flex-1 flex flex-col font-sans gap-6 pb-6">
-      { }
+      {/* Header Bar */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end w-full shrink-0 gap-6 mb-2">
         <div className="flex items-center gap-5">
           <div className="flex flex-col">
@@ -148,19 +166,30 @@ const CheatLogsAdminView = () => {
           </div>
         </div>
         
-        <div className="relative w-[calc(100%-80px)] lg:w-80 ml-[10px] lg:ml-0">
-          <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-600 dark:text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="İsim veya TC ara..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-full focus:ring-2 focus:ring-slate-900 outline-none text-[14px] font-bold text-slate-900 dark:text-white transition-all placeholder:text-slate-600 dark:placeholder:text-slate-400 shadow-sm"
-          />
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          {logs.length > 0 && (
+            <button
+              onClick={handleClearLogs}
+              className="px-4 py-3 rounded-full text-[13px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 hover:bg-red-100 dark:hover:bg-red-900/60 transition-all flex items-center gap-2"
+            >
+              <Trash2 size={16} />
+              <span>İhlal Kayıtlarını Temizle</span>
+            </button>
+          )}
+          <div className="relative w-full lg:w-80">
+            <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-600 dark:text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="İsim veya TC ara..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-full focus:ring-2 focus:ring-slate-900 outline-none text-[14px] font-bold text-slate-900 dark:text-white transition-all placeholder:text-slate-600 dark:placeholder:text-slate-400 shadow-sm"
+            />
+          </div>
         </div>
       </div>
 
-      { }
+      {/* Summary Banner */}
       {!loading && totalViolations > 0 && (
         <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
           <ShieldAlert size={20} className="text-red-600 dark:text-red-400 shrink-0" strokeWidth={2} />

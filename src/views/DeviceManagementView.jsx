@@ -163,26 +163,56 @@ const DeviceManagementView = () => {
     );
   }
 
+  const handleWipeAllLocks = async () => {
+    if (!window.confirm("Sistemdeki TÜM cihaz kilitleri ve güvenlik ihlali ikazları temizlenecektir. Devam etmek istiyor musunuz?")) return;
+    try {
+      setLoading(true);
+      const cols = ['device_locks', 'stable_device_locks', 'student_daily_locks', 'security_logs'];
+      for (const colName of cols) {
+        const snap = await getDocs(collection(db, colName));
+        for (const docSnap of snap.docs) {
+          await deleteDoc(docSnap.ref).catch(() => {});
+        }
+      }
+      setDeviceLocks({});
+      alert("Tüm cihaz kilitleri ve güvenlik kayıtları başarıyla sıfırlandı!");
+    } catch (err) {
+      console.error("Sıfırlama hatası:", err);
+      alert("Sıfırlanırken bir hata oluştu.");
+    } finally {
+      fetchData();
+    }
+  };
+
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans pb-2 md:pb-6 overflow-x-hidden">
       
-      { }
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-8 shrink-0 gap-4 w-full">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 shrink-0 gap-4 w-full">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-medium text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wider">{currentDate}</span>
           <h1 className="text-[28px] md:text-[32px] font-semibold text-slate-900 dark:text-white tracking-tight leading-none flex items-center gap-3">
             Cihaz Yönetimi
           </h1>
         </div>
-        <div className="relative w-full sm:w-64">
-          <Search size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-600 dark:text-slate-400" />
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="İsim veya no ile ara..."
-            className="pl-10 pr-4 py-2.5 w-[280px] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-lg text-[14px] text-slate-900 dark:text-white outline-none focus:border-slate-400 transition-colors"
-          />
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={handleWipeAllLocks}
+            className="px-3.5 py-2.5 rounded-lg text-[13px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 hover:bg-red-100 dark:hover:bg-red-900/60 transition-all flex items-center gap-2"
+          >
+            <Unlock size={15} />
+            <span>Tüm Cihaz Kilitlerini Sıfırla</span>
+          </button>
+          <div className="relative w-full sm:w-64">
+            <Search size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-600 dark:text-slate-400" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="İsim veya no ile ara..."
+              className="pl-10 pr-4 py-2.5 w-full sm:w-[240px] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-lg text-[14px] text-slate-900 dark:text-white outline-none focus:border-slate-400 transition-colors"
+            />
+          </div>
         </div>
       </div>
 

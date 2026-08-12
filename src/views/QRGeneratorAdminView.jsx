@@ -271,14 +271,46 @@ const QRGeneratorAdminView = () => {
           <div className="w-full flex justify-center relative">
             {cheatAlert && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-red-600/95 rounded-[28px] backdrop-blur-md p-6 border-4 border-red-500 shadow-2xl">
-                <ShieldBan size={64} className="text-white mb-4 animate-bounce" strokeWidth={1.5} />
+                <button 
+                  onClick={() => setCheatAlert(null)}
+                  className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 p-2 rounded-full transition-all"
+                >
+                  <X size={20} />
+                </button>
+                <ShieldBan size={64} className="text-white mb-3 animate-bounce" strokeWidth={1.5} />
                 <h3 className="text-[20px] font-black text-white uppercase tracking-wider mb-2 text-center">
                   Güvenlik İhlali!
                 </h3>
-                <p className="text-[14px] font-bold text-red-100 text-center">
+                <p className="text-[14px] font-bold text-red-100 text-center mb-4">
                   Asıl Sahip: {cheatAlert.originalOwnerTc}<br />
                   Okutulan: {cheatAlert.attemptedStudentTc}
                 </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCheatAlert(null)}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold text-[12px] transition-all"
+                  >
+                    Kapat
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setCheatAlert(null);
+                      try {
+                        const snap = await getDocs(collection(db, 'security_logs'));
+                        for (const d of snap.docs) {
+                          await deleteDoc(d.ref).catch(() => {});
+                        }
+                        const devSnap = await getDocs(collection(db, 'device_locks'));
+                        for (const d of devSnap.docs) {
+                          await deleteDoc(d.ref).catch(() => {});
+                        }
+                      } catch (e) {}
+                    }}
+                    className="px-4 py-2 bg-white text-red-600 hover:bg-red-50 rounded-xl font-black text-[12px] shadow-md transition-all"
+                  >
+                    İhlali & Cihazı Temizle
+                  </button>
+                </div>
               </div>
             )}
 
