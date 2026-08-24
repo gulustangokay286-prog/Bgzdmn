@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Download, Printer, Search, Users, UserX, UserCheck, AlertCircle, RefreshCcw, Filter, ChevronDown, FileText, CheckCircle } from 'lucide-react';
+import { Calendar, Download, Printer, Search, Users, UserX, UserCheck, AlertCircle, RefreshCcw, Filter, ChevronDown, FileText, CheckCircle, Clock, Timer } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import { db, rtdb } from '../services/firebaseConfig';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -41,21 +41,20 @@ const DailyAbsenceReportView = () => {
         };
       });
 
-      // 2. Seçilen güne ait RTDB ve Firestore Attendance Loglarını çek
-      const recordsMap = {}; // studentId -> { status: 'entry'|'present'|'late', firstScanTime: '08:55', ... }
+      // 2. Seçilen güne ait RTDB ve Firestore Loglarını analiz et
+      const recordsMap = {}; // studentId -> { morningScan: { time, isLate }, afternoonScan: { time, isLate }, manualRecord: { ... } }
 
       try {
-        // RTDB check
+        // RTDB logs
         const rtdbSnap = await get(ref(rtdb, `qr_system/attendance_logs/${selectedDate}`));
         if (rtdbSnap.exists()) {
           const logs = rtdbSnap.val();
           Object.values(logs).forEach(log => {
             if (log.studentId) {
-              recordsMap[log.studentId] = {
-                status: log.status || 'entry',
-                time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '08:50',
-                isLate: log.isLate || false
-              };
+              if (!recordsMap[log.studentId]) {
+                recordsMap[log.studentId] = { scans: [] };
+              }
+              recordsMap[log.studentId].scans.push(log);
             }
           });
         }
@@ -63,21 +62,37 @@ const DailyAbsenceReportView = () => {
         console.log("RTDB logs load info:", rtdbErr);
       }
 
-      // Firestore check
+      // Firestore logs
       try {
         const fsLogsSnap = await getDocs(query(collection(db, 'attendance_logs'), where('date', '==', selectedDate)));
         fsLogsSnap.forEach(d => {
           const data = d.data();
-          if (data.studentId && !recordsMap[data.studentId]) {
-            recordsMap[data.studentId] = {
-              status: data.status || 'present',
-              time: data.timestamp ? (data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp)).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '08:50',
-              isLate: data.isLate || false
-            };
+          if (data.studentId) {
+            if (!recordsMap[data.studentId]) {
+              recordsMap[data.studentId] = { scans: [] };
+            }
+            recordsMap[data.studentId].scans.push(data);
           }
         });
       } catch (fsErr) {
         console.log("Firestore logs load info:", fsErr);
+      }
+
+      // Firestore manual 'attendance' records
+      try {
+        const fsManualSnap = await getDocs(collection(db, 'attendance'));
+        fsManualSnap.forEach(d => {
+          const data = d.data();
+          const rDate = data.date ? (data.date.toDate ? data.date.toDate().toISOString().split('T')[0] : new Date(data.date).toISOString().split('T')[0]) : null;
+          if (rDate === selectedDate && data.studentId) {
+            if (!recordsMap[data.studentId]) {
+              recordsMap[data.studentId] = { scans: [] };
+            }
+            recordsMap[data.studentId].manual = data;
+          }
+        });
+      } catch (manualErr) {
+        console.log("Manual attendance load info:", manualErr);
       }
 
       setAllStudents(studentList);
@@ -93,23 +108,115 @@ const DailyAbsenceReportView = () => {
     fetchDailyData();
   }, [selectedDate]);
 
-  // Öğrencilerin Yoklama Durumunu Belirleme
+  // Öğrencilerin Tam Gün / Yarım Gün / Geç Kalma Analizi
   const analyzedStudents = useMemo(() => {
     return allStudents.map(student => {
-      const record = attendanceRecords[student.id];
-      const isPresent = !!record;
+      const rec = attendanceRecords[student.id];
+      
+      // Manuel kayıt varsa öncelikli
+      if (rec?.manual) {
+        const cName = rec.manual.courseName || '';
+        const isYarim = cName.includes('Yarım Gün') || rec.manual.periodIndex === -0.5;
+        const isRaporlu = rec.manual.status === 'excused' || cName.includes('Raporlu');
+        return {
+          ...student,
+          absenceStatus: isRaporlu ? 'RAPORLU' : isYarim ? 'YARIM_GUN' : 'TAM_GUN',
+          absenceWeight: isRaporlu ? 0 : (isYarim ? 0.5 : 1.0),
+          statusLabel: isRaporlu ? 'İzinli / Raporlu' : isYarim ? 'Yarım Gün Devamsız (0.5)' : 'Tam Gün Devamsız (1.0)',
+          detailNote: rec.manual.courseName || 'Manuel İşlem',
+          isLate: false
+        };
+      }
+
+      const scans = rec?.scans || [];
+      if (scans.length === 0) {
+        // Hiç tarama yok -> Tam Gün Devamsız
+        return {
+          ...student,
+          absenceStatus: 'TAM_GUN',
+          absenceWeight: 1.0,
+          statusLabel: 'Tam Gün Devamsız (1.0)',
+          detailNote: 'Hiç Giriş Yapmadı',
+          isLate: false
+        };
+      }
+
+      // Sabah (07:00 - 12:30) ve Öğle (12:30 - 18:00) Giriş Taramalarını Ayır
+      let hasMorningEntry = false;
+      let hasAfternoonEntry = false;
+      let morningLate = false;
+      let afternoonLate = false;
+      let scanTimes = [];
+
+      scans.forEach(s => {
+        let hour = 9, min = 0;
+        if (s.time) {
+          const parts = s.time.split(':').map(Number);
+          hour = parts[0]; min = parts[1];
+        } else if (s.timestamp) {
+          const d = new Date(s.timestamp);
+          hour = d.getHours(); min = d.getMinutes();
+        }
+        scanTimes.push(`${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
+        const totalMin = hour * 60 + min;
+
+        if (totalMin < 12 * 60 + 30) {
+          hasMorningEntry = true;
+          if (totalMin > 9 * 60 + 5 || s.isLate) morningLate = true;
+        } else {
+          hasAfternoonEntry = true;
+          if (totalMin > 13 * 60 + 5 || s.isLate) afternoonLate = true;
+        }
+      });
+
+      const isLate = morningLate || afternoonLate;
+
+      if (hasMorningEntry && hasAfternoonEntry) {
+        // İki yarıda da var -> Tam Gün Mevcut
+        return {
+          ...student,
+          absenceStatus: 'MEVCUT',
+          absenceWeight: 0,
+          statusLabel: isLate ? 'Mevcut (Geç Kaldı)' : 'Tam Gün Mevcut',
+          detailNote: `Girişler: ${scanTimes.join(', ')}`,
+          isLate
+        };
+      } else if (hasMorningEntry && !hasAfternoonEntry) {
+        // Sadece sabah var -> Yarım Gün Yok
+        return {
+          ...student,
+          absenceStatus: 'YARIM_GUN',
+          absenceWeight: 0.5,
+          statusLabel: 'Yarım Gün Devamsız (0.5)',
+          detailNote: `Öğleden sonra gelmedi (Sabah: ${scanTimes.join(', ')})`,
+          isLate
+        };
+      } else if (!hasMorningEntry && hasAfternoonEntry) {
+        // Sadece öğleden sonra var -> Yarım Gün Yok
+        return {
+          ...student,
+          absenceStatus: 'YARIM_GUN',
+          absenceWeight: 0.5,
+          statusLabel: 'Yarım Gün Devamsız (0.5)',
+          detailNote: `Sabahtan gelmedi (Öğle: ${scanTimes.join(', ')})`,
+          isLate
+        };
+      }
+
       return {
         ...student,
-        isPresent,
-        statusLabel: isPresent ? (record.isLate ? 'Geç Geldi' : 'Geldi (Giriş Yaptı)') : 'DEVAMSIZ (GELMEDİ)',
-        scanTime: isPresent ? record.time : '-'
+        absenceStatus: 'TAM_GUN',
+        absenceWeight: 1.0,
+        statusLabel: 'Tam Gün Devamsız (1.0)',
+        detailNote: 'Giriş Kaydı Yok',
+        isLate: false
       };
     });
   }, [allStudents, attendanceRecords]);
 
-  // Sadece Devamsız (Gelmeyen) Öğrenciler
+  // Devamsızlığı olan (Tam Gün veya Yarım Gün) veya Geç Kalan Öğrenciler
   const absentStudents = useMemo(() => {
-    return analyzedStudents.filter(s => !s.isPresent);
+    return analyzedStudents.filter(s => s.absenceStatus === 'TAM_GUN' || s.absenceStatus === 'YARIM_GUN');
   }, [analyzedStudents]);
 
   // Filtreleme (Arama & Sınıf)
@@ -138,12 +245,10 @@ const DailyAbsenceReportView = () => {
       groups[c].push(student);
     });
 
-    // Her sınıf içindeki öğrencileri A'dan Z'ye alfabetik sırala
     Object.keys(groups).forEach(classKey => {
       groups[classKey].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
     });
 
-    // Sınıf anahtarlarını sırala (9, 10, 11, 12)
     return Object.keys(groups).sort((a, b) => Number(a) - Number(b)).reduce((acc, key) => {
       acc[key] = groups[key];
       return acc;
@@ -152,9 +257,10 @@ const DailyAbsenceReportView = () => {
 
   // Metrikler
   const totalCount = allStudents.length;
-  const presentCount = analyzedStudents.filter(s => s.isPresent).length;
-  const absentCount = absentStudents.length;
-  const absenceRate = totalCount > 0 ? ((absentCount / totalCount) * 100).toFixed(1) : 0;
+  const fullDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === 'TAM_GUN').length;
+  const halfDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === 'YARIM_GUN').length;
+  const totalAbsentDays = (fullDayAbsentCount * 1.0 + halfDayAbsentCount * 0.5).toFixed(1).replace('.0', '').replace('.', ',');
+  const presentCount = totalCount - fullDayAbsentCount;
 
   // CSV İndir
   const handleExportCSV = () => {
@@ -163,7 +269,7 @@ const DailyAbsenceReportView = () => {
       return;
     }
 
-    const headers = ["Tarih", "Sınıf", "Okul Numarası", "TC Kimlik No", "Öğrenci Adı Soyadı", "Devamsızlık Durumu"];
+    const headers = ["Tarih", "Sınıf", "Okul Numarası", "TC Kimlik No", "Öğrenci Adı Soyadı", "Devamsızlık Tipi", "Devamsızlık Süresi (Gün)", "Açıklama"];
     const rows = [];
 
     Object.keys(groupedByClass).forEach(classKey => {
@@ -174,7 +280,9 @@ const DailyAbsenceReportView = () => {
           `"${s.schoolNumber}"`,
           `"${s.tc}"`,
           `"${s.name}"`,
-          "DEVAMSIZ"
+          s.absenceStatus === 'YARIM_GUN' ? 'Yarım Gün' : 'Tam Gün',
+          s.absenceWeight,
+          `"${s.detailNote}"`
         ]);
       });
     });
@@ -190,7 +298,6 @@ const DailyAbsenceReportView = () => {
     document.body.removeChild(link);
   };
 
-  // PDF / Yazdır
   const handlePrintPDF = () => {
     window.print();
   };
@@ -205,7 +312,7 @@ const DailyAbsenceReportView = () => {
   return (
     <div className="daily-absence-container font-sans w-full pb-10">
       
-      {/* Header & Controls (Print edilmez) */}
+      {/* Header & Controls */}
       <div className="no-print mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
@@ -214,7 +321,7 @@ const DailyAbsenceReportView = () => {
               Günlük Devamsızlık Takip & Rapor Merkezi
             </h1>
             <p className="text-[14px] text-slate-500 dark:text-slate-400 mt-1">
-              Karekod okutmayan veya gün boyunca kuruma giriş yapmayan tüm öğrencilerin sınıf bazlı listesi.
+              Öğleden önce/sonra gelmeyen (yarım gün) veya gün boyu gelmeyen (tam gün) öğrencilerin sınıf bazlı listesi.
             </p>
           </div>
 
@@ -236,10 +343,9 @@ const DailyAbsenceReportView = () => {
           </div>
         </div>
 
-        {/* Tarih Seçimi & İstatistik Kartları */}
+        {/* Metrik Kartları */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           
-          {/* Tarih Kartı */}
           <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-2xl p-4 shadow-xs">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Rapor Tarihi</span>
             <div className="flex items-center gap-2">
@@ -253,7 +359,6 @@ const DailyAbsenceReportView = () => {
             </div>
           </div>
 
-          {/* Toplam Öğrenci */}
           <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-2xl p-4 shadow-xs">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Toplam Öğrenci</span>
             <div className="flex items-baseline justify-between">
@@ -262,20 +367,18 @@ const DailyAbsenceReportView = () => {
             </div>
           </div>
 
-          {/* Gelen Öğrenci */}
           <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-2xl p-4 shadow-xs">
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block mb-1">Giriş Yapanlar</span>
+            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block mb-1">Yarım Gün Yok (0.5)</span>
             <div className="flex items-baseline justify-between">
-              <span className="text-[24px] font-extrabold text-emerald-600">{presentCount}</span>
-              <UserCheck size={20} className="text-emerald-500" />
+              <span className="text-[24px] font-extrabold text-amber-600">{halfDayAbsentCount}</span>
+              <Clock size={20} className="text-amber-500" />
             </div>
           </div>
 
-          {/* Devamsız Öğrenci */}
           <div className="bg-white dark:bg-[#0f172a] border border-red-200 dark:border-red-900/40 bg-red-50/20 rounded-2xl p-4 shadow-xs">
-            <span className="text-[11px] font-bold text-red-600 uppercase tracking-wider block mb-1">Toplam Devamsız (%{absenceRate})</span>
+            <span className="text-[11px] font-bold text-red-600 uppercase tracking-wider block mb-1">Toplam Devamsız ({totalAbsentDays} Gün)</span>
             <div className="flex items-baseline justify-between">
-              <span className="text-[24px] font-extrabold text-red-600">{absentCount}</span>
+              <span className="text-[24px] font-extrabold text-red-600">{absentStudents.length}</span>
               <UserX size={20} className="text-red-500" />
             </div>
           </div>
@@ -320,19 +423,19 @@ const DailyAbsenceReportView = () => {
         </div>
       </div>
 
-      {/* Rapor İçeriği / Yazdırılabilir Bölüm */}
+      {/* Rapor İçeriği */}
       <div className="printable-report bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-2xl p-6 md:p-8 shadow-sm">
         
-        {/* Yazdırma Başlığı */}
+        {/* Başlık */}
         <div className="border-b-2 border-slate-800 pb-4 mb-6">
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-[20px] font-black text-slate-900 dark:text-white tracking-tight uppercase">ÇORUM BOĞAZİÇİ EĞİTİM KURUMLARI</h2>
-              <h3 className="text-[15px] font-bold text-red-600">GÜNLÜK ÖĞRENCİ DEVAMSIZLIK ÇİZELGESİ</h3>
+              <h3 className="text-[15px] font-bold text-red-600">GÜNLÜK ÖĞRENCİ DEVAMSIZLIK VE GEÇ KALMA ÇİZELGESİ</h3>
             </div>
             <div className="text-right">
               <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 block">{formattedDisplayDate}</span>
-              <span className="text-[11px] text-slate-500 font-semibold">Toplam Devamsız: {absentCount} Öğrenci</span>
+              <span className="text-[11px] text-slate-500 font-semibold">Devamsız: {absentStudents.length} Öğrenci ({totalAbsentDays} Gün)</span>
             </div>
           </div>
         </div>
@@ -348,10 +451,10 @@ const DailyAbsenceReportView = () => {
               <CheckCircle size={32} />
             </div>
             <h4 className="text-[16px] font-bold text-slate-800 dark:text-white mb-1">
-              {searchText || selectedClassFilter !== 'all' ? 'Aramanıza Uygun Devamsız Öğrenci Bulunamadı' : 'Harika! Bugün Tüm Öğrenciler Kurumda'}
+              {searchText || selectedClassFilter !== 'all' ? 'Aramanıza Uygun Devamsız Öğrenci Bulunamadı' : 'Mükemmel! Bugün Devamsız Öğrenci Yok'}
             </h4>
             <p className="text-[13px] text-slate-500 max-w-sm">
-              Seçilen tarihte ({selectedDate}) listelenecek herhangi bir devamsızlık kaydı bulunmuyor.
+              Seçilen tarihte ({selectedDate}) tüm öğrenciler kurumda tam gün olarak bulunmuştur.
             </p>
           </div>
         ) : (
@@ -360,17 +463,15 @@ const DailyAbsenceReportView = () => {
               const studentsInClass = groupedByClass[classKey];
               return (
                 <div key={classKey} className="class-group-block">
-                  {/* Sınıf Başlığı */}
                   <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-lg mb-3">
                     <span className="text-[14px] font-extrabold text-[#103A69] dark:text-blue-400 uppercase tracking-wide">
                       📚 {classKey}. Sınıf Devamsız Öğrenciler
                     </span>
                     <span className="text-[12px] font-bold text-red-600 bg-red-50 dark:bg-red-950/50 px-2.5 py-0.5 rounded-full border border-red-200 dark:border-red-800">
-                      {studentsInClass.length} Öğrenci Gelmedi
+                      {studentsInClass.length} Öğrenci
                     </span>
                   </div>
 
-                  {/* Sınıf Tablosu */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-[13px]">
                       <thead>
@@ -379,7 +480,8 @@ const DailyAbsenceReportView = () => {
                           <th className="py-2.5 px-3 w-28">Okul No</th>
                           <th className="py-2.5 px-3 w-36">T.C. Kimlik</th>
                           <th className="py-2.5 px-3">Öğrenci Adı Soyadı (A-Z)</th>
-                          <th className="py-2.5 px-3 w-36 text-center">Durum</th>
+                          <th className="py-2.5 px-3 w-48 text-center">Devamsızlık Durumu</th>
+                          <th className="py-2.5 px-3">Açıklama / Giriş Saati</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -397,9 +499,18 @@ const DailyAbsenceReportView = () => {
                               <span>{student.name}</span>
                             </td>
                             <td className="py-2.5 px-3 text-center">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border border-red-200 dark:border-red-800">
-                                DEVAMSIZ
-                              </span>
+                              {student.absenceStatus === 'YARIM_GUN' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                                  YARIM GÜN (0.5)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border border-red-200 dark:border-red-800">
+                                  TAM GÜN (1.0)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 text-[12px]">
+                              {student.detailNote}
                             </td>
                           </tr>
                         ))}
@@ -412,7 +523,7 @@ const DailyAbsenceReportView = () => {
           </div>
         )}
 
-        {/* Yazdırma Altı İmza Alanı */}
+        {/* Yazdırma İmza Bloğu */}
         <div className="hidden print:block mt-12 pt-6 border-t border-slate-300">
           <div className="flex justify-between text-[12px] font-bold text-slate-800">
             <div>
@@ -427,7 +538,6 @@ const DailyAbsenceReportView = () => {
         </div>
       </div>
 
-      {/* Print Stilleri */}
       <style>{`
         @media print {
           body {
