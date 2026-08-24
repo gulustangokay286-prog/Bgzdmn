@@ -187,13 +187,13 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  const isMobileScanHost = 
-    window.location.hostname.includes('bgz-mobil') || 
-    window.location.hostname.includes('firebaseapp.com') ||
-    window.location.search.includes('sessionId') ||
-    (window.location.pathname.startsWith('/qr') && window.location.search.includes('type='));
+  const urlParams = new URLSearchParams(window.location.search);
+  const isQRScan = 
+    urlParams.has('sessionId') ||
+    (window.location.pathname.startsWith('/qr') && (urlParams.has('type') || urlParams.has('action'))) ||
+    (window.location.hash.startsWith('#/qr') && (urlParams.has('type') || urlParams.has('action')));
 
-  if (isMobileScanHost) {
+  if (isQRScan) {
     return <QRCodeRedirect />;
   }
 
