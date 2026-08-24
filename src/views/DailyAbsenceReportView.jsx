@@ -491,44 +491,44 @@ const DailyAbsenceReportView = () => {
                   </div>
 
                   {/* Sınıf Tablosu (Koyu Modda Kusursuz Başlık ve Satır Kontrastı) */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111C38]">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111C38] shadow-sm">
                     <table className="w-full text-left text-[13px] border-collapse">
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-white font-extrabold uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-700">
-                          <th className="py-3 px-3 w-12 text-center">#</th>
-                          <th className="py-3 px-3 w-28">Okul No</th>
-                          <th className="py-3 px-3 w-36">T.C. Kimlik</th>
-                          <th className="py-3 px-3">Öğrenci Adı Soyadı (A-Z)</th>
-                          <th className="py-3 px-3 w-48 text-center">Devamsızlık Durumu</th>
-                          <th className="py-3 px-3">Turnike / Giriş Açıklaması</th>
+                        <tr className="bg-slate-100 dark:bg-[#152238] text-slate-700 dark:text-slate-200 font-extrabold uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-700/60">
+                          <th className="py-3.5 px-3 w-12 text-center text-slate-500 dark:text-slate-400 font-bold">#</th>
+                          <th className="py-3.5 px-3 w-28 text-slate-700 dark:text-slate-200 font-bold">Okul No</th>
+                          <th className="py-3.5 px-3 w-36 text-slate-700 dark:text-slate-200 font-bold">T.C. Kimlik</th>
+                          <th className="py-3.5 px-3 text-slate-700 dark:text-slate-200 font-bold">Öğrenci Adı Soyadı (A-Z)</th>
+                          <th className="py-3.5 px-3 w-48 text-center text-slate-700 dark:text-slate-200 font-bold">Devamsızlık Durumu</th>
+                          <th className="py-3.5 px-3 text-slate-700 dark:text-slate-200 font-bold">Turnike / Giriş Açıklaması</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-[#111C38]">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-[#111C38]">
                         {studentsInClass.map((student, idx) => (
-                          <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors bg-white dark:bg-[#111C38]">
-                            <td className="py-3 px-3 text-center text-slate-400 dark:text-slate-300 font-medium">{idx + 1}</td>
-                            <td className="py-3 px-3 font-bold text-slate-800 dark:text-white font-mono">{student.schoolNumber}</td>
-                            <td className="py-3 px-3 font-mono text-slate-500 dark:text-slate-300">{student.tc || '-'}</td>
-                            <td className="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
+                          <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors bg-white dark:bg-[#111C38]">
+                            <td className="py-3.5 px-3 text-center text-slate-400 dark:text-slate-400 font-medium">{idx + 1}</td>
+                            <td className="py-3.5 px-3 font-bold text-slate-800 dark:text-white font-mono text-[13.5px]">{student.schoolNumber}</td>
+                            <td className="py-3.5 px-3 font-mono text-slate-600 dark:text-slate-300 text-[13px]">{student.tc || '-'}</td>
+                            <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
                               <img
                                 src={student.profileImage}
                                 alt=""
-                                className="w-7 h-7 rounded-full object-cover no-print border border-slate-200 dark:border-slate-700"
+                                className="w-7 h-7 rounded-full object-cover no-print border border-slate-200 dark:border-slate-700 shadow-sm"
                               />
-                              <span>{student.name}</span>
+                              <span className="text-[13.5px]">{student.name}</span>
                             </td>
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-3.5 px-3 text-center">
                               {student.absenceStatus === 'YARIM_GUN' ? (
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[11.5px] font-black bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                                   YARIM GÜN (0.5)
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-800">
+                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[11.5px] font-black bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                                   TAM GÜN (1.0)
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3 text-slate-600 dark:text-slate-300 text-[12px] font-medium">
+                            <td className="py-3.5 px-3 text-slate-600 dark:text-slate-300 text-[12.5px] font-medium">
                               {student.detailNote}
                             </td>
                           </tr>
@@ -558,6 +558,20 @@ const DailyAbsenceReportView = () => {
       </div>
 
       <style>{`
+        .dark .daily-absence-container th,
+        [data-theme='dark'] .daily-absence-container th {
+          background-color: #152238 !important;
+          color: #e2e8f0 !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+        .dark .daily-absence-container td,
+        [data-theme='dark'] .daily-absence-container td {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+        .dark .daily-absence-container tr:hover td,
+        [data-theme='dark'] .daily-absence-container tr:hover td {
+          background-color: rgba(255, 255, 255, 0.04) !important;
+        }
         @media print {
           body {
             background: #ffffff !important;
