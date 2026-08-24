@@ -5,6 +5,7 @@ import { app } from './services/firebaseConfig';
 import LoginView from './views/LoginView';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import {
+  CalendarX2,
   Users, UserCheck, ShieldAlert, FileText,
   BookOpen, Video, FileEdit, Coffee,
   BarChart3, QrCode, RadioReceiver, DoorOpen,
