@@ -105,8 +105,28 @@ const DailyAbsenceReportView = () => {
     };
   }, [selectedDate]);
 
+  const hasAnyActivity = useMemo(() => {
+    const hasRtdb = Object.keys(rtdbLogs).length > 0;
+    const hasFsLogs = Object.keys(firestoreLogs).length > 0;
+    const hasManual = Object.keys(manualAttendance).length > 0;
+    return hasRtdb || hasFsLogs || hasManual;
+  }, [rtdbLogs, firestoreLogs, manualAttendance]);
+
   // 4. Öğrencilerin Güncel Turnike Geçişi ve Devamsızlık Durumunu Analiz Etme Motoru
   const analyzedStudents = useMemo(() => {
+    // Eğer o gün için henüz hiçbir turnike veya manuel yoklama verisi yoksa (sıfırlanmış / gün başlamamış)
+    if (!hasAnyActivity) {
+      return allStudents.map(student => ({
+        ...student,
+        absenceStatus: 'BEKLEMEDE',
+        absenceWeight: 0,
+        statusLabel: 'Turnike Girişi Bekleniyor',
+        detailNote: 'Henüz turnike kaydı oluşmadı',
+        isLate: false,
+        isTurnstilePresent: false
+      }));
+    }
+
     return allStudents.map(student => {
       // 1. Manuel Yönetici Kararı Varsa
       if (manualAttendance[student.id]) {
@@ -227,7 +247,7 @@ const DailyAbsenceReportView = () => {
         isTurnstilePresent: false
       };
     });
-  }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance]);
+  }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, hasAnyActivity]);
 
   // Sadece Devamsız (Tam Gün veya Yarım Gün) Olan Öğrenciler
   const absentStudents = useMemo(() => {
@@ -276,12 +296,12 @@ const DailyAbsenceReportView = () => {
   const halfDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === 'YARIM_GUN').length;
   const presentCount = analyzedStudents.filter(s => s.isTurnstilePresent).length;
   const totalAbsentDays = (fullDayAbsentCount * 1.0 + halfDayAbsentCount * 0.5).toFixed(1).replace('.0', '').replace('.', ',');
-  const absencePercentage = totalCount > 0 ? (((fullDayAbsentCount + halfDayAbsentCount * 0.5) / totalCount) * 100).toFixed(1) : 0;
+  const absencePercentage = totalCount > 0 && hasAnyActivity ? (((fullDayAbsentCount + halfDayAbsentCount * 0.5) / totalCount) * 100).toFixed(1) : 0;
 
   // CSV İndir (UTF-8 BOM ile Excel Uyumlu)
   const handleExportCSV = () => {
     if (absentStudents.length === 0) {
-      alert("İndirilecek devamsız öğrenci bulunmamaktadır.");
+      alert("Seçilen tarihte indirilecek devamsız öğrenci bulunmamaktadır.");
       return;
     }
 
@@ -314,16 +334,218 @@ const DailyAbsenceReportView = () => {
     document.body.removeChild(link);
   };
 
-  const handlePrintPDF = () => {
-    window.print();
-  };
-
   const formattedDisplayDate = new Date(selectedDate).toLocaleDateString('tr-TR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
+
+  // Profesyonel Resmi PDF / Yazdırma Penceresi Açıcı
+  const handlePrintPDF = () => {
+    const printWindow = window.open('', '_blank', 'width=1000,height=900');
+    
+    let tableContent = '';
+    if (filteredAbsents.length === 0) {
+      tableContent = `
+        <tr>
+          <td colspan="6" style="padding: 30px; text-align: center; color: #16a34a; font-weight: bold; font-size: 13.5px; border: 1px solid #cbd5e1;">
+            ✓ Bu tarihte (${selectedDate}) devamsız öğrenci bulunmamaktadır. Tüm öğrenciler kurumdadır veya turnike kaydı beklenmektedir.
+          </td>
+        </tr>
+      `;
+    } else {
+      Object.keys(groupedByClass).forEach(classKey => {
+        const studentsInClass = groupedByClass[classKey];
+        tableContent += `
+          <tr style="background-color: #f1f5f9; border-top: 2px solid #cbd5e1;">
+            <td colspan="6" style="padding: 10px 14px; font-weight: 800; font-size: 13px; color: #103A69; border: 1px solid #cbd5e1;">
+              📚 ${classKey}. SINIF DEVAMSIZ ÖĞRENCİLER (${studentsInClass.length} Öğrenci)
+            </td>
+          </tr>
+        `;
+        studentsInClass.forEach((s, idx) => {
+          const badgeBg = s.absenceStatus === 'YARIM_GUN' ? '#fef3c7' : '#fee2e2';
+          const badgeColor = s.absenceStatus === 'YARIM_GUN' ? '#b45309' : '#b91c1c';
+          const badgeText = s.absenceStatus === 'YARIM_GUN' ? 'Yarım Gün (0.5)' : 'Tam Gün (1.0)';
+          tableContent += `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 9px 12px; text-align: center; color: #64748b; font-size: 12px; border: 1px solid #e2e8f0;">${idx + 1}</td>
+              <td style="padding: 9px 12px; font-family: monospace; font-weight: 700; font-size: 13px; border: 1px solid #e2e8f0;">${s.schoolNumber}</td>
+              <td style="padding: 9px 12px; font-family: monospace; color: #475569; font-size: 12px; border: 1px solid #e2e8f0;">${s.tc || '-'}</td>
+              <td style="padding: 9px 12px; font-weight: 700; font-size: 13px; color: #0f172a; border: 1px solid #e2e8f0;">${s.name}</td>
+              <td style="padding: 9px 12px; text-align: center; border: 1px solid #e2e8f0;">
+                <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor}33;">
+                  ${badgeText}
+                </span>
+              </td>
+              <td style="padding: 9px 12px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0;">${s.detailNote}</td>
+            </tr>
+          `;
+        });
+      });
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="utf-8">
+        <title>Bogazici_Devamsizlik_Cizelgesi_${selectedDate}</title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 12mm 15mm;
+          }
+          * { box-sizing: border-box; }
+          body {
+            font-family: 'Segoe UI', -apple-system, Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            margin: 0;
+            padding: 24px;
+            font-size: 13px;
+          }
+          .header-box {
+            border-bottom: 2px solid #103A69;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+          }
+          .header-title h1 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+            font-weight: 900;
+            color: #103A69;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .header-title h2 {
+            margin: 0;
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #dc2626;
+            text-transform: uppercase;
+          }
+          .header-meta {
+            text-align: right;
+            font-size: 12px;
+          }
+          .header-meta .date {
+            font-weight: 800;
+            color: #1e293b;
+            font-size: 13px;
+          }
+          .header-meta .stats {
+            color: #64748b;
+            margin-top: 4px;
+            font-weight: 600;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          th {
+            background-color: #103A69;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 12px;
+            text-align: left;
+            border: 1px solid #103A69;
+          }
+          .signatures {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+            page-break-inside: avoid;
+          }
+          .sign-col {
+            text-align: center;
+            width: 220px;
+          }
+          .sign-title {
+            font-weight: 800;
+            font-size: 12px;
+            color: #1e293b;
+          }
+          .sign-line {
+            margin-top: 45px;
+            font-size: 11px;
+            color: #64748b;
+            border-top: 1px dashed #94a3b8;
+            padding-top: 4px;
+          }
+          @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header-box">
+          <div class="header-title">
+            <h1>ÇORUM BOĞAZİÇİ EĞİTİM KURUMLARI</h1>
+            <h2>GÜNLÜK ÖĞRENCİ DEVAMSIZLIK ÇİZELGESİ (TURNİKE RAPORU)</h2>
+          </div>
+          <div class="header-meta">
+            <div class="date">${formattedDisplayDate}</div>
+            <div class="stats">Devamsız: ${filteredAbsents.length} Öğrenci (${totalAbsentDays} Gün)</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 35px; text-align: center;">#</th>
+              <th style="width: 80px;">Okul No</th>
+              <th style="width: 110px;">T.C. Kimlik</th>
+              <th>Öğrenci Adı Soyadı</th>
+              <th style="width: 140px; text-align: center;">Devamsızlık Durumu</th>
+              <th>Turnike / Giriş Açıklaması</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableContent}
+          </tbody>
+        </table>
+
+        <div class="signatures">
+          <div class="sign-col">
+            <div class="sign-title">Nöbetçi Müdür Yardımcısı</div>
+            <div class="sign-line">İmza / Mühür</div>
+          </div>
+          <div class="sign-col">
+            <div class="sign-title">Okul Müdürü</div>
+            <div class="sign-line">İmza / Onay</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.focus();
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } else {
+      window.print();
+    }
+  };
 
   return (
     <div className="daily-absence-container font-sans w-full pb-10">
@@ -464,14 +686,20 @@ const DailyAbsenceReportView = () => {
           </div>
         ) : filteredAbsents.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-3">
+            <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-3 border border-emerald-500/20">
               <CheckCircle size={32} />
             </div>
             <h4 className="text-[17px] font-bold text-slate-800 dark:text-white mb-1">
-              {searchText || selectedClassFilter !== 'all' ? 'Aramanıza Uygun Devamsız Öğrenci Bulunamadı' : 'Mükemmel! Bugün Tüm Öğrenciler Turnikeden Giriş Yaptı'}
+              {searchText || selectedClassFilter !== 'all' 
+                ? 'Aramanıza Uygun Devamsız Öğrenci Bulunamadı' 
+                : !hasAnyActivity 
+                  ? 'Henüz Turnike / Devamsızlık Kaydı Yok (Sistem Temiz)' 
+                  : 'Mükemmel! Bugün Tüm Öğrenciler Turnikeden Giriş Yaptı'}
             </h4>
-            <p className="text-[13px] text-slate-500 dark:text-slate-400 max-w-sm">
-              Seçilen tarihte ({selectedDate}) tüm öğrenciler kurumda tam gün olarak bulunmaktadır.
+            <p className="text-[13px] text-slate-500 dark:text-slate-400 max-w-md">
+              {!hasAnyActivity 
+                ? `Seçilen tarihte (${selectedDate}) kayıtlı bir turnike geçişi veya idari devamsızlık bulunmuyor. Sistem başarıyla sıfırlandı; yarın sabah saat 09:00 itibarıyla turnike girişleri başladığında anlık olarak devamsızlıklar çizelgeye yansıyacaktır.`
+                : `Seçilen tarihte (${selectedDate}) tüm öğrenciler kurumda tam gün olarak bulunmaktadır.`}
             </p>
           </div>
         ) : (
