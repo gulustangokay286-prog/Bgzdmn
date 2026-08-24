@@ -17,6 +17,8 @@
     "make:mac": "npm run build && electron-builder --mac"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.2.0",
+    "detectincognitojs": "^1.9.0",
     "firebase": "^12.15.0",
     "lucide-react": "^1.21.0",
     "react": "^19.2.6",

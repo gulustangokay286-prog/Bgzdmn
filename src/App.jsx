@@ -26,6 +26,7 @@ import AttendanceAdminView from './views/AttendanceAdminView';
 import DailyAbsenceReportView from './views/DailyAbsenceReportView';
 import EbosPortalView from './views/EbosPortalView';
 import QRGeneratorAdminView from './views/QRGeneratorAdminView';
+import QRCodeRedirect from './views/QRCodeRedirect';
 import AttendanceLiveView from './views/AttendanceLiveView';
 import TeacherManagementAdminView from './views/TeacherManagementAdminView';
 import ScheduleAdminView from './views/ScheduleAdminView';
@@ -118,7 +119,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <div className="sidebar-section-title">Sistem Yönetimi</div>
           <NavItem to="/dashboard" icon={BarChart3} label="Dashboard" onClick={onClose} />
           <NavItem to="/nova-ai" icon={BrainCircuit} label="Yapay Zeka Merkezi" onClick={onClose} />
-          <NavItem to="/qr" icon={QrCode} label="QR Geçiş Sistemi" onClick={onClose} />
+          <NavItem to="/qr-generator" icon={QrCode} label="QR Geçiş Sistemi" onClick={onClose} />
           <NavItem to="/cheats" icon={ShieldBan} label="İhlal Tespitleri" onClick={onClose} />
           <NavItem to="/live-attendance" icon={RadioReceiver} label="Canlı Geçiş Takibi" onClick={onClose} />
           <NavItem to="/student-gate" icon={DoorOpen} label="Öğrenci Geçiş" onClick={onClose} />
@@ -186,6 +187,19 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
+  const isQRRoute = 
+    window.location.pathname === '/qr' || 
+    window.location.pathname.startsWith('/qr/') || 
+    window.location.search.includes('sessionId') ||
+    window.location.search.includes('type=') ||
+    window.location.hash === '#/qr' || 
+    window.location.hash.startsWith('#/qr?') || 
+    window.location.hash.startsWith('#/qr/');
+
+  if (isQRRoute) {
+    return <QRCodeRedirect />;
+  }
+
   if (loadingAuth) {
     return <div className="flex items-center justify-center w-full min-h-screen bg-[var(--bg-base)]" style={{ color: 'var(--text-muted)' }}>Yükleniyor...</div>;
   }
@@ -226,7 +240,8 @@ const App = () => {
               <Route path="/ebos" element={<RequireLicense requiredPath="/finance"><EbosPortalView /></RequireLicense>} />
 
               <Route path="/nova-ai" element={<RequireLicense requiredPath="/nova-ai"><NovaAIAdminView /></RequireLicense>} />
-              <Route path="/qr" element={<RequireLicense requiredPath="/qr"><QRGeneratorAdminView /></RequireLicense>} />
+              <Route path="/qr-generator" element={<RequireLicense requiredPath="/qr"><QRGeneratorAdminView /></RequireLicense>} />
+              <Route path="/qr" element={<QRCodeRedirect />} />
               <Route path="/live-attendance" element={<RequireLicense requiredPath="/live-attendance"><AttendanceLiveView /></RequireLicense>} />
               <Route path="/teachers" element={<RequireLicense requiredPath="/teachers"><TeacherManagementAdminView /></RequireLicense>} />
               <Route path="/teachers/ai-analysis/:teacherId" element={<RequireLicense requiredPath="/teachers"><TeacherAIAnalysisView /></RequireLicense>} />
