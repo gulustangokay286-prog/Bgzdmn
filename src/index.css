@@ -25,6 +25,9 @@ button {
   --text-primary: #1D1D1F;
   --text-secondary: #86868B;
   --text-muted: #D2D2D7;
+
+  --bg-table-header: rgba(248, 250, 252, 0.8);
+  --bg-table-hover: rgba(248, 250, 252, 0.6);
 }
 
 :root[data-theme='dark'] {
@@ -39,6 +42,9 @@ button {
   --text-primary: #FFFFFF;
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
+
+  --bg-table-header: #1E293B; /* slate-800 */
+  --bg-table-hover: rgba(30, 41, 59, 0.6);
 }
 
 :root {
@@ -696,7 +702,7 @@ table {
 }
 
 th {
-  background: rgba(248, 250, 252, 0.8);
+  background-color: var(--bg-table-header);
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
@@ -710,7 +716,7 @@ th {
 
 td {
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+  border-bottom: 1px solid var(--border-light);
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
@@ -722,7 +728,7 @@ tr:last-child td {
 }
 
 tr:hover td {
-  background-color: rgba(248, 250, 252, 0.6);
+  background-color: var(--bg-table-hover);
 }
 
 

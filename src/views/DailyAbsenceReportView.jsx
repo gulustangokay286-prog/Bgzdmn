@@ -411,24 +411,24 @@ const DailyAbsenceReportView = () => {
         </div>
 
         {/* Filtre ve Arama Barı */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-[#111C38] p-3 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-          <div className="relative flex-1 w-full">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-4 bg-white dark:bg-[#111C38] p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm w-full">
+          <div className="relative flex-1 w-full min-w-[250px]">
+            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300" />
             <input
               type="text"
               placeholder="Devamsız öğrenci ara (İsim, Okul No, TC)..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700/60 rounded-xl text-[13.5px] font-medium outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700/60 rounded-xl text-[14px] font-medium outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-[12px] font-bold text-slate-500 whitespace-nowrap">Sınıf:</span>
+          <div className="flex items-center gap-3 w-full sm:w-auto min-w-[150px]">
+            <span className="text-[13px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">Sınıf Seçimi:</span>
             <select
               value={selectedClassFilter}
               onChange={(e) => setSelectedClassFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+              className="flex-1 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-[14px] font-bold text-slate-700 dark:text-white outline-none cursor-pointer"
             >
               <option value="all">Tüm Sınıflar</option>
               <option value="9">9. Sınıf</option>
@@ -491,10 +491,10 @@ const DailyAbsenceReportView = () => {
                   </div>
 
                   {/* Sınıf Tablosu (Koyu Modda Kusursuz Başlık ve Satır Kontrastı) */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111C38]">
                     <table className="w-full text-left text-[13px] border-collapse">
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                        <tr className="bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-white font-extrabold uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-700">
                           <th className="py-3 px-3 w-12 text-center">#</th>
                           <th className="py-3 px-3 w-28">Okul No</th>
                           <th className="py-3 px-3 w-36">T.C. Kimlik</th>
@@ -505,10 +505,10 @@ const DailyAbsenceReportView = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-[#111C38]">
                         {studentsInClass.map((student, idx) => (
-                          <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                            <td className="py-3 px-3 text-center text-slate-400 dark:text-slate-500 font-medium">{idx + 1}</td>
-                            <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200 font-mono">{student.schoolNumber}</td>
-                            <td className="py-3 px-3 font-mono text-slate-500 dark:text-slate-400">{student.tc || '-'}</td>
+                          <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors bg-white dark:bg-[#111C38]">
+                            <td className="py-3 px-3 text-center text-slate-400 dark:text-slate-300 font-medium">{idx + 1}</td>
+                            <td className="py-3 px-3 font-bold text-slate-800 dark:text-white font-mono">{student.schoolNumber}</td>
+                            <td className="py-3 px-3 font-mono text-slate-500 dark:text-slate-300">{student.tc || '-'}</td>
                             <td className="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
                               <img
                                 src={student.profileImage}
@@ -519,16 +519,16 @@ const DailyAbsenceReportView = () => {
                             </td>
                             <td className="py-3 px-3 text-center">
                               {student.absenceStatus === 'YARIM_GUN' ? (
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                                   YARIM GÜN (0.5)
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-200 dark:border-red-800">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-extrabold bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-800">
                                   TAM GÜN (1.0)
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3 text-slate-600 dark:text-slate-400 text-[12px] font-medium">
+                            <td className="py-3 px-3 text-slate-600 dark:text-slate-300 text-[12px] font-medium">
                               {student.detailNote}
                             </td>
                           </tr>
