@@ -22,6 +22,7 @@ import RegistrationApprovalView from './views/RegistrationApprovalView';
 import UsersView from './views/UsersView';
 import GradesAdminView from './views/GradesAdminView';
 import AttendanceAdminView from './views/AttendanceAdminView';
+import DailyAbsenceReportView from './views/DailyAbsenceReportView';
 import EbosPortalView from './views/EbosPortalView';
 import QRGeneratorAdminView from './views/QRGeneratorAdminView';
 import AttendanceLiveView from './views/AttendanceLiveView';
@@ -138,6 +139,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <NavItem to="/teachers" icon={ShieldAlert} label="Öğretmenler" onClick={onClose} />
           <NavItem to="/grades" icon={FileEdit} label="Not Yönetimi" onClick={onClose} />
           <NavItem to="/attendance" icon={UserCircle} label="Devamsızlık" onClick={onClose} />
+          <NavItem to="/daily-absences" icon={CalendarX2} label="Günlük Devamsızlık Raporu" onClick={onClose} />
           <NavItem to="/schedule" icon={CalendarClock} label="Ders Programı" onClick={onClose} />
           <NavItem to="/counseling" icon={HeartHandshake} label="Rehberlik & Psikoloji" onClick={onClose} />
           <NavItem to="/announcements" icon={BellRing} label="Duyurular" onClick={onClose} />
@@ -219,6 +221,7 @@ const App = () => {
               <Route path="/users" element={<RequireLicense requiredPath="/users"><UsersView /></RequireLicense>} />
               <Route path="/grades" element={<RequireLicense requiredPath="/grades"><GradesAdminView /></RequireLicense>} />
               <Route path="/attendance" element={<RequireLicense requiredPath="/attendance"><AttendanceAdminView /></RequireLicense>} />
+              <Route path="/daily-absences" element={<RequireLicense requiredPath="/attendance"><DailyAbsenceReportView /></RequireLicense>} />
               <Route path="/ebos" element={<RequireLicense requiredPath="/finance"><EbosPortalView /></RequireLicense>} />
 
               <Route path="/nova-ai" element={<RequireLicense requiredPath="/nova-ai"><NovaAIAdminView /></RequireLicense>} />

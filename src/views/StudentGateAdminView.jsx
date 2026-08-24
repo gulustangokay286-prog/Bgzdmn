@@ -111,6 +111,19 @@ const StudentGateAdminView = () => {
       
       update(ref(rtdb), updates).catch(err => console.error("Gate status yazma hatası:", err));
 
+      // VDS Backend Senkronizasyonu & Canlı Socket Bildirimi
+      fetch('http://213.142.159.36:8080/api/qr/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tc: student.tcNo || student.id,
+          action: newStatus,
+          isManualAdmin: true,
+          qrType: 'manual_admin',
+          deviceId: 'admin_panel'
+        })
+      }).catch(err => console.log('VDS manual sync info:', err));
+
       sendWhatsAppNotification(student.id, student.name, newStatus, now)
         .catch(waErr => console.error("WhatsApp bildirim hatası:", waErr));
 
