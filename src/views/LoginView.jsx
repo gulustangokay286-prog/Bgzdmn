@@ -180,7 +180,7 @@ const LoginView = () => {
         <div className="relative z-10 flex flex-col items-center text-center px-4 mt-8 md:mt-0">
           <img src="/logo-chatgpt.png" alt="Logo" className="w-16 md:w-20 h-auto mb-4 md:mb-8 drop-shadow-[0_15px_15px_rgba(0,0,0,0.5)]" />
           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-[0_0_20px_rgba(0,0,0,1)] [text-shadow:0_4px_8px_rgba(0,0,0,0.8)]">
-            Pivot <span className="text-red-500">Akademi</span>
+            Boğaziçi <span className="text-red-500">Koleji</span>
           </h1>
           <p className="text-[10px] md:text-xs font-bold text-slate-300 mt-1 md:mt-2 uppercase tracking-[0.15em] drop-shadow-lg">Yetkili Girişi</p>
         </div>
@@ -464,7 +464,7 @@ const LoginView = () => {
           { }
           <div className="text-center mt-8 md:mt-12 w-full pb-4 md:pb-0">
             <p className="text-[10px] md:text-xs text-slate-500/70 font-medium tracking-wide">
-              Pivot Akademi © {new Date().getFullYear()} Tüm hakları saklıdır.
+              Boğaziçi Koleji © {new Date().getFullYear()} Tüm hakları saklıdır.
             </p>
           </div>
 

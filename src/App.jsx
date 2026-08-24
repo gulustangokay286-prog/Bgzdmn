@@ -91,8 +91,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         <img src="/logo-chatgpt.png" alt="Logo" className="h-10 w-auto object-contain drop-shadow-lg rounded-lg mb-1" />
         
         <div className="flex flex-col items-center text-center">
-          <span className="text-[20px] font-black text-slate-900 dark:text-white leading-tight tracking-wide">Pivot Akademi</span>
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-[0.2em] uppercase mt-1">Sistem</span>
+          <span className="text-[20px] font-black text-slate-900 dark:text-white leading-tight tracking-wide">Boğaziçi Koleji</span>
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-[0.2em] uppercase mt-1">Yönetim Sistemi</span>
         </div>
 
         <div 
@@ -128,7 +128,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         <div className="sidebar-section">
           <div className="sidebar-section-title">ERP & Finans</div>
-          <NavItem to="/ebos" icon={Building} label="Pivot Portal" onClick={onClose} />
+          <NavItem to="/ebos" icon={Building} label="Boğaziçi Portal" onClick={onClose} />
           <NavItem to="/appointments" icon={CalendarClock} label="Randevu Yönetimi" onClick={onClose} />
           <NavItem to="/transport" icon={Bus} label="Servis Yönetimi" onClick={onClose} />
           <NavItem to="/cafeteria" icon={Coffee} label="Kafeterya Menüsü" onClick={onClose} />
@@ -211,7 +211,7 @@ const App = () => {
                 <div id="nova-ai-mobile-portal" className="empty:hidden" />
                 <img src="/logo-chatgpt.png" alt="Logo" className="h-7 w-auto drop-shadow-sm dark:drop-shadow-md rounded-md" />
               </div>
-              <div className="font-bold text-[15px] text-slate-800 dark:text-white tracking-wide">Pivot Akademi</div>
+              <div className="font-bold text-[15px] text-slate-800 dark:text-white tracking-wide">Boğaziçi Koleji</div>
             </div>
 
             <div className="relative px-4 pt-4 pb-6 md:p-8 flex-1 flex flex-col box-border min-h-0" onClick={() => setMobileMenuOpen(false)}>

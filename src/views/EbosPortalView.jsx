@@ -208,7 +208,7 @@ const EbosPortalView = () => {
             { }
             <div className="w-full flex flex-col md:flex-row items-center justify-between px-8 py-6 bg-[#0b1120] border-b border-slate-700/80 shrink-0 z-20">
                 <div className="flex items-center gap-4 mb-6 md:mb-0">
-                    <span className="text-[16px] font-extrabold text-white tracking-widest uppercase">Pivot Portal</span>
+                    <span className="text-[16px] font-extrabold text-white tracking-widest uppercase">Boğaziçi Portal</span>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-6 md:gap-16">
