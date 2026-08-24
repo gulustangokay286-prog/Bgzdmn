@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getAuth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, signOut, sendPasswordResetEmail } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { Mail, Lock, ArrowRight, ShieldAlert, GraduationCap, BookOpen, Award, Library } from 'lucide-react';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Mail, Lock, ArrowRight, ShieldAlert, GraduationCap, BookOpen, Award, Library, User, UserPlus, Phone, Hash } from 'lucide-react';
 import { app } from '../services/firebaseConfig';
 
 const auth = getAuth(app);
@@ -14,8 +14,64 @@ const LoginView = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
+  const [name, setName] = useState('');
+  const [tcKimlik, setTcKimlik] = useState('');
+  const [role, setRole] = useState('student');
+  const [phone, setPhone] = useState('');
+  const [success, setSuccess] = useState('');
+
   const [view, setView] = useState('login'); 
   const [resetSuccess, setResetSuccess] = useState('');
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!email || !password || !name || !tcKimlik) {
+      setError('Lütfen tüm zorunlu alanları doldurun.');
+      return;
+    }
+    if (tcKimlik.length !== 11) {
+      setError('T.C. Kimlik numarası 11 haneli olmalıdır.');
+      return;
+    }
+    
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      const userDocRef = doc(db, 'users', user.uid);
+      await setDoc(userDocRef, {
+        email: email,
+        full_name: name,
+        tc_kimlik: tcKimlik,
+        role: role,
+        phone: phone,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        profile_image: '',
+      });
+
+      await signOut(auth);
+      setSuccess('Kayıt talebiniz başarıyla alındı! Yöneticiler onayladıktan sonra giriş yapabilirsiniz.');
+      setTimeout(() => {
+        setView('login');
+        setSuccess('');
+      }, 4000);
+    } catch (err) {
+      console.error(err);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Bu e-posta adresi zaten kullanılıyor.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Şifre en az 6 karakter olmalıdır.');
+      } else {
+        setError('Kayıt sırasında bir hata oluştu: ' + err.message);
+      }
+    }
+    setLoading(false);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -229,7 +285,7 @@ const LoginView = () => {
 
                 { }
                 <span 
-                  onClick={() => { setView('forgot'); setError(''); setResetSuccess(''); }}
+                  onClick={() => { setView('forgot'); setError(''); setResetSuccess(''); setSuccess(''); }}
                   className="text-xs font-bold text-slate-500 hover:text-white cursor-pointer transition-colors mr-1"
                 >
                   Şifremi unuttum?
@@ -260,6 +316,114 @@ const LoginView = () => {
                   </>
                 )}
               </button>
+
+              <div className="flex items-center justify-center w-full mt-2">
+                <span className="text-xs font-medium text-slate-400">Hesabınız yok mu? </span>
+                <span 
+                  onClick={() => { setView('register'); setError(''); setResetSuccess(''); setSuccess(''); }}
+                  className="text-xs font-bold text-blue-400 hover:text-blue-300 cursor-pointer transition-colors ml-1"
+                >
+                  Kayıt Olun
+                </span>
+              </div>
+            </form>
+          ) : view === 'register' ? (
+            <form onSubmit={handleRegister} className="flex flex-col gap-3.5 w-full box-border">
+              {success ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-4 border border-emerald-500/30">
+                    <UserCheck size={32} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Başvurunuz Alındı!</h3>
+                  <p className="text-sm text-slate-300 leading-relaxed max-w-[280px]">
+                    {success}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2 w-full mb-1">
+                    <button type="button" onClick={() => setRole('student')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border ${role === 'student' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-slate-800/40 text-slate-400 border-transparent hover:bg-slate-800/60'}`}>Öğrenci</button>
+                    <button type="button" onClick={() => setRole('parent')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border ${role === 'parent' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-800/40 text-slate-400 border-transparent hover:bg-slate-800/60'}`}>Veli</button>
+                    <button type="button" onClick={() => setRole('teacher')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border ${role === 'teacher' ? 'bg-amber-600/20 text-amber-400 border-amber-500/30' : 'bg-slate-800/40 text-slate-400 border-transparent hover:bg-slate-800/60'}`}>Öğretmen</button>
+                  </div>
+
+                  <div className="relative w-full group">
+                    <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                    <input
+                      type="text"
+                      className="w-full bg-slate-800/40 !bg-slate-800/40 backdrop-blur-md shadow-inner border border-slate-700/30 rounded-xl focus-within:border-white focus-within:bg-slate-800/60 focus-within:ring-2 focus-within:ring-white/20 transition-all pl-11 pr-4 py-3 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      required
+                      placeholder="Ad Soyad"
+                    />
+                  </div>
+
+                  <div className="relative w-full group">
+                    <Hash size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                    <input
+                      type="text"
+                      maxLength={11}
+                      className="w-full bg-slate-800/40 !bg-slate-800/40 backdrop-blur-md shadow-inner border border-slate-700/30 rounded-xl focus-within:border-white focus-within:bg-slate-800/60 focus-within:ring-2 focus-within:ring-white/20 transition-all pl-11 pr-4 py-3 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border"
+                      value={tcKimlik}
+                      onChange={e => setTcKimlik(e.target.value.replace(/[^0-9]/g, ''))}
+                      required
+                      placeholder="T.C. Kimlik Numarası"
+                    />
+                  </div>
+
+                  <div className="relative w-full group">
+                    <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                    <input
+                      type="tel"
+                      className="w-full bg-slate-800/40 !bg-slate-800/40 backdrop-blur-md shadow-inner border border-slate-700/30 rounded-xl focus-within:border-white focus-within:bg-slate-800/60 focus-within:ring-2 focus-within:ring-white/20 transition-all pl-11 pr-4 py-3 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="Telefon (İsteğe Bağlı)"
+                    />
+                  </div>
+
+                  <div className="relative w-full group">
+                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                    <input
+                      type="email"
+                      className="w-full bg-slate-800/40 !bg-slate-800/40 backdrop-blur-md shadow-inner border border-slate-700/30 rounded-xl focus-within:border-white focus-within:bg-slate-800/60 focus-within:ring-2 focus-within:ring-white/20 transition-all pl-11 pr-4 py-3 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required
+                      placeholder="E-posta Adresi"
+                    />
+                  </div>
+
+                  <div className="relative w-full group">
+                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                    <input
+                      type="password"
+                      className="w-full bg-slate-800/40 !bg-slate-800/40 backdrop-blur-md shadow-inner border border-slate-700/30 rounded-xl focus-within:border-white focus-within:bg-slate-800/60 focus-within:ring-2 focus-within:ring-white/20 transition-all pl-11 pr-4 py-3 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required
+                      placeholder="Şifre Oluşturun"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition-all duration-300 mt-2 bg-gradient-to-r from-blue-600 to-indigo-500 hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] disabled:opacity-50 disabled:shadow-none box-border flex items-center justify-center gap-2"
+                  >
+                    {loading ? 'Kayıt Yapılıyor...' : 'Sisteme Kaydol'}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => { setView('login'); setError(''); setSuccess(''); }}
+                    className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-300 box-border flex items-center justify-center"
+                  >
+                    Giriş Ekranına Dön
+                  </button>
+                </>
+              )}
             </form>
           ) : (
             <form onSubmit={handleResetPassword} className="flex flex-col gap-4 w-full box-border">
@@ -289,7 +453,7 @@ const LoginView = () => {
 
               <button
                 type="button"
-                onClick={() => { setView('login'); setError(''); setResetSuccess(''); }}
+                onClick={() => { setView('login'); setError(''); setResetSuccess(''); setSuccess(''); }}
                 className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-300 box-border flex items-center justify-center"
               >
                 Giriş Ekranına Dön

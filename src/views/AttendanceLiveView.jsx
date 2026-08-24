@@ -3,9 +3,8 @@ import { DoorOpen, GraduationCap, CheckCircle2 } from 'lucide-react';
 import { db } from '../services/firebaseConfig';
 import { soundManager } from '../services/soundManager';
 import { collection, onSnapshot, query as fsQuery, orderBy as fsOrderBy, limit as fsLimit } from 'firebase/firestore';
-import { ref, query, orderByChild, limitToLast, onValue } from 'firebase/database';
-import { rtdb } from '../services/firebaseConfig';
 import { firebaseService } from '../services/firebase';
+import { io } from 'socket.io-client';
 
 const AttendanceLiveView = () => {
   const [liveRecords, setLiveRecords] = useState([]);
@@ -39,48 +38,26 @@ const AttendanceLiveView = () => {
     };
     fetchUsers();
 
-    const liveScansRef = query(ref(rtdb, 'qr_system/live_scans'), limitToLast(50));
-    
-    let isInitialLoad = true;
-    
-    const unsubscribe = onValue(liveScansRef, (snapshot) => {
-      setLoading(false);
-      
-      if (!snapshot.exists()) {
-        setLiveRecords([]);
-        isInitialLoad = false;
-        return;
-      }
-      
-      const records = [];
-      snapshot.forEach((childSnap) => {
-        const data = childSnap.val();
-        records.push({
-          id: childSnap.key,
-          ...data
-        });
-      });
-      
-      const sortedRecords = records.sort((a, b) => {
-        const tsA = a.timestamp || 0;
-        const tsB = b.timestamp || 0;
-        return tsB - tsA;
-      });
-      
-      setLiveRecords(sortedRecords);
-      
-      if (!isInitialLoad && records.length > 0) {
-        
-        soundManager.playSuccessDing();
-      }
-      isInitialLoad = false;
-      
-    }, (error) => {
-      console.error("RTDB Canlı akış hatası:", error);
+    const socket = io('http://213.142.159.36:8080');
+
+    socket.on('connect', () => {
+      console.log('VDS Canlı akışa bağlandı');
       setLoading(false);
     });
 
-    return () => { unsubscribe(); };
+    socket.on('new_scan', (data) => {
+      setLiveRecords(prev => {
+        const newRecords = [data, ...prev].slice(0, 50);
+        return newRecords;
+      });
+      soundManager.playSuccessDing();
+    });
+
+    socket.on('disconnect', () => {
+      console.log('VDS bağlantısı koptu');
+    });
+
+    return () => { socket.disconnect(); };
   }, []);
 
   const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });

@@ -2,6 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCcw, Inbox, Users, UserCheck, UserX, GraduationCap, Search, X } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import UserRow from '../components/UserRow';
+import { updateDoc, doc, getFirestore } from 'firebase/firestore';
+import { app } from '../services/firebaseConfig';
+
+const firestoreDb = getFirestore(app);
 
 const RegistrationApprovalView = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -55,6 +59,25 @@ const RegistrationApprovalView = () => {
   const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const isEmpty = !loading && filteredUsers.length === 0;
   const isFirstLoad = loading && pendingUsers.length === 0;
+
+  const handleApproveAll = async () => {
+    if (filteredUsers.length === 0) return;
+    if (!window.confirm(`${filteredUsers.length} kullanıcıyı onaylamak istediğinize emin misiniz?`)) return;
+    
+    setLoading(true);
+    try {
+      const promises = filteredUsers.map(u => {
+        const userId = u.name.split('/').pop();
+        return updateDoc(doc(firestoreDb, 'users', userId), { status: 'approved' });
+      });
+      await Promise.all(promises);
+      await fetchPending();
+    } catch (error) {
+      console.error("Toplu onay hatası:", error);
+      alert("Bir hata oluştu, lütfen tekrar deneyin.");
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -128,6 +151,16 @@ const RegistrationApprovalView = () => {
                 </button>
               )}
             </div>
+            {filteredUsers.length > 0 && (
+              <button
+                onClick={handleApproveAll}
+                disabled={loading}
+                className="h-12 px-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-[14px] font-bold shadow-sm flex items-center justify-center gap-2 transition-all whitespace-nowrap shrink-0 disabled:opacity-50"
+              >
+                <UserCheck size={18} />
+                Tümünü Onayla ({filteredUsers.length})
+              </button>
+            )}
           </div>
         </div>
 
