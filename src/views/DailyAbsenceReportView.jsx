@@ -8,9 +8,25 @@ import { firebaseService } from '../services/firebase';
 import { db, rtdb } from '../services/firebaseConfig';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
+import useAttendanceConfig from '../hooks/useAttendanceConfig';
+import {
+  ABSENCE_STATUS,
+  evaluateStudentDay,
+  normalizeScanRecord,
+  sortAndDedupeScans,
+  getDateKeyInTimeZone,
+  getMinutesInTimeZone,
+  isClosedDay as isClosedDayFn,
+  getAttendanceWindows,
+  sumAbsenceWeight,
+  formatDayCount
+} from '../services/attendanceRules';
 
 const DailyAbsenceReportView = () => {
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const { config } = useAttendanceConfig();
+
+  const todayKey = getDateKeyInTimeZone(new Date(), config.timeZone);
+  const [selectedDate, setSelectedDate] = useState(() => getDateKeyInTimeZone(new Date(), 'Europe/Istanbul'));
   const [allStudents, setAllStudents] = useState([]);
   const [rtdbLogs, setRtdbLogs] = useState({});
   const [firestoreLogs, setFirestoreLogs] = useState({});
@@ -18,6 +34,13 @@ const DailyAbsenceReportView = () => {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState('all');
+
+  // Rapor canlı ilerlesin diye dakikada bir "şu an" tazelenir.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // 1. Gerçek Zamanlı Öğrenci Listesi Dinleyicisi (Firestore 'users')
   useEffect(() => {
@@ -28,7 +51,6 @@ const DailyAbsenceReportView = () => {
       snap.forEach(d => {
         const data = d.data();
         const role = (data.role || '').toLowerCase();
-        // Sadece öğrenciler ve onaylı veya onay aşamasındaki kayıtlar
         if (role === 'student' || role === 'öğrenci') {
           const name = data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Öğrenci';
           const profileImage = data.profile_image || data.profileImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=103A69&color=fff&size=100&bold=true`;
@@ -57,21 +79,16 @@ const DailyAbsenceReportView = () => {
     return () => unsubUsers();
   }, []);
 
-  // 2. Gerçek Zamanlı Turnike & QR Geçiş Logları Dinleyicisi (RTDB 'qr_system/attendance_logs')
+  // 2. Gerçek Zamanlı Turnike & QR Geçiş Logları Dinleyicisi (RTDB)
   useEffect(() => {
     const rtdbPath = ref(rtdb, `qr_system/attendance_logs/${selectedDate}`);
     const unsubRtdb = onValue(rtdbPath, (snapshot) => {
-      if (snapshot.exists()) {
-        setRtdbLogs(snapshot.val());
-      } else {
-        setRtdbLogs({});
-      }
+      setRtdbLogs(snapshot.exists() ? snapshot.val() : {});
     });
-
     return () => unsubRtdb();
   }, [selectedDate]);
 
-  // 3. Gerçek Zamanlı Firestore Logları Dinleyicisi (Firestore 'attendance_logs' & 'attendance')
+  // 3. Gerçek Zamanlı Firestore Logları & Devamsızlık Kayıtları
   useEffect(() => {
     const fsAttLogsQuery = query(collection(db, 'attendance_logs'), where('date', '==', selectedDate));
     const unsubFsLogs = onSnapshot(fsAttLogsQuery, (snap) => {
@@ -80,24 +97,34 @@ const DailyAbsenceReportView = () => {
         const data = d.data();
         if (data.studentId) {
           if (!logs[data.studentId]) logs[data.studentId] = [];
-          logs[data.studentId].push(data);
+          logs[data.studentId].push({ ...data, id: d.id });
         }
       });
       setFirestoreLogs(logs);
-    });
+    }, (err) => console.warn('attendance_logs dinlenemedi:', err?.message));
 
+    // Devamsızlık kayıtları: bir öğrencinin aynı günde BİRDEN FAZLA kaydı olabilir
+    // (sabah yarım gün + öğleden sonra yarım gün = tam gün). Bu yüzden dizi tutulur.
     const fsManualQuery = collection(db, 'attendance');
     const unsubFsManual = onSnapshot(fsManualQuery, (snap) => {
       const manuals = {};
       snap.forEach(d => {
         const data = d.data();
-        const rDate = data.date ? (data.date.toDate ? data.date.toDate().toISOString().split('T')[0] : new Date(data.date).toISOString().split('T')[0]) : null;
+        let rDate = null;
+        if (data.date) {
+          rDate = data.date.toDate
+            ? getDateKeyInTimeZone(data.date.toDate(), 'Europe/Istanbul')
+            : (typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(data.date)
+              ? data.date.slice(0, 10)
+              : getDateKeyInTimeZone(new Date(data.date), 'Europe/Istanbul'));
+        }
         if (rDate === selectedDate && data.studentId) {
-          manuals[data.studentId] = data;
+          if (!manuals[data.studentId]) manuals[data.studentId] = [];
+          manuals[data.studentId].push({ ...data, id: d.id });
         }
       });
       setManualAttendance(manuals);
-    });
+    }, (err) => console.warn('attendance dinlenemedi:', err?.message));
 
     return () => {
       unsubFsLogs();
@@ -105,149 +132,164 @@ const DailyAbsenceReportView = () => {
     };
   }, [selectedDate]);
 
+  /* ---------------------------------------------------------------------- */
+  /*  Değerlendirme bağlamı                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  const isPastDay = selectedDate < todayKey;
+  const isFutureDay = selectedDate > todayKey;
+
+  const selectedDateObj = useMemo(() => new Date(`${selectedDate}T12:00:00`), [selectedDate]);
+  const dayIsClosed = useMemo(() => isClosedDayFn(selectedDateObj, config), [selectedDateObj, config]);
+  const windows = useMemo(() => getAttendanceWindows(config), [config]);
+
+  /**
+   * Değerlendirme anı:
+   *  • Bugün  -> gerçek saat (rapor gün içinde canlı ilerler)
+   *  • Geçmiş -> gün sonu (tüm oturumlar kesinleşmiş)
+   *  • İleri  -> gün başı (hiçbir şey kesinleşmemiş)
+   */
+  const evaluationMinutes = useMemo(() => {
+    if (isFutureDay) return 0;
+    if (isPastDay) return 24 * 60 - 1;
+    return getMinutesInTimeZone(new Date(nowTick), config.timeZone);
+  }, [isPastDay, isFutureDay, nowTick, config.timeZone]);
+
+  /* ---------------------------------------------------------------------- */
+  /*  Öğrenci başına geçiş kayıtlarını birleştir                             */
+  /* ---------------------------------------------------------------------- */
+
+  const scansByStudent = useMemo(() => {
+    const map = {};
+    const push = (sid, raw, source) => {
+      const normalized = normalizeScanRecord(raw, config);
+      if (!normalized) return;
+      if (!map[sid]) map[sid] = [];
+      map[sid].push({ ...normalized, source });
+    };
+
+    // RTDB geçiş defteri
+    Object.keys(rtdbLogs || {}).forEach(logId => {
+      const raw = { ...rtdbLogs[logId], id: logId };
+      const sid = raw.studentId || raw.userId;
+      if (sid) push(sid, raw, 'rtdb');
+    });
+
+    // Firestore geçiş logları
+    Object.keys(firestoreLogs || {}).forEach(sid => {
+      firestoreLogs[sid].forEach(raw => push(sid, raw, 'firestore'));
+    });
+
+    // TC üzerinden eşleşen eski kayıtlar
+    Object.keys(rtdbLogs || {}).forEach(logId => {
+      const raw = rtdbLogs[logId];
+      if (raw?.studentId || raw?.userId || !raw?.studentTc) return;
+      const owner = allStudents.find(s => s.tc && s.tc === raw.studentTc);
+      if (owner) push(owner.id, { ...raw, id: logId }, 'rtdb');
+    });
+
+    // Aynı geçiş hem RTDB hem Firestore'dan geldiği için tekilleştirilir.
+    Object.keys(map).forEach(sid => { map[sid] = sortAndDedupeScans(map[sid]); });
+
+    return map;
+  }, [rtdbLogs, firestoreLogs, allStudents, config]);
+
   const hasAnyActivity = useMemo(() => {
-    const hasRtdb = Object.keys(rtdbLogs).length > 0;
-    const hasFsLogs = Object.keys(firestoreLogs).length > 0;
-    const hasManual = Object.keys(manualAttendance).length > 0;
-    return hasRtdb || hasFsLogs || hasManual;
-  }, [rtdbLogs, firestoreLogs, manualAttendance]);
+    return Object.keys(scansByStudent).length > 0 || Object.keys(manualAttendance).length > 0;
+  }, [scansByStudent, manualAttendance]);
 
-  // 4. Öğrencilerin Güncel Turnike Geçişi ve Devamsızlık Durumunu Analiz Etme Motoru
+  /* ---------------------------------------------------------------------- */
+  /*  ANA MOTOR: her öğrencinin gününü değerlendir                           */
+  /* ---------------------------------------------------------------------- */
+
   const analyzedStudents = useMemo(() => {
-    // Eğer o gün için henüz hiçbir turnike veya manuel yoklama verisi yoksa (sıfırlanmış / gün başlamamış)
-    if (!hasAnyActivity) {
-      return allStudents.map(student => ({
-        ...student,
-        absenceStatus: 'BEKLEMEDE',
-        absenceWeight: 0,
-        statusLabel: 'Turnike Girişi Bekleniyor',
-        detailNote: 'Henüz turnike kaydı oluşmadı',
-        isLate: false,
-        isTurnstilePresent: false
-      }));
-    }
-
     return allStudents.map(student => {
-      // 1. Manuel Yönetici Kararı Varsa
-      if (manualAttendance[student.id]) {
-        const manual = manualAttendance[student.id];
-        const cName = manual.courseName || '';
-        const isYarim = cName.includes('Yarım Gün') || manual.periodIndex === -0.5;
-        const isRaporlu = manual.status === 'excused' || cName.includes('Raporlu');
+      const scans = scansByStudent[student.id] || [];
+      const records = manualAttendance[student.id] || [];
+
+      // --- 1) Raporlu / izinli kaydı her şeyin önündedir --------------------
+      const excuse = records.find(r =>
+        r.status === 'excused' ||
+        String(r.courseName || '').includes('Raporlu') ||
+        String(r.courseName || '').includes('İzinli')
+      );
+      if (excuse) {
         return {
           ...student,
-          absenceStatus: isRaporlu ? 'RAPORLU' : isYarim ? 'YARIM_GUN' : 'TAM_GUN',
-          absenceWeight: isRaporlu ? 0 : (isYarim ? 0.5 : 1.0),
-          statusLabel: isRaporlu ? 'İzinli / Raporlu' : isYarim ? 'Yarım Gün Devamsız (0.5)' : 'Tam Gün Devamsız (1.0)',
-          detailNote: cName || 'İdare Tarafından İşlendi',
-          isLate: false,
-          isTurnstilePresent: false
-        };
-      }
-
-      // 2. Turnike & QR Geçişlerini Tara
-      const studentScans = [];
-
-      // RTDB turnike logları
-      Object.values(rtdbLogs).forEach(log => {
-        if (log.studentId === student.id || (student.tc && log.studentTc === student.tc)) {
-          studentScans.push(log);
-        }
-      });
-
-      // Firestore ek logları
-      if (firestoreLogs[student.id]) {
-        firestoreLogs[student.id].forEach(log => studentScans.push(log));
-      }
-
-      if (studentScans.length === 0) {
-        return {
-          ...student,
-          absenceStatus: 'TAM_GUN',
-          absenceWeight: 1.0,
-          statusLabel: 'Tam Gün Devamsız (1.0)',
-          detailNote: 'Turnikeden Geçiş Yapılmadı',
-          isLate: false,
-          isTurnstilePresent: false
-        };
-      }
-
-      // Sabah (07:00 - 12:30) ve Öğle (12:30 - 18:00) Turnike Girişlerini Belirle
-      let hasMorningEntry = false;
-      let hasAfternoonEntry = false;
-      let morningLate = false;
-      let afternoonLate = false;
-      let scanTimes = [];
-
-      studentScans.forEach(s => {
-        let hour = 9, min = 0;
-        if (s.time) {
-          const parts = s.time.split(':').map(Number);
-          hour = parts[0]; min = parts[1];
-        } else if (s.timestamp) {
-          const d = new Date(s.timestamp);
-          hour = d.getHours(); min = d.getMinutes();
-        }
-        const timeStr = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-        scanTimes.push(timeStr);
-        const totalMin = hour * 60 + min;
-
-        // 09:00 sabah toleransı 09:05'e kadar, 12:30'a kadar olanlar sabah girişidir
-        if (totalMin < 12 * 60 + 30) {
-          hasMorningEntry = true;
-          if (totalMin > 9 * 60 + 5 || s.isLate) morningLate = true;
-        } else {
-          // 12:30 sonrası öğle girişidir, 13:05 sonrası geç kalmadır
-          hasAfternoonEntry = true;
-          if (totalMin > 13 * 60 + 5 || s.isLate) afternoonLate = true;
-        }
-      });
-
-      const isLate = morningLate || afternoonLate;
-
-      if (hasMorningEntry && hasAfternoonEntry) {
-        return {
-          ...student,
-          absenceStatus: 'MEVCUT',
+          absenceStatus: ABSENCE_STATUS.EXCUSED,
           absenceWeight: 0,
-          statusLabel: isLate ? 'Mevcut (Geç Kaldı)' : 'Tam Gün Mevcut',
-          detailNote: `Turnike Girişleri: ${scanTimes.join(', ')}`,
-          isLate,
-          isTurnstilePresent: true
+          statusLabel: 'İzinli / Raporlu',
+          detailNote: excuse.courseName || 'İdare tarafından işlendi',
+          isLate: false,
+          isTurnstilePresent: scans.length > 0,
+          isAuto: false,
+          scanTimes: scans.map(s => s.time)
         };
-      } else if (hasMorningEntry && !hasAfternoonEntry) {
-        return {
-          ...student,
-          absenceStatus: 'YARIM_GUN',
-          absenceWeight: 0.5,
-          statusLabel: 'Yarım Gün Devamsız (0.5)',
-          detailNote: `Sabah Giriş: ${scanTimes.join(', ')} (Öğleden sonra gelmedi)`,
-          isLate,
-          isTurnstilePresent: true
-        };
-      } else if (!hasMorningEntry && hasAfternoonEntry) {
-        return {
-          ...student,
-          absenceStatus: 'YARIM_GUN',
-          absenceWeight: 0.5,
-          statusLabel: 'Yarım Gün Devamsız (0.5)',
-          detailNote: `Öğle Giriş: ${scanTimes.join(', ')} (Sabahtan gelmedi)`,
-          isLate,
-          isTurnstilePresent: true
-        };
+      }
+
+      // --- 2) Kural motoruyla günü değerlendir -----------------------------
+      const evaluation = evaluateStudentDay({
+        scans,
+        nowMinutes: evaluationMinutes,
+        config,
+        isClosedDay: dayIsClosed
+      });
+
+      // --- 3) Yazılmış devamsızlık kayıtlarıyla birleştir -------------------
+      // Motorun hesabı ile veritabanındaki kayıtlardan HANGİSİ AĞIRSA o geçerlidir.
+      // Böylece idarenin elle yazdığı "Tam Gün Yok" da rapora yansır.
+      const recordedWeight = sumAbsenceWeight(records);
+      const engineWeight = evaluation.absenceWeight;
+      const finalWeight = Math.max(recordedWeight, engineWeight);
+
+      const manualRecord = records.find(r => !r.autoGenerated);
+      const autoRecords = records.filter(r => r.autoGenerated);
+
+      let absenceStatus = ABSENCE_STATUS.PENDING;
+      let statusLabel = evaluation.statusLabel;
+
+      if (dayIsClosed) {
+        absenceStatus = ABSENCE_STATUS.PENDING;
+        statusLabel = 'Kurum Kapalı';
+      } else if (finalWeight >= 1) {
+        absenceStatus = ABSENCE_STATUS.FULL_DAY;
+        statusLabel = 'Tam Gün Devamsız (1.0)';
+      } else if (finalWeight === 0.5) {
+        absenceStatus = ABSENCE_STATUS.HALF_DAY;
+        statusLabel = 'Yarım Gün Devamsız (0.5)';
+      } else if (evaluation.isPresentToday) {
+        absenceStatus = ABSENCE_STATUS.PRESENT;
+        statusLabel = evaluation.isLate ? 'Mevcut (Geç Kaldı)' : 'Tam Gün Mevcut';
+      }
+
+      // --- 4) Açıklama -----------------------------------------------------
+      let detailNote = evaluation.detailNote;
+      if (manualRecord) {
+        detailNote = `${manualRecord.courseName || 'İdare kaydı'} · ${manualRecord.recordedBy || 'Admin'}`;
+      } else if (autoRecords.length) {
+        const labels = autoRecords.map(r => r.sessionLabel || (r.session === 'morning' ? 'Sabah' : 'Öğleden Sonra'));
+        detailNote = `${evaluation.detailNote} · Otomatik yazıldı: ${labels.join(' + ')}`;
+      } else if (!hasAnyActivity && !isPastDay && evaluationMinutes < windows.halfDayCutoff) {
+        detailNote = 'Henüz geçiş kaydı oluşmadı';
       }
 
       return {
         ...student,
-        absenceStatus: 'TAM_GUN',
-        absenceWeight: 1.0,
-        statusLabel: 'Tam Gün Devamsız (1.0)',
-        detailNote: 'Turnikeden Giriş Yapılmadı',
-        isLate: false,
-        isTurnstilePresent: false
+        absenceStatus,
+        absenceWeight: finalWeight,
+        statusLabel,
+        detailNote,
+        isLate: evaluation.isLate,
+        isTurnstilePresent: evaluation.isPresentToday,
+        isAuto: autoRecords.length > 0,
+        morningPresent: evaluation.morning.present,
+        afternoonPresent: evaluation.afternoon.present,
+        morningEntryTime: evaluation.morning.entryTime,
+        afternoonEntryTime: evaluation.afternoon.entryTime,
+        scanTimes: evaluation.scans.map(s => `${s.time}${s.action === 'exit' ? ' ↩' : ''}`)
       };
     });
-  }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, hasAnyActivity]);
+  }, [allStudents, scansByStudent, manualAttendance, evaluationMinutes, config, dayIsClosed, hasAnyActivity, isPastDay, windows]);
 
   // Sadece Devamsız (Tam Gün veya Yarım Gün) Olan Öğrenciler
   const absentStudents = useMemo(() => {
@@ -292,11 +334,59 @@ const DailyAbsenceReportView = () => {
 
   // Metrikler
   const totalCount = allStudents.length;
-  const fullDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === 'TAM_GUN').length;
-  const halfDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === 'YARIM_GUN').length;
+  const fullDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === ABSENCE_STATUS.FULL_DAY).length;
+  const halfDayAbsentCount = analyzedStudents.filter(s => s.absenceStatus === ABSENCE_STATUS.HALF_DAY).length;
+  const excusedCount = analyzedStudents.filter(s => s.absenceStatus === ABSENCE_STATUS.EXCUSED).length;
+  const lateCount = analyzedStudents.filter(s => s.isLate).length;
   const presentCount = analyzedStudents.filter(s => s.isTurnstilePresent).length;
-  const totalAbsentDays = (fullDayAbsentCount * 1.0 + halfDayAbsentCount * 0.5).toFixed(1).replace('.0', '').replace('.', ',');
-  const absencePercentage = totalCount > 0 && hasAnyActivity ? (((fullDayAbsentCount + halfDayAbsentCount * 0.5) / totalCount) * 100).toFixed(1) : 0;
+  const totalAbsentDays = formatDayCount(fullDayAbsentCount * 1.0 + halfDayAbsentCount * 0.5);
+  const absencePercentage = totalCount > 0 && hasAnyActivity
+    ? (((fullDayAbsentCount + halfDayAbsentCount * 0.5) / totalCount) * 100).toFixed(1)
+    : 0;
+
+  /**
+   * Günün hangi aşamasında olduğumuzu ve raporun neyi gösterdiğini anlatan durum.
+   * Kullanıcı 12:00'de yarım günleri, okul çıkışında tam günleri görmek istiyor;
+   * bu şerit hangi aşamada olunduğunu net biçimde belirtir.
+   */
+  const dayPhase = useMemo(() => {
+    if (dayIsClosed) {
+      return { tone: 'slate', title: 'Kurum Kapalı', text: `${selectedDate} kurum takvimine göre kapalıdır; otomatik devamsızlık işlenmez.` };
+    }
+    if (isFutureDay) {
+      return { tone: 'slate', title: 'İleri Tarih', text: 'Seçilen gün henüz gelmedi.' };
+    }
+    if (isPastDay) {
+      return { tone: 'indigo', title: 'Gün Tamamlandı', text: 'Tüm oturumlar kesinleşti; rapor günün nihai halidir.' };
+    }
+    if (evaluationMinutes < windows.halfDayCutoff) {
+      return {
+        tone: 'amber',
+        title: 'Sabah Oturumu Sürüyor',
+        text: `Devamsızlıklar saat ${config.halfDayCutoffHour} itibarıyla kesinleşecek. Şu an yalnızca canlı geçişler görünüyor.`
+      };
+    }
+    if (evaluationMinutes < windows.schoolExit) {
+      return {
+        tone: 'orange',
+        title: 'Yarım Gün Devamsızlıkları Kesinleşti',
+        text: `Sabah gelmeyenlere yarım gün yazıldı. Öğleden sonra gelenlerin ikinci yarım günü yazılmayacak. Tam gün devamsızlıklar ${config.schoolExitHour} itibarıyla kesinleşecek.`
+      };
+    }
+    return {
+      tone: 'red',
+      title: 'Gün Kapandı — Tam Gün Devamsızlıklar İşlendi',
+      text: `Okul çıkış saati (${config.schoolExitHour}) geçti. Hiç gelmeyen öğrencilere ikinci yarım gün eklenerek tam gün yok yazıldı.`
+    };
+  }, [dayIsClosed, isFutureDay, isPastDay, evaluationMinutes, windows, config, selectedDate]);
+
+  const PHASE_TONE = {
+    slate:  'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300',
+    indigo: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/50 text-indigo-800 dark:text-indigo-200',
+    amber:  'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-200',
+    orange: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-900/50 text-orange-800 dark:text-orange-200',
+    red:    'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50 text-red-800 dark:text-red-200'
+  };
 
   // CSV İndir (UTF-8 BOM ile Excel Uyumlu)
   const handleExportCSV = () => {
@@ -630,6 +720,33 @@ const DailyAbsenceReportView = () => {
               <UserX size={22} className="text-red-500" />
             </div>
           </div>
+        </div>
+
+        {/* Günün aşaması: raporun şu an neyi gösterdiği */}
+        <div className={`mb-5 px-4 py-3.5 rounded-2xl border flex items-start gap-3 ${PHASE_TONE[dayPhase.tone]}`}>
+          <Clock size={17} className="mt-0.5 shrink-0 opacity-80" />
+          <div className="flex flex-col">
+            <span className="text-[13.5px] font-extrabold">{dayPhase.title}</span>
+            <span className="text-[12.5px] font-medium opacity-90 leading-relaxed mt-0.5">{dayPhase.text}</span>
+          </div>
+        </div>
+
+        {/* Devamsızlık kırılımı: yarım gün / tam gün / geç / raporlu */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {[
+            { label: 'Yarım Gün Yok', value: halfDayAbsentCount, cls: 'text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/40', Icon: Timer },
+            { label: 'Tam Gün Yok', value: fullDayAbsentCount, cls: 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/40', Icon: UserX },
+            { label: 'Geç Kalan', value: lateCount, cls: 'text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900/40', Icon: Clock },
+            { label: 'İzinli / Raporlu', value: excusedCount, cls: 'text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/40', Icon: ShieldCheck }
+          ].map(({ label, value, cls, Icon }) => (
+            <div key={label} className={`bg-white dark:bg-[#111C38] border rounded-2xl px-4 py-3 shadow-sm ${cls.split(' ').filter(c => c.startsWith('border')).join(' ')}`}>
+              <span className="text-[10.5px] font-bold uppercase tracking-wider block mb-1 text-slate-400">{label}</span>
+              <div className="flex items-baseline justify-between">
+                <span className={`text-[22px] font-black ${cls.split(' ').filter(c => c.startsWith('text')).join(' ')}`}>{value}</span>
+                <Icon size={18} className="opacity-50" />
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Filtre ve Arama Barı */}

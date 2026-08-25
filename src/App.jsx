@@ -47,6 +47,7 @@ import StudentGateAdminView from './views/StudentGateAdminView';
 import ProfileView from './views/ProfileView';
 import CheatLogsAdminView from './views/CheatLogsAdminView';
 import DeviceManagementView from './views/DeviceManagementView';
+import useAttendanceAutomation from './hooks/useAttendanceAutomation';
 
 const NavItem = ({ to, icon: Icon, label, onClick }) => (
   <NavLink
@@ -167,6 +168,17 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
+/**
+ * Otomatik Yoklama Motoru.
+ * Panel açık olduğu sürece dakikada bir çalışır; 12:10 otomatik çıkışlarını,
+ * 12:00 yarım gün ve okul çıkış saatindeki tam gün devamsızlıklarını işler.
+ * Görsel çıktısı yoktur, yalnızca arka planda görev yürütür.
+ */
+const AttendanceAutomationRunner = () => {
+  useAttendanceAutomation(true);
+  return null;
+};
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -209,6 +221,7 @@ const App = () => {
     <ThemeProvider>
       <Router>
         <div className="app-container">
+          <AttendanceAutomationRunner />
           <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
           <div className="main-content bg-[var(--bg-base)] flex flex-col relative w-full">
             <div className="drag-region-top hidden md:block" />

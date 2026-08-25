@@ -6,7 +6,7 @@
   "main": "main.cjs",
   "scripts": {
     "dev:vite": "vite --host",
-    "build": "vite build",
+    "build": "node scripts/build-backend-rules.cjs && vite build",
     "lint": "eslint .",
     "security-audit": "npm audit --production",
     "preview": "vite preview",
@@ -14,7 +14,12 @@
     "dev:electron": "concurrently -k \"npm run dev:vite\" \"npm run electron\"",
     "dev": "npm run dev:electron",
     "make": "npm run build && electron-builder --win --x64",
-    "make:mac": "npm run build && electron-builder --mac"
+    "make:mac": "npm run build && electron-builder --mac",
+    "test": "node --test tests/attendanceRules.test.mjs tests/engineParity.test.mjs",
+    "test:e2e": "node tests/run-e2e.mjs",
+    "test:all": "npm run test && npm run test:e2e",
+    "build:rules": "node scripts/build-backend-rules.cjs",
+    "check:rules": "node scripts/build-backend-rules.cjs --check"
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^5.2.0",

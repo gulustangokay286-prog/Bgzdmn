@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { DoorOpen, GraduationCap, CheckCircle2 } from 'lucide-react';
-import { db } from '../services/firebaseConfig';
 import { soundManager } from '../services/soundManager';
-import { collection, onSnapshot, query as fsQuery, orderBy as fsOrderBy, limit as fsLimit } from 'firebase/firestore';
+import { ref, query as rtdbQuery, limitToLast, onValue } from 'firebase/database';
+import { rtdb } from '../services/firebaseConfig';
 import { firebaseService } from '../services/firebase';
 import { io } from 'socket.io-client';
 
@@ -11,6 +11,44 @@ const AttendanceLiveView = () => {
   const [loading, setLoading] = useState(true);
   const [usersMap, setUsersMap] = useState({});
   const [filterType, setFilterType] = useState('all');
+  const [sources, setSources] = useState({ vds: false, firebase: false });
+
+  /**
+   * İki kaynaktan gelen kayıtları kimliğe göre birleştirir, zamana göre
+   * sıralar ve son 50 işlemi tutar. Aynı geçiş her iki kaynaktan da gelirse
+   * (öğrenci-yön-dakika) anahtarıyla tekilleştirilir.
+   */
+  const mergeRecords = React.useCallback((incoming) => {
+    setLiveRecords(prev => {
+      const byId = new Map();
+      [...incoming, ...prev].forEach(r => {
+        if (!r) return;
+        byId.set(r.id || `${r.studentId}_${r.timestamp}`, r);
+      });
+
+      const toMs = (r) => {
+        if (r.timestamp?.seconds) return r.timestamp.seconds * 1000;
+        if (typeof r.timestamp === 'number') return r.timestamp;
+        if (typeof r.timestamp === 'string') {
+          const t = new Date(r.timestamp).getTime();
+          return Number.isNaN(t) ? 0 : t;
+        }
+        return 0;
+      };
+
+      const deduped = new Map();
+      Array.from(byId.values())
+        .sort((a, b) => toMs(b) - toMs(a))
+        .forEach(r => {
+          const sid = r.studentId || r.userId || 'unknown';
+          const minuteKey = Math.floor(toMs(r) / 60000);
+          const key = `${sid}_${r.action || r.status}_${minuteKey}`;
+          if (!deduped.has(key)) deduped.set(key, r);
+        });
+
+      return Array.from(deduped.values()).slice(0, 50);
+    });
+  }, []);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -38,27 +76,63 @@ const AttendanceLiveView = () => {
     };
     fetchUsers();
 
+    /* ------------------------------------------------------------------ */
+    /*  KAYNAK 1: VDS socket.io canlı akışı                                */
+    /* ------------------------------------------------------------------ */
     const socket = io('http://213.142.159.36:8080');
 
     socket.on('connect', () => {
-      console.log('VDS Canlı akışa bağlandı');
+      setSources(prev => ({ ...prev, vds: true }));
       setLoading(false);
     });
 
     socket.on('new_scan', (data) => {
-      setLiveRecords(prev => {
-        const newRecords = [data, ...prev].slice(0, 50);
-        return newRecords;
-      });
+      mergeRecords([{ ...data, id: data.id || `vds_${data.studentId}_${data.timestamp}`, source: 'vds' }]);
       soundManager.playSuccessDing();
     });
 
-    socket.on('disconnect', () => {
-      console.log('VDS bağlantısı koptu');
-    });
+    socket.on('disconnect', () => setSources(prev => ({ ...prev, vds: false })));
+    socket.on('connect_error', () => setSources(prev => ({ ...prev, vds: false })));
 
-    return () => { socket.disconnect(); };
-  }, []);
+    /* ------------------------------------------------------------------ */
+    /*  KAYNAK 2: Firebase RTDB canlı akışı                                */
+    /*  Mobil web (BGZ), panel manuel geçişleri ve otomatik çıkışlar buraya */
+    /*  yazıldığı için VDS kapalı olsa bile akış kesilmez.                  */
+    /* ------------------------------------------------------------------ */
+    const seenRef = { current: new Set() };
+    let firstRtdbBatch = true;
+
+    const liveRef = rtdbQuery(ref(rtdb, 'qr_system/live_scans'), limitToLast(50));
+    const unsubRtdb = onValue(liveRef, (snapshot) => {
+      setSources(prev => ({ ...prev, firebase: true }));
+      setLoading(false);
+      if (!snapshot.exists()) return;
+
+      const incoming = [];
+      snapshot.forEach(child => {
+        const data = child.val();
+        if (!data) return;
+        incoming.push({ ...data, id: child.key, source: 'firebase' });
+      });
+
+      // İlk yüklemede ses çalma; yalnızca yeni gelenlerde çal.
+      const fresh = incoming.filter(r => !seenRef.current.has(r.id));
+      incoming.forEach(r => seenRef.current.add(r.id));
+      mergeRecords(incoming);
+
+      if (!firstRtdbBatch && fresh.length) soundManager.playSuccessDing();
+      firstRtdbBatch = false;
+    }, () => setSources(prev => ({ ...prev, firebase: false })));
+
+    // VDS hiç bağlanmazsa da ekran takılı kalmasın
+    const loadingGuard = setTimeout(() => setLoading(false), 4000);
+
+    return () => {
+      socket.disconnect();
+      try { unsubRtdb(); } catch { /* yok say */ }
+      clearTimeout(loadingGuard);
+    };
+  }, [mergeRecords]);
 
   const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -96,12 +170,23 @@ const AttendanceLiveView = () => {
             </button>
           </div>
           
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 text-[14px] font-bold">
+          <div
+            className={`flex items-center gap-2 text-[14px] font-bold ${
+              (sources.vds || sources.firebase) ? 'text-emerald-600 dark:text-emerald-500' : 'text-amber-600 dark:text-amber-500'
+            }`}
+            title={`VDS: ${sources.vds ? 'bağlı' : 'kapalı'} · Firebase: ${sources.firebase ? 'bağlı' : 'kapalı'}`}
+          >
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${(sources.vds || sources.firebase) ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${(sources.vds || sources.firebase) ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
             </span>
-            Sistem Aktif
+            {(sources.vds && sources.firebase)
+              ? 'Sistem Aktif (2 kaynak)'
+              : sources.firebase
+                ? 'Sistem Aktif (Firebase)'
+                : sources.vds
+                  ? 'Sistem Aktif (VDS)'
+                  : 'Bağlantı Bekleniyor'}
           </div>
         </div>
       </div>
@@ -195,7 +280,22 @@ const AttendanceLiveView = () => {
                         )}
                       </div>
                       <span className="text-[14px] font-medium text-slate-500 mt-0.5">
-                        {isAttendance ? 'Derse Giriş Yaptı' : (record.action === 'exit' ? 'Kurumdan Çıkış Yaptı' : 'Kuruma Giriş Yaptı')}
+                        {isAttendance
+                          ? 'Derse Giriş Yaptı'
+                          : record.autoKind === 'lunch_exit'
+                            ? 'Öğle Çıkışı (Otomatik)'
+                            : record.autoKind === 'school_exit'
+                              ? 'Gün Sonu Çıkışı (Otomatik)'
+                              : record.action === 'exit'
+                                ? 'Kurumdan Çıkış Yaptı'
+                                : record.isManualApproval
+                                  ? 'Kuruma Giriş Yaptı (Öğretmen Onaylı)'
+                                  : 'Kuruma Giriş Yaptı'}
+                        {record.isLate && !record.auto && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-[10px] font-extrabold uppercase tracking-wider">
+                            Geç
+                          </span>
+                        )}
                       </span>
                     </div>
 

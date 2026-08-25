@@ -1,9 +1,9 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, push, update, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
-import { db, rtdb } from '../services/firebaseConfig';
-import { sendWhatsAppNotification } from '../services/whatsappService';
+import { db } from '../services/firebaseConfig';
+import { processStudentScan, subscribeLateApprovalStatus, loadAttendanceConfig } from '../services/attendanceService';
+import { getDateKeyInTimeZone, buildLateApprovalId } from '../services/attendanceRules';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 import { detectIncognito as detectIncognitoLib } from 'detectincognitojs';
 
@@ -438,6 +438,8 @@ const QRCodeRedirect = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [student, setStudent] = useState(null);
   const [successMessage, setSuccessMessage] = useState("Yoklamanız başarıyla alındı.");
+  const [scanResult, setScanResult] = useState(null);
+  const [approvalWatch, setApprovalWatch] = useState(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const inputRef = useRef(null);
@@ -637,123 +639,29 @@ const QRCodeRedirect = () => {
     }
   };
 
+  /**
+   * Karekod okutulduğunda çalışır.
+   *
+   * Kurum geçişlerinde karar TAMAMEN ortak kural motoruna (attendanceRules.js)
+   * bırakılır; bu motor IALMobil Admin Windows panelinde de birebir aynı
+   * şekilde çalıştığı için mobil web ile panel asla çelişmez.
+   *
+   * Tolerans süresi dolduktan sonra okutulursa giriş KAYDEDİLMEZ; öğrenciye
+   * "Rehber Öğretmeninizle Görüşün" ekranı gösterilir ve görevli öğretmenin
+   * "Öğrenci Geçiş" ekranından manuel giriş yapması beklenir.
+   */
   const processAttendance = async (foundStudent) => {
     const urlParams = new URLSearchParams(window.location.search);
     const qrType = urlParams.get('type') || 'institution';
     const sessionId = urlParams.get('sessionId') || 'web_fallback';
-    const nowSec = Math.floor(Date.now() / 1000);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const qrAction = urlParams.get('action') || 'toggle';
 
-    let finalMessage = "Yoklamanız başarıyla alındı.";
-    let newStatus = "entry";
+    const isInstitutionGate = ['institution', 'kurum', 'institution_gate', 'gate'].includes(qrType);
 
-    if (qrType === 'institution' || qrType === 'kurum' || qrType === 'institution_gate' || qrType === 'gate') {
-      const qrAction = urlParams.get('action') || 'entry';
-      
-      const statusRef = doc(db, "gate_status", foundStudent.id);
-      const statusSnap = await getDoc(statusRef);
-      
-      let currentStatus = "outside";
-      if (statusSnap.exists()) {
-        const data = statusSnap.data();
-        if (data.date === todayStr) {
-          currentStatus = data.status;
-        }
-      }
-
-      let inCooldown = false;
-
-      if (qrAction === 'entry') {
-        if (currentStatus === 'entry') {
-          finalMessage = "Zaten giriş yapıldı.";
-          newStatus = "entry";
-          inCooldown = true;
-        } else {
-          finalMessage = "Kurum girişi yapıldı.";
-          newStatus = "entry";
-        }
-      } else if (qrAction === 'exit') {
-        if (currentStatus === 'outside') {
-          finalMessage = "Önce kuruma giriş yapmalısınız.";
-          newStatus = "outside";
-          inCooldown = true;
-        } else if (currentStatus === 'exit') {
-          finalMessage = "Zaten çıkış yapıldı.";
-          newStatus = "exit";
-          inCooldown = true;
-        } else {
-          finalMessage = "Kurumdan çıkıldı.";
-          newStatus = "exit";
-        }
-      } else {
-        if (currentStatus === "entry") {
-          finalMessage = "Kurumdan çıkıldı.";
-          newStatus = "exit";
-        } else {
-          finalMessage = "Kurum girişi yapıldı.";
-          newStatus = "entry";
-        }
-      }
-
-      setSuccessMessage(finalMessage);
-      setStudent(foundStudent);
-      setIsVerifying(false);
-
-      const hw = localStorage.getItem('__bgz_hardware_id');
-      if (hw && incognitoScore >= 50) {
-        saveAutoLogin(foundStudent, hw);
-      }
-
-      if (!inCooldown) {
-        await setDoc(statusRef, {
-          status: newStatus,
-          date: todayStr,
-          timestamp: serverTimestamp()
-        }).catch(() => {});
-
-        await addDoc(collection(db, "attendance_logs"), {
-          studentId: foundStudent.id,
-          studentName: foundStudent.name,
-          type: qrType,
-          action: qrAction,
-          status: newStatus,
-          sessionId: sessionId,
-          timestamp: serverTimestamp()
-        }).catch(() => {});
-        
-        const dateString = new Date().toISOString().split('T')[0];
-        const rtdbData = {
-            sessionId: sessionId || "web_fallback",
-            type: qrType || "web_qr",
-            action: newStatus,
-            status: newStatus,
-            studentId: foundStudent.id,
-            userId: foundStudent.id,
-            studentName: foundStudent.name,
-            userName: foundStudent.name,
-            profileImageUrl: foundStudent.photo || "",
-            timestamp: rtdbServerTimestamp(),
-            date: dateString
-        };
-
-        const newLogRef = push(ref(rtdb, `qr_system/attendance_logs/${dateString}`));
-        const updates = {};
-        updates[`qr_system/attendance_logs/${dateString}/${newLogRef.key}`] = rtdbData;
-        updates[`qr_system/live_scans/${newLogRef.key}`] = rtdbData;
-
-        await update(ref(rtdb), updates).catch(() => {});
-
-        try {
-          sendWhatsAppNotification(foundStudent.id, foundStudent.name, newStatus, new Date());
-        } catch (waErr) {
-          console.error("WhatsApp bildirim hatası:", waErr);
-        }
-      }
-
-    } else {
-      finalMessage = "Yoklamanız başarıyla alındı.";
-      newStatus = "present";
-      setSuccessMessage(finalMessage);
+    // Ders yoklaması (kurum turnikesi değil) — eski davranış korunur.
+    if (!isInstitutionGate) {
+      setScanResult({ kind: 'entry', title: 'Hoş geldiniz', message: 'Yoklamanız başarıyla alındı.', detail: '' });
+      setSuccessMessage('Yoklamanız başarıyla alındı.');
       setStudent(foundStudent);
       setIsVerifying(false);
 
@@ -761,10 +669,63 @@ const QRCodeRedirect = () => {
         studentId: foundStudent.id,
         studentName: foundStudent.name,
         type: qrType,
-        status: newStatus,
+        status: "present",
         sessionId: sessionId,
         timestamp: serverTimestamp()
       }).catch(() => {});
+      return;
+    }
+
+    try {
+      const result = await processStudentScan({
+        student: {
+          id: foundStudent.id,
+          name: foundStudent.name,
+          tc: foundStudent.tc,
+          photo: foundStudent.photo
+        },
+        requestedAction: qrAction,
+        sessionId,
+        qrType
+      });
+
+      setScanResult(result);
+      setSuccessMessage(result.message);
+      setStudent(foundStudent);
+      setIsVerifying(false);
+
+      // Geç kalındıysa görevli öğretmenin onayını canlı bekle.
+      if (result.kind === 'counselor' && result.decision) {
+        try {
+          const cfg = await loadAttendanceConfig();
+          const dateKey = getDateKeyInTimeZone(new Date(), cfg.timeZone);
+          const requestId = buildLateApprovalId(dateKey, foundStudent.id, result.decision.session || 'morning');
+          subscribeLateApprovalStatus(dateKey, requestId, (data) => {
+            if (data) setApprovalWatch(data);
+          });
+        } catch (watchErr) {
+          console.error('Onay dinleyici kurulamadı:', watchErr);
+        }
+      }
+
+      // Cihaz hatırlama yalnızca gerçekten kaydedilen geçişlerde.
+      if (result.recorded) {
+        const hw = localStorage.getItem('__bgz_hardware_id');
+        if (hw && incognitoScore >= 50) {
+          saveAutoLogin(foundStudent, hw);
+        }
+      }
+    } catch (err) {
+      console.error('Geçiş işlenemedi:', err);
+      setScanResult({
+        kind: 'warning',
+        title: 'İşlem Tamamlanamadı',
+        message: 'Geçişiniz kaydedilemedi. Lütfen görevli öğretmene başvurun.',
+        detail: err?.message || ''
+      });
+      setSuccessMessage('Geçişiniz kaydedilemedi.');
+      setStudent(foundStudent);
+      setIsVerifying(false);
     }
   };
 
@@ -892,81 +853,135 @@ const QRCodeRedirect = () => {
   }
 
   if (student) {
-    const isWarning = successMessage.includes("Zaten") || successMessage.includes("Önce") || successMessage.includes("Güvenlik") || successMessage.includes("süresi");
-    const isCheckout = successMessage.toLowerCase().includes('çık');
+    // Kural motorunun kararına göre ekran tipi belirlenir.
+    const kind = scanResult?.kind
+      || (successMessage.includes('Zaten') || successMessage.includes('Önce') ? 'warning'
+        : (successMessage.toLowerCase().includes('çık') ? 'exit' : 'entry'));
 
-    let subText = "Bu işlem zaten kayıt altına alınmış. Çift geçiş yapmanıza gerek yoktur.";
-    if (successMessage.includes("Önce")) {
-      subText = "Giriş yapmadan çıkış yapamazsınız.";
-    }
+    const approved = approvalWatch?.status === 'approved';
+    const rejected = approvalWatch?.status === 'rejected';
+    const effectiveKind = approved ? 'entry' : (rejected ? 'warning' : kind);
 
-    const headerColor = isWarning 
-      ? 'linear-gradient(180deg, #ea580c 0%, #9a3412 100%)'
-      : (isCheckout 
-          ? 'linear-gradient(180deg, #be123c 0%, #7f1d1d 100%)'
-          : 'linear-gradient(180deg, #10b981 0%, #047857 100%)');
+    const isCounselor = effectiveKind === 'counselor';
+    const isWarning = effectiveKind === 'warning';
+    const isCheckout = effectiveKind === 'exit';
 
-    const themeColorHex = isWarning ? '#ea580c' : (isCheckout ? '#be123c' : '#10b981');
-    const baseBg = isWarning ? '#9a3412' : (isCheckout ? '#7f1d1d' : '#047857');
+    // Rehberlik ekranı ayrı bir tema kullanır: dikkat çekici ama suçlayıcı değil.
+    const THEMES = {
+      counselor: { grad: 'linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%)', theme: '#b91c1c', base: '#7f1d1d', badge: '#dc2626' },
+      warning:   { grad: 'linear-gradient(180deg, #ea580c 0%, #9a3412 100%)', theme: '#ea580c', base: '#9a3412', badge: '#ef4444' },
+      exit:      { grad: 'linear-gradient(180deg, #be123c 0%, #7f1d1d 100%)', theme: '#be123c', base: '#7f1d1d', badge: '#e11d48' },
+      entry:     { grad: 'linear-gradient(180deg, #10b981 0%, #047857 100%)', theme: '#10b981', base: '#047857', badge: '#10b981' }
+    };
+    const T = THEMES[effectiveKind] || THEMES.entry;
+
+    const title = approved ? 'Girişiniz Yapıldı'
+      : rejected ? 'Giriş Onaylanmadı'
+      : (scanResult?.title
+        || (isWarning ? 'Bir Saniye!' : (isCheckout ? 'Görüşmek Üzere' : 'Hoş geldiniz')));
+
+    const message = approved
+      ? 'Görevli öğretmen girişinizi onayladı. Sınıfınıza geçebilirsiniz.'
+      : rejected
+        ? 'Girişiniz görevli öğretmen tarafından onaylanmadı. Lütfen idareye başvurun.'
+        : (scanResult?.message || successMessage);
+
+    const detail = approved || rejected ? '' : (scanResult?.detail || '');
 
     return (
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: headerColor, fontFamily: 'Inter, sans-serif', color: 'white', textAlign: 'center', overflow: 'hidden' }}>
-        <ThemeColorUpdater topColor={themeColorHex} bottomColor={baseBg} />
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: T.grad, fontFamily: 'Inter, sans-serif', color: 'white', textAlign: 'center', overflowY: 'auto' }}>
+        <ThemeColorUpdater topColor={T.theme} bottomColor={T.base} />
         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%', zIndex: 10 }}>
-        
-        <div style={{ position: 'relative', marginBottom: isWarning ? '36px' : '24px', zIndex: 10, marginTop: '20px' }}>
-          <img src={student.photo} alt="Profile" style={{ width: '130px', height: '130px', borderRadius: '50%', objectFit: 'cover', border: '5px solid #ffffff', boxShadow: '0 15px 35px rgba(0,0,0,0.25)' }} />
-          
-          {isWarning ? (
-            <div style={{ position: 'absolute', bottom: '4px', right: '4px', backgroundColor: '#ef4444', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid #ffffff', zIndex: 11 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            </div>
-          ) : (
-            <div style={{ position: 'absolute', bottom: '4px', right: '4px', backgroundColor: isCheckout ? '#e11d48' : '#10b981', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid #ffffff', zIndex: 11 }}>
+
+          {/* Profil fotoğrafı + durum rozeti */}
+          <div style={{ position: 'relative', marginBottom: '24px', zIndex: 10, marginTop: '20px' }}>
+            <img src={student.photo} alt="Profile" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '5px solid #ffffff', boxShadow: '0 15px 35px rgba(0,0,0,0.25)' }} />
+            <div style={{ position: 'absolute', bottom: '4px', right: '4px', backgroundColor: T.badge, width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid #ffffff', zIndex: 11 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                {isCheckout ? (
+                {isCounselor ? (
+                  <><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" /><path d="M19 10v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="18" x2="12" y2="22" /></>
+                ) : isWarning ? (
+                  <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
+                ) : isCheckout ? (
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
                 ) : (
-                  <polyline points="20 6 9 17 4 12"></polyline>
+                  <polyline points="20 6 9 17 4 12" />
                 )}
               </svg>
             </div>
-          )}
-        </div>
-        
-        <h2 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: '800', color: '#ffffff', zIndex: 10 }}>
-          {isWarning 
-            ? 'Bir Saniye!' 
-            : (isCheckout ? 'Görüşmek Üzere' : 'Hoş geldiniz')}
-        </h2>
-        
-        <h3 style={{ margin: '0 0 24px', fontSize: '20px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', zIndex: 10 }}>
-          {student.name}
-        </h3>
-        
-        <div style={{ 
-          backgroundColor: 'rgba(255, 255, 255, 0.15)', 
-          color: '#ffffff', 
-          padding: '16px 24px', 
-          borderRadius: '16px', 
-          fontSize: '15px', 
-          fontWeight: '600', 
-          textAlign: 'center', 
-          border: '1px solid rgba(255,255,255,0.25)', 
-          backdropFilter: 'blur(12px)', 
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)', 
-          zIndex: 10, 
-          maxWidth: '300px', 
-          lineHeight: '1.4' 
-        }}>
-          {successMessage}
-        </div>
-
-        {isWarning && (
-          <div style={{ marginTop: '24px', fontSize: '14px', color: 'rgba(255, 255, 255, 0.85)', maxWidth: '280px', lineHeight: '1.5', zIndex: 10, fontWeight: '500' }}>
-            {subText}
           </div>
-        )}
+
+          <h2 style={{ margin: '0 0 8px', fontSize: isCounselor ? '25px' : '28px', fontWeight: '800', color: '#ffffff', zIndex: 10, lineHeight: 1.2, maxWidth: '320px' }}>
+            {title}
+          </h2>
+
+          <h3 style={{ margin: '0 0 20px', fontSize: '19px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', zIndex: 10 }}>
+            {student.name}
+          </h3>
+
+          <div style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            color: '#ffffff',
+            padding: '16px 22px',
+            borderRadius: '16px',
+            fontSize: '15px',
+            fontWeight: '600',
+            textAlign: 'center',
+            border: '1px solid rgba(255,255,255,0.25)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            zIndex: 10,
+            maxWidth: '320px',
+            lineHeight: '1.45'
+          }}>
+            {message}
+          </div>
+
+          {detail && (
+            <div style={{ marginTop: '18px', fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)', maxWidth: '310px', lineHeight: '1.55', zIndex: 10, fontWeight: '500' }}>
+              {detail}
+            </div>
+          )}
+
+          {/* Geç kalan öğrenci için yapılacaklar listesi + canlı onay bekleme */}
+          {isCounselor && (
+            <div style={{ marginTop: '26px', maxWidth: '330px', width: '100%', zIndex: 10 }}>
+              <div style={{ backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: '18px', padding: '18px 20px', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'left' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
+                  Yapmanız Gerekenler
+                </div>
+                {[
+                  'Rehber Öğretmeninizle görüşün.',
+                  'Görevli öğretmen “Öğrenci Geçiş” ekranından girişinizi yapsın.',
+                  'Girişiniz yapıldığında bu ekran kendiliğinden güncellenecektir.'
+                ].map((step, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '11px', alignItems: 'flex-start', marginBottom: i === 2 ? 0 : '11px' }}>
+                    <div style={{ minWidth: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>
+                      {i + 1}
+                    </div>
+                    <span style={{ fontSize: '13.5px', lineHeight: '1.5', fontWeight: 500, color: 'rgba(255,255,255,0.95)' }}>{step}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>
+                <span style={{ position: 'relative', display: 'flex', width: '9px', height: '9px' }}>
+                  <span style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', backgroundColor: '#fca5a5', opacity: 0.75, animation: 'pulseFast 1.4s infinite' }} />
+                  <span style={{ position: 'relative', width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#fecaca' }} />
+                </span>
+                Görevli öğretmen onayı bekleniyor…
+              </div>
+
+              {scanResult?.decision && (
+                <div style={{ marginTop: '14px', fontSize: '12.5px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  Okutma saati {scanResult.decision.time}
+                  {scanResult.decision.lateByMinutes > 0 && ` · ${scanResult.decision.lateByMinutes} dk gecikme`}
+                </div>
+              )}
+            </div>
+          )}
+
+          <style>{`@keyframes pulseFast { 0% { transform: scale(0.85); opacity: 0.5; } 50% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(0.85); opacity: 0.5; } }`}</style>
         </div>
       </div>
     );
