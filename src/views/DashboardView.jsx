@@ -85,14 +85,14 @@ const CashflowBarChart = ({ records = [] }) => {
 
   if (!hasAnyRecord) {
     return (
-      <div className="w-full py-7 px-4 my-2 flex flex-col items-center justify-center text-center bg-slate-50/70 dark:bg-[#1e293b]/40 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 relative overflow-hidden">
-        <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 shadow-xs">
-          <DatabaseZap size={22} strokeWidth={2} />
+      <div className="w-full py-6 px-0 mt-1 flex flex-col items-center justify-center text-center bg-slate-50/70 dark:bg-[#1e293b]/40 rounded-xl border border-dashed border-slate-200 dark:border-white/10 relative overflow-hidden">
+        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2.5 shadow-xs">
+          <DatabaseZap size={20} strokeWidth={2} />
         </div>
-        <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-200">
+        <h4 className="text-[13.5px] font-bold text-slate-800 dark:text-slate-200">
           Mali veriler ve nakit akışı EBOS üzerinden işlenmektedir
         </h4>
-        <p className="text-[12px] text-slate-500 max-w-md mt-1 font-medium leading-relaxed">
+        <p className="text-[11.5px] text-slate-500 max-w-sm mt-1 font-medium leading-relaxed">
           Öğrenci taksit ödemeleri, kasa hareketleri ve muhasebe dökümleri EBOS finans modülüyle anlık ve güvenli olarak senkronize edilir.
         </p>
       </div>
@@ -279,11 +279,11 @@ const DashboardView = () => {
         />
       </div>
 
-      {/* ANA PANEL IZGARASI (DENGELİ 2 KOLON, SAĞA UZAMAYAN KOMPAKT DÜZEN) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full flex-1 box-border">
+      {/* ANA PANEL IZGARASI (8/4 ORANLI DÜZEN) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 w-full flex-1 box-border">
 
-        {/* SOL ALAN - Nakit Akışı & Bakiye Kartları */}
-        <div className="flex flex-col gap-5 w-full min-w-0 box-border">
+        {/* SOL ALAN (8 Kolon) - Nakit Akışı & Bakiye Kartları */}
+        <div className="lg:col-span-8 flex flex-col gap-5 w-full min-w-0 box-border">
           
           {/* Nakit Akışı Kartı */}
           <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between w-full min-w-0 box-border overflow-hidden">
@@ -385,8 +385,8 @@ const DashboardView = () => {
 
         </div>
 
-        {/* SAĞ ALAN - Son İşlemler & Hareket Akışı */}
-        <div className="flex flex-col w-full min-w-0 box-border">
+        {/* SAĞ ALAN (4 Kolon) - Son İşlemler & Hareket Akışı */}
+        <div className="lg:col-span-4 flex flex-col w-full min-w-0 box-border">
           <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col h-full min-h-[380px] w-full min-w-0 box-border">
             
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-white/5 w-full min-w-0">
