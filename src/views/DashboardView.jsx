@@ -36,16 +36,15 @@ const Sparkline = ({ type }) => {
   );
 };
 
-const StatCard = ({ title, value, icon: Icon, trend }) => (
-  <div className="bg-white dark:bg-[#0f172a] rounded-[24px] p-6 border border-slate-200 dark:border-white/10 flex flex-col justify-between relative overflow-hidden group">
+const StatCard = ({ title, value, icon: Icon, ratio }) => (
+  <div className="bg-white dark:bg-[#0f172a] rounded-[24px] p-6 border border-slate-200 dark:border-white/10 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all">
     <div className="flex justify-between items-start mb-6 relative z-10">
       <div className="flex items-center justify-center text-slate-700 dark:text-slate-300">
         <Icon size={24} strokeWidth={2} />
       </div>
-      {trend !== undefined && (
-        <div className={`text-[12px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-md ${trend > 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
-          {trend > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-          {Math.abs(trend)}%
+      {ratio !== undefined && (
+        <div className="text-[12px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/30">
+          %{ratio}
         </div>
       )}
     </div>
@@ -54,8 +53,6 @@ const StatCard = ({ title, value, icon: Icon, trend }) => (
       <div className="text-[32px] font-semibold text-slate-900 dark:text-white mb-1 tracking-tight leading-none">{value}</div>
       <div className="text-[13px] font-medium text-slate-600 dark:text-slate-400 mt-2">{title}</div>
     </div>
-
-    {trend !== undefined && <Sparkline type={trend > 0 ? 'positive' : 'negative'} />}
   </div>
 );
 
@@ -238,6 +235,8 @@ const DashboardView = () => {
     return r === 'personnel' || r === 'personel' || r === 'admin' || r === 'yönetici';
   }).length;
 
+  const totalCount = visibleUsers.length;
+
   const bal = financeService.calculateBalance(financeRecords);
   const income = financeRecords.filter(r => r.type === 'income').reduce((acc, r) => acc + Number(r.amount || 0), 0);
   const expense = financeRecords.filter(r => r.type === 'expense').reduce((acc, r) => acc + Number(r.amount || 0), 0);
@@ -281,10 +280,10 @@ const DashboardView = () => {
         { }
         {showWidget('/dashboard/stats') && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full shrink-0">
-          <StatCard title="Aktif Öğrenciler" value={students} icon={GraduationCap} trend={4.2} />
-          <StatCard title="Öğretmen Kadrosu" value={teachers} icon={UserSquare} trend={1.5} />
-          <StatCard title="Yönetici & Personel Kadrosu" value={personnel} icon={Briefcase} trend={2.1} />
-          <StatCard title="Kayıtlı Veliler" value={parents} icon={UserPlus} trend={8.1} />
+          <StatCard title="Aktif Öğrenciler" value={students} icon={GraduationCap} ratio={totalCount > 0 ? Math.round((students / totalCount) * 100) : 0} />
+          <StatCard title="Öğretmen Kadrosu" value={teachers} icon={UserSquare} ratio={totalCount > 0 ? Math.round((teachers / totalCount) * 100) : 0} />
+          <StatCard title="Yönetici & Personel Kadrosu" value={personnel} icon={Briefcase} ratio={totalCount > 0 ? Math.round((personnel / totalCount) * 100) : 0} />
+          <StatCard title="Kayıtlı Veliler" value={parents} icon={UserPlus} ratio={totalCount > 0 ? Math.round((parents / totalCount) * 100) : 0} />
         </div>
         )}
 
