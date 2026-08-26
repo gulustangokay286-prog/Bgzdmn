@@ -12,7 +12,12 @@ import {
   X, 
   Check, 
   ChevronDown, 
-  SlidersHorizontal 
+  SlidersHorizontal,
+  GraduationCap,
+  UserSquare,
+  UserPlus,
+  Briefcase,
+  Inbox
 } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import { db, mapSdkToRest } from '../services/firebaseConfig';
