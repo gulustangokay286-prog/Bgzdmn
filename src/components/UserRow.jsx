@@ -233,7 +233,17 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
         
         <div style={{ width: '25%' }} className="flex items-center gap-3 pr-2">
           {pp ? (
-            <img src={pp} alt="PP" className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200 dark:border-white/10" />
+            <img 
+              src={pp} 
+              alt={name} 
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200 dark:border-white/10"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=6366f1&color=fff';
+              }}
+            />
           ) : (
             <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-[#1e293b] text-slate-600 dark:text-slate-400 flex items-center justify-center shadow-sm border border-slate-200 dark:border-white/10">
               <User size={18} />
