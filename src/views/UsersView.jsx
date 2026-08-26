@@ -125,6 +125,18 @@ const UsersView = () => {
     const r = u.fields?.role?.stringValue?.toLowerCase() || '';
     return r === 'student' || r === 'öğrenci';
   }).length;
+  const teacherCount = visibleUsers.filter(u => {
+    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
+    return r === 'teacher' || r === 'öğretmen';
+  }).length;
+  const parentCount = visibleUsers.filter(u => {
+    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
+    return r === 'parent' || r === 'veli';
+  }).length;
+  const personnelCount = visibleUsers.filter(u => {
+    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
+    return r === 'personnel' || r === 'personel' || r === 'admin' || r === 'yönetici';
+  }).length;
 
   const handleDownloadPDF = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -187,23 +199,83 @@ const UsersView = () => {
         {/* Filter and Badges */}
         <div className="flex flex-col gap-5 mb-8">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <Users size={14} className="text-slate-900 dark:text-white -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Toplam</span>
-              <span className="text-[13px] font-bold text-slate-900 dark:text-white ml-1">{totalUsers}</span>
-            </div>
+            <button 
+              onClick={() => { setSelectedRole('all'); setSelectedStatus('all'); }}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
+                selectedRole === 'all' && selectedStatus === 'all'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent font-bold'
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <Users size={14} className="-ml-[3px]" />
+              <span className="text-[13px] font-semibold">Toplam</span>
+              <span className="text-[13px] font-bold ml-1">{totalUsers}</span>
+            </button>
 
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <UserCheck size={14} className="text-blue-600 dark:text-blue-400 -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Öğrenci</span>
-              <span className="text-[13px] font-bold text-blue-600 dark:text-blue-400 ml-1">{studentCount}</span>
-            </div>
+            <button 
+              onClick={() => setSelectedRole(selectedRole === 'student' ? 'all' : 'student')}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
+                selectedRole === 'student'
+                  ? 'bg-blue-600 text-white border-transparent font-bold'
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <GraduationCap size={14} className="text-blue-500 -ml-[3px]" />
+              <span className="text-[13px] font-semibold">Öğrenci</span>
+              <span className="text-[13px] font-bold ml-1 text-blue-500">{studentCount}</span>
+            </button>
 
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <UserX size={14} className="text-red-600 dark:text-red-400 -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Bekleyen</span>
-              <span className="text-[13px] font-bold text-red-600 dark:text-red-400 ml-1">{pendingUsers}</span>
-            </div>
+            <button 
+              onClick={() => setSelectedRole(selectedRole === 'teacher' ? 'all' : 'teacher')}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
+                selectedRole === 'teacher'
+                  ? 'bg-purple-600 text-white border-transparent font-bold'
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <UserSquare size={14} className="text-purple-500 -ml-[3px]" />
+              <span className="text-[13px] font-semibold">Öğretmen</span>
+              <span className="text-[13px] font-bold ml-1 text-purple-500">{teacherCount}</span>
+            </button>
+
+            <button 
+              onClick={() => setSelectedRole(selectedRole === 'parent' ? 'all' : 'parent')}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
+                selectedRole === 'parent'
+                  ? 'bg-emerald-600 text-white border-transparent font-bold'
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <UserPlus size={14} className="text-emerald-500 -ml-[3px]" />
+              <span className="text-[13px] font-semibold">Veli</span>
+              <span className="text-[13px] font-bold ml-1 text-emerald-500">{parentCount}</span>
+            </button>
+
+            <button 
+              onClick={() => setSelectedRole(selectedRole === 'personnel' ? 'all' : 'personnel')}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
+                selectedRole === 'personnel'
+                  ? 'bg-teal-600 text-white border-transparent font-bold'
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <Briefcase size={14} className="text-teal-500 -ml-[3px]" />
+              <span className="text-[13px] font-semibold">Yönetici & Personel</span>
+              <span className="text-[13px] font-bold ml-1 text-teal-500">{personnelCount}</span>
+            </button>
+
+            <button 
+              onClick={() => setSelectedStatus(selectedStatus === 'pending' ? 'all' : 'pending')}
+              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
+                selectedStatus === 'pending'
+                  ? 'bg-rose-600 text-white border-transparent font-bold'
+                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <Inbox size={14} className="text-rose-500 -ml-[3px]" />
+              <span className="text-[13px] font-semibold">Bekleyen</span>
+              <span className="text-[13px] font-bold ml-1 text-rose-500">{pendingUsers}</span>
+            </button>
           </div>
 
           {/* Search bar & dropdowns */}

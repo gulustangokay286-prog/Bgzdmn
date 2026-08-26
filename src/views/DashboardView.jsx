@@ -89,10 +89,6 @@ const CashflowBarChart = ({ records = [] }) => {
         <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 shadow-xs">
           <DatabaseZap size={22} strokeWidth={2} />
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-100/70 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 rounded-full text-[11px] font-bold mb-2">
-          <Sparkles size={13} />
-          <span>EBOS Entegrasyonu Aktif</span>
-        </div>
         <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-200">
           Mali veriler ve nakit akışı EBOS üzerinden işlenmektedir
         </h4>
