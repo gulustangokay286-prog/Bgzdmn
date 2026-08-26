@@ -280,26 +280,26 @@ const DashboardView = () => {
       </div>
 
       {/* ANA PANEL IZGARASI (DUVAR GİBİ DENGELİ, TAŞMAYAN LAYOUT) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 w-full flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 w-full flex-1 box-border">
 
         {/* SOL/ORTA ALAN (8 Kolon) - Nakit Akışı & Bakiye Kartları */}
-        <div className="lg:col-span-8 flex flex-col gap-5">
+        <div className="lg:col-span-8 flex flex-col gap-5 w-full min-w-0 box-border">
           
           {/* Nakit Akışı Kartı */}
-          <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 md:p-6 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-[#1e293b] flex items-center justify-center text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-white/5">
+          <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 md:p-6 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between w-full min-w-0 box-border overflow-hidden">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2 w-full min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-[#1e293b] flex items-center justify-center text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-white/5 shrink-0">
                   <BarChart3 size={18} strokeWidth={2} />
                 </div>
-                <div>
-                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white tracking-tight">Nakit Akışı & Mali Durum</h2>
-                  <p className="text-[12px] text-slate-500 font-medium">Aylık gelir ve gider hareketleri</p>
+                <div className="min-w-0">
+                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white tracking-tight truncate">Nakit Akışı & Mali Durum</h2>
+                  <p className="text-[12px] text-slate-500 font-medium truncate">Aylık gelir ve gider hareketleri</p>
                 </div>
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 text-xs font-bold">
+              <div className="flex items-center gap-4 text-xs font-bold shrink-0">
                 <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
                   <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 dark:bg-indigo-500"></span>
                   <span>Gelir</span>
@@ -315,7 +315,7 @@ const DashboardView = () => {
           </div>
 
           {/* İki Küçük Kart (Toplam Bakiye & Tahsilat Performansı) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0 box-border">
             
             {/* Toplam Bakiye */}
             <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between">
@@ -386,15 +386,15 @@ const DashboardView = () => {
         </div>
 
         {/* SAĞ ALAN (4 Kolon) - Son İşlemler & Hareket Akışı */}
-        <div className="lg:col-span-4 flex flex-col">
-          <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col h-full min-h-[380px]">
+        <div className="lg:col-span-4 flex flex-col w-full min-w-0 box-border">
+          <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col h-full min-h-[380px] w-full min-w-0 box-border">
             
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
-              <div>
-                <h3 className="text-[16px] font-bold text-slate-900 dark:text-white">Son İşlemler</h3>
-                <p className="text-[11.5px] text-slate-500 font-medium">Sistemdeki son finansal hareketler</p>
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-white/5 w-full min-w-0">
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-bold text-slate-900 dark:text-white truncate">Son İşlemler</h3>
+                <p className="text-[11.5px] text-slate-500 font-medium truncate">Sistemdeki son finansal hareketler</p>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#1e293b] text-[11px] font-bold text-slate-600 dark:text-slate-400">
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#1e293b] text-[11px] font-bold text-slate-600 dark:text-slate-400 shrink-0">
                 {financeRecords.length} Kayıt
               </span>
             </div>
