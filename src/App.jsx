@@ -130,7 +130,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         <div className="sidebar-section">
           <div className="sidebar-section-title">ERP & Finans</div>
-          <NavItem to="/ebos" icon={Building} label="Boğaziçi Portal" onClick={onClose} />
+          {/* <NavItem to="/ebos" icon={Building} label="Boğaziçi Portal" onClick={onClose} /> */}
           <NavItem to="/appointments" icon={CalendarClock} label="Randevu Yönetimi" onClick={onClose} />
           <NavItem to="/transport" icon={Bus} label="Servis Yönetimi" onClick={onClose} />
           <NavItem to="/cafeteria" icon={Coffee} label="Kafeterya Menüsü" onClick={onClose} />

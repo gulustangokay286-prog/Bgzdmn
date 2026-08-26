@@ -165,7 +165,7 @@ const QRGeneratorAdminView = () => {
     <div
       ref={containerRef}
       style={{ background: isDark ? '#0b1120' : '#f1f5f9' }}
-      className={`absolute inset-0 z-10 flex items-center justify-center font-sans p-4 sm:p-6 transition-colors duration-500 overflow-auto ${isDark ? 'text-white' : 'text-slate-900'
+      className={`absolute inset-0 z-10 flex items-center justify-center font-sans ${isFullscreen ? 'p-4 sm:p-6' : 'py-4 sm:py-6 px-8 sm:px-14'} transition-colors duration-500 overflow-auto ${isDark ? 'text-white' : 'text-slate-900'
         }`}
     >
       {/* Orijinal conic-gradient animasyonu — @property ile */}
@@ -188,7 +188,7 @@ const QRGeneratorAdminView = () => {
         }
       `}</style>
 
-      <div className={`relative z-10 w-full flex flex-col items-center transition-all duration-500 ${isFullscreen ? 'max-w-[1280px]' : 'max-w-[1080px]'
+      <div className={`relative z-10 w-full flex flex-col items-center transition-all duration-500 ${isFullscreen ? 'max-w-[1280px]' : 'max-w-[1020px]'
         }`}>
 
         {/* Top Header / Info Bar */}
@@ -273,7 +273,7 @@ const QRGeneratorAdminView = () => {
         </div>
 
         {/* Main Content Box (Focused on QR Codes) */}
-        <div className={`border rounded-[32px] p-8 sm:p-12 w-full flex flex-col items-center justify-center transition-all duration-500 ${isDark ? 'bg-slate-900/90 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'
+        <div className={`border rounded-[32px] p-6 sm:p-10 w-full flex flex-col items-center justify-center transition-all duration-500 ${isDark ? 'bg-slate-900/90 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'
           }`}>
 
 
@@ -293,7 +293,7 @@ const QRGeneratorAdminView = () => {
             )}
 
             {selectedType === 'institution_gate' ? (
-              <div className={`flex flex-col sm:flex-row items-center w-full py-4 transition-all ${isFullscreen ? 'justify-between px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'justify-between px-2 sm:px-5 lg:px-8 gap-4 sm:gap-6'
+              <div className={`flex flex-col sm:flex-row items-center w-full py-4 transition-all justify-evenly ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'px-2 sm:px-4 gap-4 sm:gap-6'
                 }`}>
                 {/* Entry QR */}
                 <div className="relative flex flex-col items-center justify-center">
@@ -302,15 +302,15 @@ const QRGeneratorAdminView = () => {
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#10b981' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] p-7 shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
+                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
                     }`}>
-                    <span className="text-[18px] font-black tracking-widest text-emerald-500 mb-5 uppercase">GİRİŞ YAP</span>
+                    <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-emerald-500 uppercase`}>GİRİŞ YAP</span>
                     <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
                       <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                         {qrDataEntry ? (
-                          <QRCode value={qrDataEntry} size={isFullscreen ? 255 : 200} level="H" fgColor="#0f172a" bgColor="#ffffff" />
+                          <QRCode value={qrDataEntry} size={isFullscreen ? 255 : 175} level="H" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
-                          <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[200px] h-[200px]'}`}>
+                          <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[175px] h-[175px]'}`}>
                             <RefreshCcw className="animate-spin text-emerald-600" size={32} />
                           </div>
                         )}
@@ -323,11 +323,11 @@ const QRGeneratorAdminView = () => {
                 </div>
 
                 {/* Center Column — Branding */}
-                <div className="flex flex-col items-center justify-center my-auto text-center" style={{ maxWidth: '470px', padding: '30px 10px' }}>
+                <div className="flex flex-col items-center justify-center my-auto text-center" style={{ maxWidth: isFullscreen ? '470px' : '280px', padding: isFullscreen ? '30px 10px' : '10px 5px' }}>
 
 
                   {/* Large title */}
-                  <h2 className={`font-black leading-[1.12] pb-1 ${isFullscreen ? 'text-[40px] sm:text-[48px]' : 'text-[32px] sm:text-[38px]'}`}
+                  <h2 className={`font-black leading-[1.12] pb-1 ${isFullscreen ? 'text-[40px] sm:text-[48px]' : 'text-[26px] sm:text-[30px]'}`}
                     style={{ letterSpacing: '-1.5px', color: isDark ? '#f7f9fc' : '#0f172a', textShadow: isDark ? '0 5px 28px rgba(0,0,0,.28)' : 'none' }}
                   >
                     Akıllı
@@ -384,15 +384,15 @@ const QRGeneratorAdminView = () => {
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#ef4444' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] p-7 shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
+                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
                     }`}>
-                    <span className="text-[18px] font-black tracking-widest text-rose-500 mb-5 uppercase">ÇIKIŞ YAP</span>
+                    <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-rose-500 uppercase`}>ÇIKIŞ YAP</span>
                     <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
                       <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                         {qrDataExit ? (
-                          <QRCode value={qrDataExit} size={isFullscreen ? 255 : 200} level="H" fgColor="#0f172a" bgColor="#ffffff" />
+                          <QRCode value={qrDataExit} size={isFullscreen ? 255 : 175} level="H" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
-                          <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[200px] h-[200px]'}`}>
+                          <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[175px] h-[175px]'}`}>
                             <RefreshCcw className="animate-spin text-rose-600" size={32} />
                           </div>
                         )}
