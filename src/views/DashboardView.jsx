@@ -279,33 +279,33 @@ const DashboardView = () => {
         />
       </div>
 
-      {/* ANA PANEL IZGARASI (DUVAR GİBİ DENGELİ, TAŞMAYAN LAYOUT) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 w-full flex-1 box-border">
+      {/* ANA PANEL IZGARASI (DENGELİ 2 KOLON, SAĞA UZAMAYAN KOMPAKT DÜZEN) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full flex-1 box-border">
 
-        {/* SOL/ORTA ALAN (8 Kolon) - Nakit Akışı & Bakiye Kartları */}
-        <div className="lg:col-span-8 flex flex-col gap-5 w-full min-w-0 box-border">
+        {/* SOL ALAN - Nakit Akışı & Bakiye Kartları */}
+        <div className="flex flex-col gap-5 w-full min-w-0 box-border">
           
           {/* Nakit Akışı Kartı */}
-          <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 md:p-6 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between w-full min-w-0 box-border overflow-hidden">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2 w-full min-w-0">
+          <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between w-full min-w-0 box-border overflow-hidden">
+            <div className="flex items-center justify-between gap-3 mb-2 w-full min-w-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-[#1e293b] flex items-center justify-center text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-white/5 shrink-0">
-                  <BarChart3 size={18} strokeWidth={2} />
+                <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-[#1e293b] flex items-center justify-center text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-white/5 shrink-0">
+                  <BarChart3 size={17} strokeWidth={2} />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-[17px] font-bold text-slate-900 dark:text-white tracking-tight truncate">Nakit Akışı & Mali Durum</h2>
-                  <p className="text-[12px] text-slate-500 font-medium truncate">Aylık gelir ve gider hareketleri</p>
+                  <h2 className="text-[16px] font-bold text-slate-900 dark:text-white tracking-tight truncate">Nakit Akışı & Mali Durum</h2>
+                  <p className="text-[11.5px] text-slate-500 font-medium truncate">Aylık gelir ve gider hareketleri</p>
                 </div>
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 text-xs font-bold shrink-0">
+              <div className="flex items-center gap-3 text-xs font-bold shrink-0">
                 <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 dark:bg-indigo-500"></span>
+                  <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-500"></span>
                   <span>Gelir</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 dark:bg-rose-400"></span>
+                  <span className="w-2 h-2 rounded-full bg-rose-500 dark:bg-rose-400"></span>
                   <span>Gider</span>
                 </div>
               </div>
@@ -326,7 +326,7 @@ const DashboardView = () => {
                 </div>
               </div>
               
-              <div className="text-[26px] md:text-[30px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+              <div className="text-[24px] md:text-[28px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
                 ₺{bal.toLocaleString('tr-TR')}
               </div>
 
@@ -353,7 +353,7 @@ const DashboardView = () => {
 
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <div className="text-[26px] md:text-[30px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+                  <div className="text-[24px] md:text-[28px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
                     %{collectionRate}
                   </div>
                   <span className="text-[11.5px] font-semibold text-slate-500 mt-1 block">
@@ -385,8 +385,8 @@ const DashboardView = () => {
 
         </div>
 
-        {/* SAĞ ALAN (4 Kolon) - Son İşlemler & Hareket Akışı */}
-        <div className="lg:col-span-4 flex flex-col w-full min-w-0 box-border">
+        {/* SAĞ ALAN - Son İşlemler & Hareket Akışı */}
+        <div className="flex flex-col w-full min-w-0 box-border">
           <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl p-5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col h-full min-h-[380px] w-full min-w-0 box-border">
             
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-white/5 w-full min-w-0">
