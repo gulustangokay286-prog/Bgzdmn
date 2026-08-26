@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, Download, Printer, Search, Users, UserX, UserCheck, 
   AlertCircle, RefreshCcw, Filter, ChevronDown, FileText, CheckCircle2, 
-  Clock, Timer, Activity, Sparkles, ShieldCheck, DoorOpen, User
+  Clock, Timer, Activity, Sparkles, ShieldCheck, DoorOpen, User,
+  School
 } from 'lucide-react';
 import { db, rtdb } from '../services/firebaseConfig';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -438,7 +439,7 @@ const DailyAbsenceReportView = () => {
   }
 
   return (
-    <div className="w-full font-sans pb-16 flex flex-col gap-6">
+    <div className="w-full font-sans pb-16 flex flex-col gap-6 max-w-full overflow-hidden">
       
       {/* 1. ÜST BAŞLIK VE AKSİYONLAR */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 w-full">
@@ -477,7 +478,7 @@ const DailyAbsenceReportView = () => {
         </div>
       </div>
 
-      {/* 2. DÖRT AYRI MODERN İSTATİSTİK KARTI */}
+      {/* 2. DÖRT AYRI MODERN İSTATİSTİK KARTI (Tinted kare kutular kaldırıldı) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         
         {/* Toplam Öğrenci */}
@@ -487,9 +488,7 @@ const DailyAbsenceReportView = () => {
             <div className="text-[28px] font-extrabold text-slate-900 dark:text-white mt-1 leading-none">{totalCount}</div>
             <span className="text-[11px] text-slate-400 font-semibold mt-1.5 block">Kayıtlı Öğrenci</span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-slate-50 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 flex items-center justify-center border border-slate-100 dark:border-white/5">
-            <Users size={20} strokeWidth={2} />
-          </div>
+          <Users size={28} strokeWidth={1.8} className="text-slate-400 dark:text-slate-500 shrink-0" />
         </div>
 
         {/* Katılım Oranı */}
@@ -499,9 +498,7 @@ const DailyAbsenceReportView = () => {
             <div className="text-[28px] font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 leading-none">%{attendanceRate}</div>
             <span className="text-[11px] text-emerald-600/80 font-semibold mt-1.5 block">{presentCount} Öğrenci Mevcut</span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30">
-            <UserCheck size={20} strokeWidth={2} />
-          </div>
+          <UserCheck size={28} strokeWidth={1.8} className="text-emerald-500 shrink-0" />
         </div>
 
         {/* Devamsızlar */}
@@ -515,9 +512,7 @@ const DailyAbsenceReportView = () => {
               {fullAbsentCount} Tam / {halfAbsentCount} Yarım Gün
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center border border-rose-100 dark:border-rose-900/30">
-            <UserX size={20} strokeWidth={2} />
-          </div>
+          <UserX size={28} strokeWidth={1.8} className="text-rose-500 shrink-0" />
         </div>
 
         {/* İzinli / Raporlu */}
@@ -527,39 +522,37 @@ const DailyAbsenceReportView = () => {
             <div className="text-[28px] font-extrabold text-blue-600 dark:text-blue-400 mt-1 leading-none">{excusedCount}</div>
             <span className="text-[11px] text-blue-500 font-semibold mt-1.5 block">İdareden Onaylı</span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center border border-blue-100 dark:border-blue-900/30">
-            <ShieldCheck size={20} strokeWidth={2} />
-          </div>
+          <ShieldCheck size={28} strokeWidth={1.8} className="text-blue-500 shrink-0" />
         </div>
 
       </div>
 
-      {/* 3. FİLTRELEME VE ARAMA PANELİ */}
-      <div className="bg-white dark:bg-[#0f172a] p-4 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col gap-3">
+      {/* 3. TAŞMAYAN, DÜZGÜN OTURAN FİLTRE VE ARAMA PANELİ */}
+      <div className="w-full bg-white dark:bg-[#0f172a] p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col gap-4">
         
         {/* Arama Inputu */}
         <div className="relative w-full">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input 
             type="text"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             placeholder="Öğrenci adı soyadı, şube (12/A), okul no veya TC ile ara..."
-            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 rounded-2xl text-[13.5px] text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 transition-colors"
+            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 rounded-xl text-[13.5px] text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-400"
           />
         </div>
 
         {/* Filtre Butonları */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-white/5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-white/5">
           
           {/* Kademe Filtreleri */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Kademe:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11.5px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Kademe:</span>
             {['all', '12', '11', '10', '9'].map(cls => (
               <button
                 key={cls}
                 onClick={() => setSelectedClassFilter(cls)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedClassFilter === cls 
                     ? 'bg-indigo-600 text-white shadow-xs' 
                     : 'bg-slate-100 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
@@ -571,8 +564,8 @@ const DailyAbsenceReportView = () => {
           </div>
 
           {/* Durum Filtreleri */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Durum:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11.5px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Durum:</span>
             {[
               { id: 'all', label: 'Tüm Liste' },
               { id: 'absent', label: 'Devamsızlar' },
@@ -582,7 +575,7 @@ const DailyAbsenceReportView = () => {
               <button
                 key={tab.id}
                 onClick={() => setSelectedStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedStatusFilter === tab.id 
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs' 
                     : 'bg-slate-100 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
@@ -617,17 +610,15 @@ const DailyAbsenceReportView = () => {
                 key={branchName}
                 className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-xs"
               >
-                {/* Sınıf / Şube Başlık Barı */}
+                {/* Sınıf / Şube Başlık Barı (Tinted kare kaldırıldı, temiz okul ikonu ve şık başlık) */}
                 <div className="px-6 py-4 bg-slate-50/80 dark:bg-[#1e293b]/60 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-extrabold text-[14px] border border-indigo-100 dark:border-indigo-900/40">
-                      {branchName.split('/')[0] || '12'}
-                    </div>
+                  <div className="flex items-center gap-2.5">
+                    <School size={20} className="text-indigo-500 shrink-0" />
                     <div>
                       <h3 className="text-[16px] font-extrabold text-slate-900 dark:text-white tracking-tight">
                         {branchName} Şubesi
                       </h3>
-                      <span className="text-[12px] text-slate-500 font-semibold">
+                      <span className="text-[11.5px] text-slate-500 font-semibold">
                         Toplam {studentList.length} Öğrenci
                       </span>
                     </div>
