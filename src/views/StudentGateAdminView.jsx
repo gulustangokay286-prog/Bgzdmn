@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Search, Loader2, DoorOpen, DoorClosed, AlertCircle, ShieldAlert,
+  Search, User, Loader2, DoorOpen, DoorClosed, AlertCircle, ShieldAlert,
   CheckCircle2, XCircle, Clock, UserCheck, Timer, Sunrise, Sunset, RefreshCcw
 } from 'lucide-react';
 import { db, rtdb } from '../services/firebaseConfig';
@@ -89,7 +89,7 @@ const StudentGateAdminView = () => {
               tc: data.tc_kimlik || data.tcKimlik || data.tc || '',
               schoolNumber: data.school_number || data.schoolNumber || '',
               branch,
-              profileImage: rawPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=0f172a&size=100`
+              profileImage: rawPhoto || null
             });
           }
         });
@@ -354,11 +354,22 @@ const StudentGateAdminView = () => {
               const busy = processingId === request.studentId;
               return (
                 <div key={request.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 md:px-6 py-3.5">
-                  <img
-                    src={request.studentPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(request.studentName)}&background=fee2e2&color=b91c1c&size=100`}
-                    alt={request.studentName}
-                    className="w-10 h-10 min-w-[40px] rounded-full object-cover border-2 border-red-200 dark:border-red-900/60"
-                  />
+                  {request.studentPhoto ? (
+                    <img
+                      src={request.studentPhoto}
+                      alt={request.studentName}
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                      className="w-10 h-10 min-w-[40px] rounded-full object-cover border-2 border-red-200 dark:border-red-900/60"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-10 h-10 min-w-[40px] rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 items-center justify-center border-2 border-red-200 dark:border-red-900/60 ${request.studentPhoto ? 'hidden' : 'flex'}`}>
+                    <User size={18} />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[14px] font-bold text-slate-900 dark:text-white truncate">{request.studentName}</span>
@@ -433,17 +444,22 @@ const StudentGateAdminView = () => {
                     >
                       {/* Öğrenci Bilgisi */}
                       <div className="flex-1 flex items-center gap-3 min-w-0 pr-2">
-                        <img
-                          src={student.profileImage}
-                          alt={student.name}
-                          referrerPolicy="no-referrer"
-                          crossOrigin="anonymous"
-                          className="w-9 h-9 min-w-[36px] min-h-[36px] shrink-0 rounded-full object-cover border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#1e293b]"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=f1f5f9&color=0f172a&size=100`;
-                          }}
-                        />
+                        {student.profileImage ? (
+                          <img
+                            src={student.profileImage}
+                            alt={student.name}
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            className="w-9 h-9 min-w-[36px] min-h-[36px] shrink-0 rounded-full object-cover border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#1e293b]"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-9 h-9 min-w-[36px] min-h-[36px] shrink-0 rounded-full bg-slate-50 dark:bg-[#1e293b] text-slate-600 dark:text-slate-400 items-center justify-center border border-slate-200 dark:border-white/10 shadow-xs ${student.profileImage ? 'hidden' : 'flex'}`}>
+                          <User size={16} />
+                        </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-[13.5px] font-bold text-slate-900 dark:text-white truncate">{student.name}</span>
                           <span className="text-[11px] font-mono text-slate-400 truncate">{student.tc || ''}</span>

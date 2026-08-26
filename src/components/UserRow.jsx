@@ -75,6 +75,7 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   // Raw extract helper
   const getFieldVal = (fieldName) => {
@@ -232,17 +233,14 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
       <div className="flex items-center py-4 text-sm relative">
         
         <div style={{ width: '25%' }} className="flex items-center gap-3 pr-2">
-          {pp ? (
+          {pp && !imgError ? (
             <img 
               src={pp} 
               alt={name} 
               referrerPolicy="no-referrer"
               crossOrigin="anonymous"
               className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200 dark:border-white/10"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=6366f1&color=fff';
-              }}
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-[#1e293b] text-slate-600 dark:text-slate-400 flex items-center justify-center shadow-sm border border-slate-200 dark:border-white/10">
