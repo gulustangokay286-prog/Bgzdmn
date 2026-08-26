@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Search, Loader2, DoorOpen, DoorClosed, AlertCircle, ShieldAlert,
-  CheckCircle2, XCircle, Clock, UserCheck, Timer, Sunrise, Sunset
+  CheckCircle2, XCircle, Clock, UserCheck, Timer, Sunrise, Sunset, RefreshCcw
 } from 'lucide-react';
-import { rtdb } from '../services/firebaseConfig';
-import { ref, onValue } from 'firebase/database';
+import { db, rtdb } from '../services/firebaseConfig';
+import { ref, onValue, update, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
+import { collection, onSnapshot, doc, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { soundManager } from '../services/soundManager';
 import { firebaseService } from '../services/firebase';
 import {
@@ -28,7 +29,10 @@ const StudentGateAdminView = () => {
   const [lateRequests, setLateRequests] = useState([]);
   const [toast, setToast] = useState(null);
 
-  const dateKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone), [config.timeZone]);
+  const statusFromFirestoreRef = useRef({});
+  const statusFromRtdbRef = useRef({});
+
+  const dateKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul'), [config.timeZone]);
   const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const flash = useCallback((kind, text) => {
@@ -36,71 +40,121 @@ const StudentGateAdminView = () => {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  const mergeAndSetStatuses = useCallback(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const combined = {};
+
+    // 1. First merge Firestore
+    Object.entries(statusFromFirestoreRef.current).forEach(([k, v]) => {
+      if (v?.status === 'entry') {
+        combined[k] = 'inside';
+      } else if (v?.status === 'exit') {
+        combined[k] = 'outside';
+      }
+    });
+
+    // 2. Overlay RTDB (real-time instant)
+    Object.entries(statusFromRtdbRef.current).forEach(([k, v]) => {
+      if (v?.status === 'entry') {
+        combined[k] = 'inside';
+      } else if (v?.status === 'exit') {
+        combined[k] = 'outside';
+      }
+    });
+
+    setStudentStatusMap(prev => ({ ...prev, ...combined }));
+  }, [dateKey]);
+
   /* ---------------------------------------------------------------------- */
-  /*  Öğrenci listesi                                                        */
+  /*  1. Canlı Öğrenci Listesi Dinleyicisi (Firestore)                       */
   /* ---------------------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
 
-    const loadStudents = async () => {
+    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
       try {
-        const users = await firebaseService.fetchAllUsers();
-        const studentList = users
-          .filter(u => {
-            const role = u.fields?.role?.stringValue?.toLowerCase() || '';
-            return role === 'student' || role === 'öğrenci';
-          })
-          .map(u => {
-            const id = u.name.split('/').pop();
-            const name = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue
-              || u.fields?.name?.stringValue || u.fields?.displayName?.stringValue || 'Bilinmeyen Öğrenci';
-            const rawPhoto = u.fields?.profile_image?.stringValue || u.fields?.profileImageUrl?.stringValue
-              || u.fields?.profileImage?.stringValue || null;
-            return {
+        const studentList = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const role = (data.role || '').toLowerCase();
+          if (role === 'student' || role === 'öğrenci') {
+            const id = docSnap.id;
+            const name = data.full_name || data.fullName || data.name || data.displayName || 'Bilinmeyen Öğrenci';
+            const rawPhoto = data.profile_image || data.profileImageUrl || data.profileImage || null;
+            const branch = data.branch || (data.class_id ? `${data.class_id}/${data.section || 'A'}` : '');
+
+            studentList.push({
               id,
               name,
-              tc: u.fields?.tc_kimlik?.stringValue || u.fields?.tcKimlik?.stringValue || u.fields?.tc?.stringValue || '',
-              schoolNumber: u.fields?.school_number?.stringValue || u.fields?.schoolNumber?.stringValue || '',
+              tc: data.tc_kimlik || data.tcKimlik || data.tc || '',
+              schoolNumber: data.school_number || data.schoolNumber || '',
+              branch,
               profileImage: rawPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=f1f5f9&color=0f172a&size=100`
-            };
-          })
-          .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+            });
+          }
+        });
 
-        if (!cancelled) setStudents(studentList);
+        studentList.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
+        if (!cancelled) {
+          setStudents(studentList);
+          setLoading(false);
+        }
       } catch (err) {
-        console.error('Veriler yüklenemedi:', err);
-      } finally {
+        console.error('Öğrenci listesi okunamadı:', err);
         if (!cancelled) setLoading(false);
       }
-    };
+    });
 
-    loadStudents();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      try { unsub(); } catch(e) {}
+    };
   }, []);
 
   /* ---------------------------------------------------------------------- */
-  /*  Geçiş durumu (mobil web + panel ortak kaynağı)                         */
+  /*  2. Canlı Geçiş Durumu Dinleyicileri (Firestore + RTDB Çift Kaynak)     */
   /* ---------------------------------------------------------------------- */
   useEffect(() => {
+    // A) Firestore gate_status dinle
+    const unsubFirestore = onSnapshot(collection(db, 'gate_status'), (snapshot) => {
+      const fsMap = {};
+      const todayStr = new Date().toISOString().split('T')[0];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && (data.date === dateKey || data.date === todayStr || !data.date)) {
+          fsMap[docSnap.id] = data;
+        }
+      });
+      statusFromFirestoreRef.current = fsMap;
+      mergeAndSetStatuses();
+    }, (err) => console.warn('Firestore gate_status dinleyici:', err));
+
+    // B) RTDB qr_system/gate_status dinle
     const statusRef = ref(rtdb, 'qr_system/gate_status');
-    const unsub = onValue(statusRef, (snapshot) => {
-      const statusMap = {};
+    const unsubRtdb = onValue(statusRef, (snapshot) => {
+      const rMap = {};
+      const todayStr = new Date().toISOString().split('T')[0];
       if (snapshot.exists()) {
         snapshot.forEach(child => {
           const data = child.val();
-          if (data?.date === dateKey) {
-            statusMap[child.key] = data.status === 'entry' ? 'inside' : 'outside';
+          if (data && (data.date === dateKey || data.date === todayStr || !data.date)) {
+            rMap[child.key] = data;
           }
         });
       }
-      setStudentStatusMap(statusMap);
-    }, (err) => console.error('Geçiş durumları okunamadı:', err));
+      statusFromRtdbRef.current = rMap;
+      mergeAndSetStatuses();
+    }, (err) => console.warn('RTDB gate_status dinleyici:', err));
 
-    return () => unsub();
-  }, [dateKey]);
+    return () => {
+      try { unsubFirestore(); } catch(e) {}
+      try { unsubRtdb(); } catch(e) {}
+    };
+  }, [dateKey, mergeAndSetStatuses]);
 
   /* ---------------------------------------------------------------------- */
-  /*  Rehberlik onayı bekleyen geç girişler                                  */
+  /*  3. Rehberlik onayı bekleyen geç girişler                                */
   /* ---------------------------------------------------------------------- */
   useEffect(() => {
     const unsub = subscribeLateApprovals(dateKey, (list) => {
@@ -109,58 +163,74 @@ const StudentGateAdminView = () => {
         return list;
       });
     });
-    return () => { try { unsub(); } catch { /* yok say */ } };
+    return () => { try { unsub(); } catch { /* ignore */ } };
   }, [dateKey]);
 
   /* ---------------------------------------------------------------------- */
-  /*  Aksiyonlar                                                             */
+  /*  4. Manuel Geçiş Butonu Aksiyonu (Giriş Yap / Çıkış Yap)               */
   /* ---------------------------------------------------------------------- */
-
-  /** Görevli öğretmenin manuel giriş/çıkış işlemi. */
   const handleAction = async (student) => {
     if (processingId) return;
     setProcessingId(student.id);
 
     const currentStatus = studentStatusMap[student.id] || 'outside';
     const nextAction = currentStatus === 'inside' ? 'exit' : 'entry';
+    const targetStatus = nextAction === 'entry' ? 'inside' : 'outside';
 
-    // İyimser güncelleme — RTDB dinleyicisi birazdan doğrulayacak.
-    setStudentStatusMap(prev => ({ ...prev, [student.id]: nextAction === 'entry' ? 'inside' : 'outside' }));
+    // 1. Anında İyimser Arayüz Güncellemesi
+    setStudentStatusMap(prev => ({ ...prev, [student.id]: targetStatus }));
+    statusFromFirestoreRef.current[student.id] = { status: nextAction, date: dateKey };
+    statusFromRtdbRef.current[student.id] = { status: nextAction, date: dateKey };
     soundManager.playSuccessDing();
 
     try {
-      const ctx = buildTimeContext(config, new Date());
-      const decision = nextAction === 'entry'
-        ? evaluateEntryAttempt({ minutes: ctx.nowMinutes, config, isManualApproval: true, isClosedDay: ctx.isClosedDay })
-        : null;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-      await recordGatePassage({
-        student,
-        action: nextAction,
-        method: 'manual_admin',
-        isManualApproval: nextAction === 'entry',
-        approvedBy: 'Görevli Öğretmen (Panel)',
-        session: decision?.session || null,
-        isLate: Boolean(decision?.isLate),
-        sessionId: 'manual_admin',
-        config
-      });
+      // 2. Doğrudan Firestore gate_status ve RTDB güncelle
+      await Promise.all([
+        setDoc(doc(db, 'gate_status', student.id), {
+          status: nextAction,
+          lastAction: nextAction,
+          date: dateKey || todayStr,
+          time: nowTime,
+          studentName: student.name,
+          timestamp: serverTimestamp()
+        }),
+        update(ref(rtdb), {
+          [`qr_system/gate_status/${student.id}`]: {
+            status: nextAction,
+            lastAction: nextAction,
+            date: dateKey || todayStr,
+            time: nowTime,
+            name: student.name,
+            role: 'student',
+            timestamp: rtdbServerTimestamp()
+          }
+        }),
+        recordGatePassage({
+          student,
+          action: nextAction,
+          method: 'manual_admin',
+          isManualApproval: nextAction === 'entry',
+          approvedBy: 'Görevli Öğretmen (Panel)',
+          sessionId: 'manual_admin',
+          config
+        }).catch(e => console.warn('recordGatePassage log:', e))
+      ]);
 
-      flash('success',
-        nextAction === 'entry'
-          ? `${student.name} — giriş yapıldı${decision?.isLate ? ' (geç giriş olarak işaretlendi)' : ''}.`
-          : `${student.name} — çıkış yapıldı.`);
+      flash('success', nextAction === 'entry' ? `${student.name} — kuruma giriş yaptı.` : `${student.name} — kurumdan çıkış yaptı.`);
     } catch (err) {
       console.error('Geçiş kaydedilemedi:', err);
-      // Hata: iyimser güncellemeyi geri al
+      // Hata durumunda eski duruma dön
       setStudentStatusMap(prev => ({ ...prev, [student.id]: currentStatus }));
-      flash('error', 'Geçiş kaydedilemedi: ' + (err?.message || 'bilinmeyen hata'));
+      flash('error', 'Geçiş kaydedilemedi: ' + (err?.message || 'Bağlantı hatası'));
     } finally {
       setProcessingId(null);
     }
   };
 
-  /** Geç giriş talebini onayla — öğrencinin telefonundaki ekran anında güncellenir. */
+  /** Geç giriş talebini onayla */
   const handleApproveLate = async (request) => {
     if (processingId) return;
     setProcessingId(request.studentId);
@@ -176,7 +246,7 @@ const StudentGateAdminView = () => {
     }
   };
 
-  /** Geç giriş talebini reddet — giriş kaydı oluşmaz. */
+  /** Geç giriş talebini reddet */
   const handleRejectLate = async (request) => {
     if (processingId) return;
     setProcessingId(request.studentId);
@@ -196,7 +266,8 @@ const StudentGateAdminView = () => {
     return students.filter(s =>
       s.name.toLocaleLowerCase('tr').includes(q) ||
       (s.schoolNumber || '').includes(q) ||
-      (s.tc || '').includes(q)
+      (s.tc || '').includes(q) ||
+      (s.branch || '').toLocaleLowerCase('tr').includes(q)
     );
   }, [students, searchText]);
 
@@ -204,6 +275,8 @@ const StudentGateAdminView = () => {
     () => students.filter(s => studentStatusMap[s.id] === 'inside').length,
     [students, studentStatusMap]
   );
+
+  const outsideCount = students.length - insideCount;
 
   if (loading) {
     return (
@@ -216,33 +289,43 @@ const StudentGateAdminView = () => {
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans pb-2 md:pb-6 overflow-x-hidden">
 
-      {/* Başlık */}
+      {/* Başlık ve İstatistikler */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-6 shrink-0 gap-4 w-full">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-medium text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wider">{currentDate}</span>
-          <h1 className="text-[28px] md:text-[32px] font-semibold text-slate-900 dark:text-white tracking-tight leading-none">Geçiş Yönetimi</h1>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[12.5px] font-semibold text-slate-500">
-            <span className="flex items-center gap-1.5"><Sunrise size={14} className="text-emerald-500" />Sabah {config.morningEntryHour} <span className="text-slate-400">(+{config.morningGraceMinutes} dk)</span></span>
-            <span className="flex items-center gap-1.5"><Clock size={14} className="text-blue-500" />Öğleden sonra {config.afternoonEntryHour} <span className="text-slate-400">(+{config.afternoonGraceMinutes} dk)</span></span>
-            <span className="flex items-center gap-1.5"><Sunset size={14} className="text-indigo-500" />Çıkış {config.schoolExitHour}</span>
-            <span className="flex items-center gap-1.5"><UserCheck size={14} className="text-emerald-500" />Kurum içinde: <strong className="text-slate-700 dark:text-slate-200">{insideCount}</strong></span>
+          <h1 className="text-[28px] md:text-[32px] font-semibold text-slate-900 dark:text-white tracking-tight leading-none">Öğrenci Geçiş Yönetimi</h1>
+          
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-[12.5px] font-semibold">
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-900/50">
+              <UserCheck size={14} className="text-emerald-600" />
+              Kurumda (İçeride): <strong className="ml-1 text-[13px]">{insideCount}</strong>
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-[#1e293b] text-slate-700 dark:text-slate-300 rounded-full border border-slate-200 dark:border-white/10">
+              <DoorOpen size={14} className="text-slate-500" />
+              Kurum Dışında: <strong className="ml-1 text-[13px]">{outsideCount}</strong>
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-900/50">
+              <Clock size={14} className="text-blue-500" />
+              Toplam Kayıtlı: <strong className="ml-1 text-[13px]">{students.length}</strong>
+            </span>
           </div>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-600 dark:text-slate-400" />
+
+        <div className="relative w-full sm:w-80">
+          <Search size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            placeholder="İsim, okul no veya TC ile ara..."
-            className="pl-10 pr-4 py-2.5 w-full bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-lg text-[14px] text-slate-900 dark:text-white outline-none focus:border-slate-400 transition-colors"
+            placeholder="İsim, sınıf (12B), okul no veya TC..."
+            className="pl-10 pr-4 py-2.5 w-full bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl text-[14px] text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-colors shadow-xs"
           />
         </div>
       </div>
 
-      {/* Bildirim */}
+      {/* Bildirim Toast */}
       {toast && (
-        <div className={`mb-4 px-4 py-3 rounded-xl border text-[13.5px] font-semibold flex items-center gap-2.5 shrink-0 animate-in fade-in slide-in-from-top-2 ${
+        <div className={`mb-4 px-4 py-3 rounded-2xl border text-[13.5px] font-semibold flex items-center gap-2.5 shrink-0 animate-in fade-in slide-in-from-top-2 shadow-sm ${
           toast.kind === 'success' ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-300'
           : toast.kind === 'error' ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300'
           : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
@@ -252,9 +335,7 @@ const StudentGateAdminView = () => {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*  REHBERLİK ONAYI BEKLEYEN GEÇ GİRİŞLER                             */}
-      {/* ------------------------------------------------------------------ */}
+      {/* REHBERLİK ONAYI BEKLEYENLER */}
       {lateRequests.length > 0 && (
         <div className="mb-5 shrink-0 rounded-2xl border-2 border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/30 overflow-hidden">
           <div className="px-4 md:px-6 py-3.5 flex items-center gap-2.5 border-b border-red-200 dark:border-red-900/50">
@@ -266,9 +347,6 @@ const StudentGateAdminView = () => {
             <h2 className="text-[15px] font-extrabold text-red-800 dark:text-red-200">
               Rehberlik Onayı Bekleyen Geç Girişler ({lateRequests.length})
             </h2>
-            <span className="hidden md:block text-[12px] text-red-600/80 dark:text-red-400/80 font-medium ml-1">
-              Öğrenci Rehber Öğretmeniyle görüştüyse “Girişini Yap” butonuna basın.
-            </span>
           </div>
 
           <div className="divide-y divide-red-200/70 dark:divide-red-900/40">
@@ -302,14 +380,14 @@ const StudentGateAdminView = () => {
                     <button
                       onClick={() => handleApproveLate(request)}
                       disabled={busy}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold transition-all active:scale-95 disabled:opacity-50 min-w-[124px]"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold transition-all active:scale-95 disabled:opacity-50 min-w-[124px] shadow-sm"
                     >
                       {busy ? <Loader2 size={14} className="animate-spin" /> : <><UserCheck size={14} /> Girişini Yap</>}
                     </button>
                     <button
                       onClick={() => handleRejectLate(request)}
                       disabled={busy}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-[#0f172a] border border-slate-300 dark:border-white/10 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-[#0f172a] border border-slate-300 dark:border-white/10 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
                     >
                       <XCircle size={14} /> Reddet
                     </button>
@@ -321,28 +399,27 @@ const StudentGateAdminView = () => {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*  ÖĞRENCİ LİSTESİ                                                   */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="w-full flex-1 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl flex flex-col overflow-hidden shadow-sm">
+      {/* ÖĞRENCİ LİSTESİ TABLOSU */}
+      <div className="w-full flex-1 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col overflow-hidden shadow-sm">
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
-          <div className="min-w-[650px] flex flex-col h-full">
+          <div className="min-w-[700px] flex flex-col h-full">
 
-            <div className="flex items-center px-4 md:px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#1e293b]/50 shrink-0 sticky top-0 z-10">
-              <div className="flex-1 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Öğrenci</div>
-              <div className="w-28 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Okul No</div>
-              <div className="w-36 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Mevcut Konum</div>
-              <div className="w-36 text-[12px] font-semibold text-slate-500 uppercase tracking-wider text-right">Aksiyon</div>
+            <div className="flex items-center px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#1e293b]/50 shrink-0 sticky top-0 z-10 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="flex-1">Öğrenci</div>
+              <div className="w-28">Sınıf / Şube</div>
+              <div className="w-28">Okul No</div>
+              <div className="w-36">Mevcut Konum</div>
+              <div className="w-36 text-right">Geçiş İşlemi</div>
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 divide-y divide-slate-100 dark:divide-white/5">
               {filteredStudents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-slate-600 dark:text-slate-400">
                   <AlertCircle size={32} className="mb-2 opacity-50" />
-                  <span className="text-[14px] font-medium">Kayıt bulunamadı.</span>
+                  <span className="text-[14px] font-medium">Kayıtlı öğrenci bulunamadı.</span>
                 </div>
               ) : (
-                filteredStudents.map((student, idx) => {
+                filteredStudents.map((student) => {
                   const isInside = studentStatusMap[student.id] === 'inside';
                   const isProcessing = processingId === student.id;
                   const hasPendingRequest = lateRequests.some(r => r.studentId === student.id);
@@ -350,17 +427,27 @@ const StudentGateAdminView = () => {
                   return (
                     <div
                       key={student.id}
-                      className={`flex items-center px-4 md:px-6 py-3 border-b border-slate-100 dark:border-white/5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
-                        idx === filteredStudents.length - 1 ? 'border-none' : ''
-                      } ${hasPendingRequest ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}
+                      className={`flex items-center px-6 py-3.5 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
+                        hasPendingRequest ? 'bg-red-50/60 dark:bg-red-950/20' : ''
+                      }`}
                     >
-                      <div className="flex-1 flex items-center gap-3 min-w-0">
+                      {/* Öğrenci Bilgisi */}
+                      <div className="flex-1 flex items-center gap-3 min-w-0 pr-2">
                         <img
                           src={student.profileImage}
                           alt={student.name}
-                          className="w-8 h-8 min-w-[32px] min-h-[32px] shrink-0 rounded-full object-cover border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#1e293b]"
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                          className="w-9 h-9 min-w-[36px] min-h-[36px] shrink-0 rounded-full object-cover border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#1e293b]"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=f1f5f9&color=0f172a&size=100`;
+                          }}
                         />
-                        <span className="text-[13px] md:text-[14px] font-medium text-slate-800 dark:text-slate-200 truncate">{student.name}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[13.5px] font-bold text-slate-900 dark:text-white truncate">{student.name}</span>
+                          <span className="text-[11px] font-mono text-slate-400 truncate">{student.tc || ''}</span>
+                        </div>
                         {hasPendingRequest && (
                           <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 text-[10px] font-extrabold uppercase tracking-wider shrink-0">
                             Onay Bekliyor
@@ -368,32 +455,59 @@ const StudentGateAdminView = () => {
                         )}
                       </div>
 
-                      <div className="w-28 text-[12px] md:text-[13px] text-slate-600 dark:text-slate-400 font-medium">
-                        {student.schoolNumber || '-'}
+                      {/* Sınıf / Şube */}
+                      <div className="w-28">
+                        <span className="text-[12px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1e293b] px-2 py-0.5 rounded-md border border-slate-200 dark:border-white/10">
+                          {student.branch || '—'}
+                        </span>
                       </div>
 
+                      {/* Okul No */}
+                      <div className="w-28 text-[12.5px] text-slate-600 dark:text-slate-400 font-semibold">
+                        {student.schoolNumber || '—'}
+                      </div>
+
+                      {/* Mevcut Durum Rozeti */}
                       <div className="w-36 flex items-center shrink-0">
-                        <div className={`px-2 py-1 rounded text-[11px] md:text-[12px] font-semibold flex items-center gap-1.5 border ${
-                          isInside
-                            ? 'border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40'
-                            : 'border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40'
-                        }`}>
-                          {isInside ? <DoorClosed size={12} /> : <DoorOpen size={12} />}
-                          {isInside ? 'Kurum İçinde' : 'Kurum Dışında'}
-                        </div>
+                        {isInside ? (
+                          <div className="px-2.5 py-1 rounded-xl text-[11.5px] font-bold flex items-center gap-1.5 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
+                            <CheckCircle2 size={13} className="text-emerald-600" />
+                            <span>Kurum İçinde</span>
+                          </div>
+                        ) : (
+                          <div className="px-2.5 py-1 rounded-xl text-[11.5px] font-bold flex items-center gap-1.5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#1e293b]">
+                            <DoorOpen size={13} className="text-slate-400" />
+                            <span>Kurum Dışında</span>
+                          </div>
+                        )}
                       </div>
 
+                      {/* Giriş Yap / Çıkış Yap Butonu */}
                       <div className="w-36 flex justify-end shrink-0">
                         <button
                           onClick={() => handleAction(student)}
                           disabled={isProcessing}
-                          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] md:text-[13px] font-semibold transition-all w-28 ${
+                          className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-[12px] font-bold transition-all w-32 shadow-xs active:scale-95 ${
                             isProcessing
-                              ? 'bg-slate-50 dark:bg-[#1e293b] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 cursor-not-allowed'
-                              : 'bg-white dark:bg-[#0f172a] border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1e293b] hover:border-slate-400 active:scale-95'
+                              ? 'bg-slate-100 dark:bg-[#1e293b] border-slate-200 dark:border-white/10 text-slate-400 cursor-not-allowed'
+                              : isInside
+                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/40 hover:border-rose-300'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40 hover:border-emerald-300'
                           }`}
                         >
-                          {isProcessing ? <Loader2 size={14} className="animate-spin" /> : (isInside ? 'Çıkış Yap' : 'Giriş Yap')}
+                          {isProcessing ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : isInside ? (
+                            <>
+                              <DoorClosed size={13} />
+                              <span>Çıkış Yap</span>
+                            </>
+                          ) : (
+                            <>
+                              <DoorOpen size={13} />
+                              <span>Giriş Yap</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
