@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, Download, Printer, Search, Users, UserX, UserCheck, 
   AlertCircle, RefreshCcw, Filter, ChevronDown, FileText, CheckCircle2, 
-  Clock, Timer, Activity, Sparkles, ShieldCheck, DoorOpen, User,
-  FileSpreadsheet, Layers, School, ChevronRight
+  Clock, Timer, Activity, Sparkles, ShieldCheck, DoorOpen, User
 } from 'lucide-react';
 import { db, rtdb } from '../services/firebaseConfig';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
 import useAttendanceConfig from '../hooks/useAttendanceConfig';
 import {
@@ -17,8 +16,7 @@ import {
   getDateKeyInTimeZone,
   getMinutesInTimeZone,
   isClosedDay as isClosedDayFn,
-  sumAbsenceWeight,
-  formatDayCount
+  sumAbsenceWeight
 } from '../services/attendanceRules';
 
 const DailyAbsenceReportView = () => {
@@ -38,7 +36,7 @@ const DailyAbsenceReportView = () => {
   const todayKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul'), [config.timeZone]);
   const isToday = selectedDate === todayKey;
 
-  // 1. Canlı Öğrenci Listesi (Firestore 'users')
+  // 1. Canlı Öğrenci Listesi
   useEffect(() => {
     setLoading(true);
     const usersCol = collection(db, 'users');
@@ -87,7 +85,7 @@ const DailyAbsenceReportView = () => {
     return () => unsubUsers();
   }, []);
 
-  // 2. Canlı Gate Status Dinleyicisi (Turnike / Giriş Durumu)
+  // 2. Canlı Gate Status
   useEffect(() => {
     const unsubGate = onSnapshot(collection(db, 'gate_status'), (snap) => {
       const map = {};
@@ -102,7 +100,7 @@ const DailyAbsenceReportView = () => {
     return () => unsubGate();
   }, [selectedDate]);
 
-  // 3. RTDB Attendance Logs
+  // 3. RTDB Logs
   useEffect(() => {
     const rtdbPath = ref(rtdb, `qr_system/attendance_logs/${selectedDate}`);
     const unsubRtdb = onValue(rtdbPath, (snapshot) => {
@@ -111,7 +109,7 @@ const DailyAbsenceReportView = () => {
     return () => unsubRtdb();
   }, [selectedDate]);
 
-  // 4. Firestore attendance_logs & attendance
+  // 4. Firestore Logs
   useEffect(() => {
     const fsAttLogsQuery = query(collection(db, 'attendance_logs'), where('date', '==', selectedDate));
     const unsubFsLogs = onSnapshot(fsAttLogsQuery, (snap) => {
@@ -224,7 +222,6 @@ const DailyAbsenceReportView = () => {
           badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50';
         }
       } else {
-        // Canlı gün ve henüz gün bitmediyse veya yoklama yoksa
         if (isToday) {
           status = 'present';
           statusLabel = 'Kayıtlı / Beklemede';
@@ -292,7 +289,6 @@ const DailyAbsenceReportView = () => {
       groups[groupKey].push(student);
     });
 
-    // Grupları sırala: 12/A, 12/B, 12/C, 12/D, 11/A, 11/B, 10/A, 9/A
     const sortedKeys = Object.keys(groups).sort((a, b) => {
       const numA = parseInt(a, 10) || 0;
       const numB = parseInt(b, 10) || 0;
@@ -317,7 +313,7 @@ const DailyAbsenceReportView = () => {
   const excusedCount = analyzedStudents.filter(s => s.status === 'excused').length;
   const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 100;
 
-  // Doğrudan PDF / Baskı Penceresi Oluşturucu
+  // Doğrudan PDF / Yazdırma Penceresi
   const handlePrintPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -332,21 +328,21 @@ const DailyAbsenceReportView = () => {
     let tableHtml = '';
     Object.entries(groupedStudents).forEach(([branch, list]) => {
       tableHtml += `
-        <div style="margin-top: 24px; margin-bottom: 8px;">
-          <div style="background: #1e293b; color: #ffffff; padding: 6px 12px; font-weight: bold; font-size: 13px; border-radius: 4px; display: flex; justify-content: space-between;">
+        <div style="margin-top: 20px; margin-bottom: 8px;">
+          <div style="background: #1e293b; color: #ffffff; padding: 7px 12px; font-weight: bold; font-size: 13px; border-radius: 4px; display: flex; justify-content: space-between;">
             <span>${branch} ŞUBESİ</span>
             <span>Toplam: ${list.length} Öğrenci</span>
           </div>
           <table style="width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 12px;">
             <thead>
               <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; text-align: left;">
-                <th style="padding: 6px 8px; width: 40px;">No</th>
+                <th style="padding: 6px 8px; width: 35px;">No</th>
                 <th style="padding: 6px 8px;">Öğrenci Adı Soyadı</th>
                 <th style="padding: 6px 8px; width: 110px;">T.C. Kimlik</th>
-                <th style="padding: 6px 8px; width: 80px;">Okul No</th>
-                <th style="padding: 6px 8px; width: 100px;">Sabah</th>
-                <th style="padding: 6px 8px; width: 100px;">Öğleden Sonra</th>
-                <th style="padding: 6px 8px; width: 140px; text-align: right;">Durum</th>
+                <th style="padding: 6px 8px; width: 70px;">Okul No</th>
+                <th style="padding: 6px 8px; width: 90px;">Sabah</th>
+                <th style="padding: 6px 8px; width: 90px;">Öğleden Sonra</th>
+                <th style="padding: 6px 8px; width: 130px; text-align: right;">Durum</th>
               </tr>
             </thead>
             <tbody>
@@ -383,7 +379,7 @@ const DailyAbsenceReportView = () => {
           .header h2 { margin: 4px 0 0 0; font-size: 14px; font-weight: normal; color: #475569; }
           .stats-bar { display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 16px; font-size: 12px; margin-bottom: 16px; font-weight: bold; }
           .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; page-break-inside: avoid; }
-          .signature-box { text-align: center; width: 200px; border-top: 1px solid #94a3b8; padding-top: 6px; }
+          .signature-box { text-align: center; width: 180px; border-top: 1px solid #94a3b8; padding-top: 6px; }
         </style>
       </head>
       <body>
@@ -394,11 +390,11 @@ const DailyAbsenceReportView = () => {
         </div>
 
         <div class="stats-bar">
-          <span>Toplam Öğrenci: ${totalCount}</span>
-          <span>Katılım Oranı: %${attendanceRate}</span>
+          <span>Toplam: ${totalCount} Öğrenci</span>
+          <span>Katılım: %${attendanceRate}</span>
           <span>Mevcut: ${presentCount}</span>
           <span>Devamsız: ${fullAbsentCount + halfAbsentCount}</span>
-          <span>İzinli/Raporlu: ${excusedCount}</span>
+          <span>İzinli: ${excusedCount}</span>
         </div>
 
         ${tableHtml}
@@ -442,13 +438,13 @@ const DailyAbsenceReportView = () => {
   }
 
   return (
-    <div className="w-full h-full flex-1 flex flex-col font-sans gap-5 pb-6 overflow-x-hidden">
+    <div className="w-full font-sans pb-16 flex flex-col gap-6">
       
-      {/* 1. ÜST BAŞLIK & TARİH SEÇİCİ & PDF YAZDIR */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 w-full shrink-0">
+      {/* 1. ÜST BAŞLIK VE AKSİYONLAR */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 w-full">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[11px] md:text-[12px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider">
               {new Date(selectedDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
             {isToday && (
@@ -457,21 +453,19 @@ const DailyAbsenceReportView = () => {
               </span>
             )}
           </div>
-          <h1 className="text-[26px] md:text-[32px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+          <h1 className="text-[28px] md:text-[32px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
             Günlük Ders & Devamsızlık Raporu
           </h1>
         </div>
 
-        {/* Aksiyon Butonları */}
+        {/* Tarih Seçici & Yazdır Butonu */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-none">
-            <input 
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 text-[13px] font-bold text-slate-800 dark:text-slate-200 outline-none shadow-xs focus:border-indigo-500 cursor-pointer"
-            />
-          </div>
+          <input 
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 text-[13px] font-bold text-slate-800 dark:text-slate-200 outline-none shadow-xs focus:border-indigo-500 cursor-pointer"
+          />
 
           <button 
             onClick={handlePrintPDF}
@@ -483,15 +477,15 @@ const DailyAbsenceReportView = () => {
         </div>
       </div>
 
-      {/* 2. DÖRT AYRI MODERN İSTATİSTİK KARTI (Fotoğraftaki birleşik bar ayrıldı) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full shrink-0">
+      {/* 2. DÖRT AYRI MODERN İSTATİSTİK KARTI */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         
         {/* Toplam Öğrenci */}
         <div className="bg-white dark:bg-[#0f172a] p-5 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">Toplam Öğrenci</span>
             <div className="text-[28px] font-extrabold text-slate-900 dark:text-white mt-1 leading-none">{totalCount}</div>
-            <span className="text-[11px] text-slate-400 font-semibold mt-1.5 block">Sistemde Kayıtlı</span>
+            <span className="text-[11px] text-slate-400 font-semibold mt-1.5 block">Kayıtlı Öğrenci</span>
           </div>
           <div className="w-11 h-11 rounded-2xl bg-slate-50 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 flex items-center justify-center border border-slate-100 dark:border-white/5">
             <Users size={20} strokeWidth={2} />
@@ -540,34 +534,35 @@ const DailyAbsenceReportView = () => {
 
       </div>
 
-      {/* 3. AYRI VE FERAH FİLTRELEME ALANI */}
-      <div className="bg-white dark:bg-[#0f172a] p-4 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 shrink-0">
+      {/* 3. FİLTRELEME VE ARAMA PANELİ */}
+      <div className="bg-white dark:bg-[#0f172a] p-4 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col gap-3">
         
         {/* Arama Inputu */}
-        <div className="relative flex-1 max-w-md">
+        <div className="relative w-full">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            placeholder="İsim, şube (12/A), okul no veya TC ile ara..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 rounded-2xl text-[13px] text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 transition-colors"
+            placeholder="Öğrenci adı soyadı, şube (12/A), okul no veya TC ile ara..."
+            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 rounded-2xl text-[13.5px] text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 transition-colors"
           />
         </div>
 
         {/* Filtre Butonları */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-white/5">
           
-          {/* Sınıf Seviyesi */}
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-[#1e293b] rounded-2xl border border-slate-200/60 dark:border-white/10 text-xs font-bold">
+          {/* Kademe Filtreleri */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Kademe:</span>
             {['all', '12', '11', '10', '9'].map(cls => (
               <button
                 key={cls}
                 onClick={() => setSelectedClassFilter(cls)}
-                className={`px-3 py-1.5 rounded-xl transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedClassFilter === cls 
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' 
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                    ? 'bg-indigo-600 text-white shadow-xs' 
+                    : 'bg-slate-100 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
               >
                 {cls === 'all' ? 'Tüm Kademeler' : `${cls}. Sınıf`}
@@ -575,8 +570,9 @@ const DailyAbsenceReportView = () => {
             ))}
           </div>
 
-          {/* Durum Filtresi */}
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-[#1e293b] rounded-2xl border border-slate-200/60 dark:border-white/10 text-xs font-bold">
+          {/* Durum Filtreleri */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Durum:</span>
             {[
               { id: 'all', label: 'Tüm Liste' },
               { id: 'absent', label: 'Devamsızlar' },
@@ -586,10 +582,10 @@ const DailyAbsenceReportView = () => {
               <button
                 key={tab.id}
                 onClick={() => setSelectedStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedStatusFilter === tab.id 
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' 
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs' 
+                    : 'bg-slate-100 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
               >
                 {tab.label}
@@ -601,14 +597,14 @@ const DailyAbsenceReportView = () => {
 
       </div>
 
-      {/* 4. SINIF BAŞLIKLARINA GÖRE AYRILMIŞ RAPOR LİSTESİ */}
-      <div className="w-full flex-1 flex flex-col gap-5 overflow-y-auto custom-scrollbar pr-1">
+      {/* 4. ŞUBE ŞUBE AYRILMIŞ ÖĞRENCİ LİSTESİ */}
+      <div className="flex flex-col gap-6 w-full">
         {Object.keys(groupedStudents).length === 0 ? (
           <div className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 p-12 flex flex-col items-center justify-center text-center shadow-xs">
             <FileText size={36} className="text-slate-400 mb-2 opacity-50" />
             <h3 className="text-[15px] font-bold text-slate-700 dark:text-slate-300">Kayıt Bulunamadı</h3>
             <p className="text-[12px] text-slate-400 mt-1 max-w-sm">
-              Seçilen tarih ve filtre kriterlerine uygun öğrenci kaydı bulunmamaktadır.
+              Seçilen filtre kriterlerine uygun öğrenci kaydı bulunamadı.
             </p>
           </div>
         ) : (
@@ -621,45 +617,45 @@ const DailyAbsenceReportView = () => {
                 key={branchName}
                 className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-xs"
               >
-                {/* Sınıf / Şube Grup Başlığı */}
+                {/* Sınıf / Şube Başlık Barı */}
                 <div className="px-6 py-4 bg-slate-50/80 dark:bg-[#1e293b]/60 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-extrabold text-[13px] border border-indigo-100 dark:border-indigo-900/40">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-extrabold text-[14px] border border-indigo-100 dark:border-indigo-900/40">
                       {branchName.split('/')[0] || '12'}
                     </div>
                     <div>
-                      <h3 className="text-[15.5px] font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      <h3 className="text-[16px] font-extrabold text-slate-900 dark:text-white tracking-tight">
                         {branchName} Şubesi
                       </h3>
-                      <span className="text-[11.5px] text-slate-500 font-semibold">
-                        Toplam {studentList.length} Kayıtlı Öğrenci
+                      <span className="text-[12px] text-slate-500 font-semibold">
+                        Toplam {studentList.length} Öğrenci
                       </span>
                     </div>
                   </div>
 
-                  {/* Sınıf İçi Özet */}
+                  {/* Şube İçi Katılım Rozetleri */}
                   <div className="flex items-center gap-2 text-xs font-bold">
-                    <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40">
+                    <span className="px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40">
                       {classPresent} Mevcut
                     </span>
                     {classAbsent > 0 && (
-                      <span className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40">
+                      <span className="px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40">
                         {classAbsent} Devamsız
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Sınıf Öğrenci Tablosu */}
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left min-w-[700px]">
+                {/* Sınıfın Öğrenci Tablosu */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-slate-100 dark:border-white/5 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/30 dark:bg-transparent">
                         <th className="py-3 px-6">Öğrenci Bilgisi</th>
                         <th className="py-3 px-4 w-28">Okul No</th>
                         <th className="py-3 px-4 w-36">Sabah Seansı</th>
                         <th className="py-3 px-4 w-36">Öğleden Sonra</th>
-                        <th className="py-3 px-6 w-40 text-right">Günlük Durum</th>
+                        <th className="py-3 px-6 w-44 text-right">Günlük Durum</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -668,7 +664,7 @@ const DailyAbsenceReportView = () => {
                           key={student.id}
                           className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                         >
-                          {/* Öğrenci Ad Soyad + Avatar */}
+                          {/* Öğrenci Adı Soyadı + Avatar */}
                           <td className="py-3.5 px-6">
                             <div className="flex items-center gap-3 min-w-0">
                               {student.profileImage ? (
