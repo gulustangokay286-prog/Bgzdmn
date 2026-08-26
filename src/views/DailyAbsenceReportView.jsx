@@ -439,7 +439,7 @@ const DailyAbsenceReportView = () => {
   }
 
   return (
-    <div className="w-full font-sans pb-16 flex flex-col gap-6 max-w-full overflow-hidden">
+    <div className="w-full font-sans pb-24 flex flex-col gap-6">
       
       {/* 1. ÜST BAŞLIK VE AKSİYONLAR */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 w-full">
@@ -478,7 +478,7 @@ const DailyAbsenceReportView = () => {
         </div>
       </div>
 
-      {/* 2. DÖRT AYRI MODERN İSTATİSTİK KARTI (Tinted kare kutular kaldırıldı) */}
+      {/* 2. DÖRT AYRI MODERN İSTATİSTİK KARTI (Saf İkonlar, Kare Kutu Yok) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         
         {/* Toplam Öğrenci */}
@@ -527,32 +527,32 @@ const DailyAbsenceReportView = () => {
 
       </div>
 
-      {/* 3. TAŞMAYAN, DÜZGÜN OTURAN FİLTRE VE ARAMA PANELİ */}
-      <div className="w-full bg-white dark:bg-[#0f172a] p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col gap-4">
+      {/* 3. ARAMA VE FİLTRELEME ALANI (Tam Oturan Kutu) */}
+      <div className="w-full bg-white dark:bg-[#0f172a] p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col gap-3.5 box-border">
         
         {/* Arama Inputu */}
-        <div className="relative w-full">
-          <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <div className="relative w-full flex items-center">
+          <Search size={17} className="absolute left-3.5 text-slate-400 pointer-events-none" />
           <input 
             type="text"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             placeholder="Öğrenci adı soyadı, şube (12/A), okul no veya TC ile ara..."
-            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 rounded-xl text-[13.5px] text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-400"
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 rounded-xl text-[13.5px] text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-400 box-border"
           />
         </div>
 
-        {/* Filtre Butonları */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-white/5">
+        {/* Filtre Satırları */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-white/5 w-full">
           
           {/* Kademe Filtreleri */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11.5px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Kademe:</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Kademe:</span>
             {['all', '12', '11', '10', '9'].map(cls => (
               <button
                 key={cls}
                 onClick={() => setSelectedClassFilter(cls)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedClassFilter === cls 
                     ? 'bg-indigo-600 text-white shadow-xs' 
                     : 'bg-slate-100 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
@@ -564,8 +564,8 @@ const DailyAbsenceReportView = () => {
           </div>
 
           {/* Durum Filtreleri */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11.5px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Durum:</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Durum:</span>
             {[
               { id: 'all', label: 'Tüm Liste' },
               { id: 'absent', label: 'Devamsızlar' },
@@ -575,7 +575,7 @@ const DailyAbsenceReportView = () => {
               <button
                 key={tab.id}
                 onClick={() => setSelectedStatusFilter(tab.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedStatusFilter === tab.id 
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs' 
                     : 'bg-slate-100 dark:bg-[#1e293b] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
@@ -610,7 +610,7 @@ const DailyAbsenceReportView = () => {
                 key={branchName}
                 className="bg-white dark:bg-[#0f172a] rounded-2xl md:rounded-3xl border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-xs"
               >
-                {/* Sınıf / Şube Başlık Barı (Tinted kare kaldırıldı, temiz okul ikonu ve şık başlık) */}
+                {/* Sınıf / Şube Başlık Barı (Temiz ve Sade) */}
                 <div className="px-6 py-4 bg-slate-50/80 dark:bg-[#1e293b]/60 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-2.5">
                     <School size={20} className="text-indigo-500 shrink-0" />
