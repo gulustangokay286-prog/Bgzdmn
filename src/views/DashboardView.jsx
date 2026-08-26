@@ -22,7 +22,8 @@ import {
   Users,
   CreditCard,
   Layers,
-  Sparkles
+  Sparkles,
+  DatabaseZap
 } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import { financeService } from '../services/financeService';
@@ -75,10 +76,32 @@ const CashflowBarChart = ({ records = [] }) => {
     return data;
   }, [records]);
 
+  const hasAnyRecord = records && records.length > 0;
+
   const maxVal = useMemo(() => {
     const max = Math.max(...monthlyData.map(d => Math.max(d.income, d.expense)), 1000);
     return max;
   }, [monthlyData]);
+
+  if (!hasAnyRecord) {
+    return (
+      <div className="w-full py-7 px-4 my-2 flex flex-col items-center justify-center text-center bg-slate-50/70 dark:bg-[#1e293b]/40 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 relative overflow-hidden">
+        <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 shadow-xs">
+          <DatabaseZap size={22} strokeWidth={2} />
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-100/70 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 rounded-full text-[11px] font-bold mb-2">
+          <Sparkles size={13} />
+          <span>EBOS Entegrasyonu Aktif</span>
+        </div>
+        <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-200">
+          Mali veriler ve nakit akışı EBOS üzerinden işlenmektedir
+        </h4>
+        <p className="text-[12px] text-slate-500 max-w-md mt-1 font-medium leading-relaxed">
+          Öğrenci taksit ödemeleri, kasa hareketleri ve muhasebe dökümleri EBOS finans modülüyle anlık ve güvenli olarak senkronize edilir.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col gap-4 mt-2">
@@ -224,18 +247,11 @@ const DashboardView = () => {
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans gap-6 pb-6 overflow-x-hidden">
       
-      {/* Üst Başlık & Tarih */}
+      {/* Üst Başlık & Tarih (Sağ üstteki silindir kaldırıldı) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 w-full gap-3 shrink-0">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-1">{currentDate}</span>
           <h1 className="text-[26px] md:text-[32px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">Genel Yönetim Paneli</h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1e293b] border border-slate-200/80 dark:border-white/10 text-[12px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Toplam {totalCount} Kullanıcı</span>
-          </div>
         </div>
       </div>
 
