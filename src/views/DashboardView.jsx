@@ -283,7 +283,7 @@ const DashboardView = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full shrink-0">
           <StatCard title="Aktif Öğrenciler" value={students} icon={GraduationCap} trend={4.2} />
           <StatCard title="Öğretmen Kadrosu" value={teachers} icon={UserSquare} trend={1.5} />
-          <StatCard title="Personel Kadrosu" value={personnel} icon={Briefcase} trend={2.1} />
+          <StatCard title="Yönetici & Personel Kadrosu" value={personnel} icon={Briefcase} trend={2.1} />
           <StatCard title="Kayıtlı Veliler" value={parents} icon={UserPlus} trend={8.1} />
         </div>
         )}
