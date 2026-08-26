@@ -1,3 +1,6 @@
+# OS X
+.DS_Store
+
 # Logs
 logs
 *.log
@@ -5,55 +8,50 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Node / Build
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+dist-electron/
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-node_modules/
-
+# Environment
 .env
 .env.*
-dist-electron
-dist
-node_modules
 
-# Temp and patch scripts
-check_divs.cjs
-check_tags.cjs
-check_tags.js
-cleanup.mjs
-create_admin.js
-debug_firestore.js
-delete_admin.mjs
-init_users.mjs
-live_server_test.mjs
-load_test.mjs
-patch_config.js
-patch_config.py
-patch_live_view.py
-patch_render.py
-patch_student_gate.py
-restore_theme.py
-test.js
-test_firestore.cjs
-test_query_filter.js
-test_self_read.js
-test_self_write.js
-test_web_key.cjs
-updateTcLast4.js
-*.patch
-*.diff
-push_key.mjs
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+*.xcodeproj/
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# Android
+.gradle/
+local.properties
+.idea/
+.cxx/
+*.apk
+*.aar
+**/build/
+capture/
+
+# Large assets / binaries
+*.mp4
+*.MOV
+*.exe
+*.dll
+*.pak
+*.bin
