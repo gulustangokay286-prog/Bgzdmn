@@ -58,11 +58,22 @@ const DEPARTMENT_LIST = [
   "Yemekhane"
 ];
 
+const formatStudentDisplay = (classId, section, branch) => {
+  if (classId && section) {
+    return `${classId}/${section}`;
+  }
+  if (branch && typeof branch === 'string') {
+    const match = branch.match(/^(\d{1,2})\s*[-/._]?\s*([A-Za-z])/);
+    if (match) return `${match[1]}/${match[2].toUpperCase()}`;
+    return branch;
+  }
+  if (classId) return `${classId}. Sınıf`;
+  return '—';
+};
+
 const UserRow = ({ document, showApprovalActions, onUpdate }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showAssignClass, setShowAssignClass] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState('A');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Raw extract helper
@@ -84,8 +95,8 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
   const email = getFieldVal('email') || '-';
   const phone = getFieldVal('phone') || '';
   const currentBranch = getFieldVal('branch') || '';
-  const currentClassId = getFieldVal('class_id') || '9';
-  const currentSection = getFieldVal('section') || getFieldVal('sube') || (currentBranch.length > 2 ? currentBranch.slice(-1) : 'A');
+  const currentClassId = getFieldVal('class_id') || (currentBranch.match(/^(\d{1,2})/)?.[1] || '9');
+  const currentSection = getFieldVal('section') || getFieldVal('sube') || (currentBranch.match(/^[0-9]+([A-Za-z])/)?.[1]?.toUpperCase() || 'A');
   const currentSchoolNum = getFieldVal('school_number') || getFieldVal('schoolNumber') || '';
   const currentDepartment = getFieldVal('department') || 'İdari İşler';
   const pp = getFieldVal('profile_image') || getFieldVal('profileImage') || getFieldVal('profileImageUrl') || null;
@@ -137,18 +148,6 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
     }
   };
 
-  const handleApproveWithBranch = async () => {
-    setIsProcessing(true);
-    setShowAssignClass(false);
-    const classLevel = currentClassId || '9';
-    const newBranch = `${classLevel}${selectedBranch}`;
-    const success = await firebaseService.updateUserStatusAndBranch(userId, 'approved', newBranch);
-    if (success && onUpdate) {
-      onUpdate();
-    }
-    setIsProcessing(false);
-  };
-
   const handleSaveUserChanges = async (e) => {
     e.preventDefault();
     if (!userId) return;
@@ -193,11 +192,30 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
   };
 
   const getRoleBadge = (r) => {
+    const isStudent = (r || '').toLowerCase() === 'student' || (r || '').toLowerCase() === 'öğrenci';
+    const isTeacher = (r || '').toLowerCase() === 'teacher' || (r || '').toLowerCase() === 'öğretmen';
+    
     switch((r || '').toLowerCase()) {
       case 'student':
-      case 'öğrenci': return <span className="font-semibold text-blue-600 dark:text-blue-400">Öğrenci</span>;
+      case 'öğrenci': 
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <span className="font-bold text-blue-600 dark:text-blue-400">Öğrenci</span>
+            <span className="text-[11.5px] font-bold text-slate-800 dark:text-slate-200 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-900/30">
+              {formatStudentDisplay(currentClassId, currentSection, currentBranch)}
+            </span>
+          </div>
+        );
       case 'teacher':
-      case 'öğretmen': return <span className="font-semibold text-purple-600 dark:text-purple-400">Öğretmen</span>;
+      case 'öğretmen': 
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <span className="font-bold text-purple-600 dark:text-purple-400">Öğretmen</span>
+            <span className="text-[11px] font-semibold text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded-md border border-purple-100 dark:border-purple-900/30 truncate max-w-[130px]">
+              {currentBranch || 'Öğretmen'}
+            </span>
+          </div>
+        );
       case 'parent':
       case 'veli': return <span className="font-semibold text-emerald-600 dark:text-emerald-400">Veli</span>;
       case 'personnel':
@@ -280,13 +298,7 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
             ) : (
               <div className="flex gap-1 relative">
                 <button 
-                  onClick={() => {
-                    if (roleRaw.toLowerCase() === 'student' || roleRaw.toLowerCase() === 'öğrenci') {
-                      setShowAssignClass(true);
-                    } else {
-                      handleProcess('approved');
-                    }
-                  }} 
+                  onClick={() => handleProcess('approved')} 
                   className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
                   title="Onayla"
                 >
@@ -299,33 +311,6 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
                 >
                   <XCircle size={18} />
                 </button>
-
-                {showAssignClass && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#0f172a] rounded-xl shadow-xl border border-slate-200 dark:border-white/10 p-4 z-50 animate-fade-in">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white m-0">Şube Ataması</h4>
-                      <button onClick={() => setShowAssignClass(false)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
-                    </div>
-                    <div className="mb-3">
-                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1.5 block">Sınıf Şubesi</label>
-                      <select 
-                        className="w-full bg-slate-50 dark:bg-[#1e293b] border border-slate-200 dark:border-white/10 rounded-lg p-2 text-sm outline-none text-slate-900 dark:text-white"
-                        value={selectedBranch} 
-                        onChange={(e) => setSelectedBranch(e.target.value)}
-                      >
-                        <option value="A">A Şubesi</option>
-                        <option value="B">B Şubesi</option>
-                        <option value="C">C Şubesi</option>
-                        <option value="D">D Şubesi</option>
-                        <option value="E">E Şubesi</option>
-                        <option value="F">F Şubesi</option>
-                      </select>
-                    </div>
-                    <button onClick={handleApproveWithBranch} className="w-full bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold text-sm py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                      <Check size={16}/> Onayla
-                    </button>
-                  </div>
-                )}
               </div>
             )
           )}
@@ -470,7 +455,7 @@ const UserRow = ({ document, showApprovalActions, onUpdate }) => {
                     <div className="flex flex-col gap-1">
                       <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Okul No</label>
                       <input 
-                        type="text"
+                        type="text" 
                         value={editSchoolNumber}
                         onChange={(e) => setEditSchoolNumber(e.target.value)}
                         placeholder="Örn: 104"
