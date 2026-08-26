@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, UserSquare, UserPlus, Hourglass, TrendingUp, TrendingDown, Wallet, Activity, CalendarDays, MoreHorizontal, ArrowRight, ArrowUpRight, ArrowDownRight, CheckCircle2, BarChart3, AlertCircle, Download, FileSpreadsheet, Filter } from 'lucide-react';
+import { GraduationCap, UserSquare, UserPlus, Hourglass, Briefcase, Building2, TrendingUp, TrendingDown, Wallet, Activity, CalendarDays, MoreHorizontal, ArrowRight, ArrowUpRight, ArrowDownRight, CheckCircle2, BarChart3, AlertCircle, Download, FileSpreadsheet, Filter } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import { financeService } from '../services/financeService';
 import dashboardIcon from '../assets/dashboard_icon.png';
@@ -212,10 +212,31 @@ const DashboardView = () => {
     loadData();
   }, []);
 
-  const pending = users.filter(u => ['pending', 'awaiting_approval'].includes(u.fields?.status?.stringValue?.toLowerCase())).length;
-  const students = users.filter(u => u.fields?.role?.stringValue === 'student' || u.fields?.role?.stringValue === 'öğrenci').length;
-  const teachers = users.filter(u => u.fields?.role?.stringValue === 'teacher' || u.fields?.role?.stringValue === 'öğretmen').length;
-  const parents = users.filter(u => u.fields?.role?.stringValue === 'parent' || u.fields?.role?.stringValue === 'veli').length;
+  const visibleUsers = users.filter(u => {
+    if (!u) return false;
+    const role = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
+    return role !== 'patron';
+  });
+
+  const students = visibleUsers.filter(u => {
+    const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
+    return r === 'student' || r === 'öğrenci';
+  }).length;
+
+  const teachers = visibleUsers.filter(u => {
+    const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
+    return r === 'teacher' || r === 'öğretmen';
+  }).length;
+
+  const parents = visibleUsers.filter(u => {
+    const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
+    return r === 'parent' || r === 'veli';
+  }).length;
+
+  const personnel = visibleUsers.filter(u => {
+    const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
+    return r === 'personnel' || r === 'personel' || r === 'admin' || r === 'yönetici';
+  }).length;
 
   const bal = financeService.calculateBalance(financeRecords);
   const income = financeRecords.filter(r => r.type === 'income').reduce((acc, r) => acc + Number(r.amount || 0), 0);
@@ -262,8 +283,8 @@ const DashboardView = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full shrink-0">
           <StatCard title="Aktif Öğrenciler" value={students} icon={GraduationCap} trend={4.2} />
           <StatCard title="Öğretmen Kadrosu" value={teachers} icon={UserSquare} trend={1.5} />
+          <StatCard title="Personel Kadrosu" value={personnel} icon={Briefcase} trend={2.1} />
           <StatCard title="Kayıtlı Veliler" value={parents} icon={UserPlus} trend={8.1} />
-          <StatCard title="Bekleyen Talepler" value={pending} icon={Hourglass} trend={-2.4} />
         </div>
         )}
 
