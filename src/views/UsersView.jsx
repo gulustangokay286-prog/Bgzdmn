@@ -1,398 +1,306 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  RefreshCcw, 
-  Download, 
-  Search, 
-  Filter, 
-  Users, 
-  UserCheck, 
-  UserX, 
-  CheckCircle2, 
-  Upload, 
-  X, 
-  Check, 
-  ChevronDown, 
-  SlidersHorizontal,
-  GraduationCap,
-  UserSquare,
-  UserPlus,
-  Briefcase,
-  Inbox
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { RefreshCw, Download, Search, X, Users, GraduationCap, UserSquare, UserPlus, Briefcase } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import { db, mapSdkToRest } from '../services/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
-import UserRow from '../components/UserRow';
+import UserRow, { UserTableHeader, USER_TABLE_MIN_WIDTH } from '../components/UserRow';
+import { Panel, PanelFooter, Button, IconButton, Input, Select, EmptyState } from '../components/ui/panel';
+import { cx, hairline, divider } from '../components/ui/tokens';
+
+const ROLE_FILTERS = [
+  { id: 'all', label: 'Tümü', icon: Users, roles: null },
+  { id: 'student', label: 'Öğrenci', icon: GraduationCap, roles: ['student', 'öğrenci'] },
+  { id: 'teacher', label: 'Öğretmen', icon: UserSquare, roles: ['teacher', 'öğretmen'] },
+  { id: 'parent', label: 'Veli', icon: UserPlus, roles: ['parent', 'veli'] },
+  { id: 'personnel', label: 'Personel', icon: Briefcase, roles: ['personnel', 'personel', 'admin', 'yönetici'] }
+];
+
+const roleOf = (u) => u?.fields?.role?.stringValue?.toLowerCase() || '';
+const statusOf = (u) => u?.fields?.status?.stringValue?.toLowerCase() || '';
 
 const UsersView = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [parsedUsers, setParsedUsers] = useState([]);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importLoading, setImportLoading] = useState(false);
-  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
-  const fileInputRef = useRef(null);
-
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-
     const safetyTimer = setTimeout(() => {
       if (!cancelled) setLoading(false);
     }, 1200);
 
-    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
-      try {
-        const usersList = [];
-        snapshot.forEach((docSnap) => {
-          usersList.push(mapSdkToRest(docSnap));
-        });
-
-        if (!cancelled) {
-          setAllUsers(usersList);
-          setLoading(false);
+    const unsub = onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        try {
+          const usersList = [];
+          snapshot.forEach((docSnap) => usersList.push(mapSdkToRest(docSnap)));
+          if (!cancelled) {
+            setAllUsers(usersList);
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('Kullanıcılar listesi dinleme hatası:', err);
+          if (!cancelled) setLoading(false);
         }
-      } catch (err) {
-        console.error('Kullanıcılar listesi dinleme hatası:', err);
+      },
+      (err) => {
+        console.error('Kullanıcılar snapshot hatası:', err);
         if (!cancelled) setLoading(false);
       }
-    }, (err) => {
-      console.error('Kullanıcılar snapshot hatası:', err);
-      if (!cancelled) setLoading(false);
-    });
+    );
 
     return () => {
       cancelled = true;
       clearTimeout(safetyTimer);
-      try { unsub(); } catch(e) {}
+      try { unsub(); } catch { /* dinleyici zaten kapalı */ }
     };
   }, []);
 
-  const fetchUsers = async () => {
+  const refresh = async () => {
     setLoading(true);
-    const users = await firebaseService.fetchAllUsers();
-    setAllUsers(users);
+    try {
+      const users = await firebaseService.fetchAllUsers();
+      setAllUsers(users);
+    } catch (err) {
+      console.error('Kullanıcılar yenilenemedi:', err);
+    }
     setLoading(false);
   };
 
-  const visibleUsers = useMemo(() => {
-    if (!Array.isArray(allUsers)) return [];
-    return allUsers.filter(u => {
-      if (!u) return false;
-      const role = u.fields?.role?.stringValue?.toLowerCase() || '';
-      return role !== 'patron';
-    });
-  }, [allUsers]);
+  const visibleUsers = useMemo(
+    () => (Array.isArray(allUsers) ? allUsers.filter((u) => u && roleOf(u) !== 'patron') : []),
+    [allUsers]
+  );
+
+  const countFor = (filter) =>
+    filter.roles === null ? visibleUsers.length : visibleUsers.filter((u) => filter.roles.includes(roleOf(u))).length;
+
+  const pendingCount = visibleUsers.filter((u) => ['pending', 'awaiting_approval'].includes(statusOf(u))).length;
 
   const filteredUsers = useMemo(() => {
-    let result = [...visibleUsers];
+    let result = visibleUsers;
 
-    if (searchText && searchText.trim()) {
-      const q = searchText.trim().toLowerCase();
-      result = result.filter(u => {
-        const fields = u.fields || {};
-        const displayName = (fields.displayName?.stringValue || fields.full_name?.stringValue || fields.fullName?.stringValue || fields.name?.stringValue || '').toLowerCase();
-        const tc = (fields.tc_kimlik?.stringValue || fields.tcKimlik?.stringValue || fields.tc?.stringValue || '').toLowerCase();
-        const email = (fields.email?.stringValue || '').toLowerCase();
-        const role = (fields.role?.stringValue || '').toLowerCase();
-        const branch = (fields.branch?.stringValue || '').toLowerCase();
-        const classId = (fields.class_id?.stringValue || fields.class_id?.integerValue || '').toLowerCase();
-
-        return displayName.includes(q) || tc.includes(q) || email.includes(q) || role.includes(q) || branch.includes(q) || classId.includes(q);
+    const query = searchText.trim().toLowerCase();
+    if (query) {
+      result = result.filter((u) => {
+        const f = u.fields || {};
+        const haystack = [
+          f.displayName?.stringValue, f.full_name?.stringValue, f.fullName?.stringValue, f.name?.stringValue,
+          f.tc_kimlik?.stringValue, f.tcKimlik?.stringValue, f.tc?.stringValue,
+          f.email?.stringValue, f.role?.stringValue, f.branch?.stringValue,
+          f.class_id?.stringValue || f.class_id?.integerValue
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
       });
     }
 
     if (selectedRole !== 'all') {
-      result = result.filter(u => {
-        const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-        return r === selectedRole.toLowerCase() || (r === 'öğrenci' && selectedRole === 'student') || (r === 'veli' && selectedRole === 'parent') || (r === 'öğretmen' && selectedRole === 'teacher');
-      });
+      const roles = ROLE_FILTERS.find((f) => f.id === selectedRole)?.roles || [];
+      result = result.filter((u) => roles.includes(roleOf(u)));
     }
 
     if (selectedStatus !== 'all') {
-      result = result.filter(u => {
-        const s = u.fields?.status?.stringValue?.toLowerCase() || '';
-        return selectedStatus === 'active' ? s === 'approved' : s === 'pending';
-      });
+      result = result.filter((u) =>
+        selectedStatus === 'active' ? statusOf(u) === 'approved' : ['pending', 'awaiting_approval'].includes(statusOf(u))
+      );
     }
 
     return result;
   }, [visibleUsers, searchText, selectedRole, selectedStatus]);
 
-  const totalUsers = visibleUsers.length;
-  const pendingUsers = visibleUsers.filter(u => ['pending', 'awaiting_approval'].includes(u.fields?.status?.stringValue?.toLowerCase())).length;
-  const studentCount = visibleUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'student' || r === 'öğrenci';
-  }).length;
-  const teacherCount = visibleUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'teacher' || r === 'öğretmen';
-  }).length;
-  const parentCount = visibleUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'parent' || r === 'veli';
-  }).length;
-  const personnelCount = visibleUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'personnel' || r === 'personel' || r === 'admin' || r === 'yönetici';
-  }).length;
-
-  const handleDownloadPDF = () => {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Ad Soyad,Rol,TC Kimlik,Durum,Email,Sınıf/Branş\n";
-    filteredUsers.forEach(u => {
-      const n = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || 'İsimsiz';
-      const r = u.fields?.role?.stringValue || '-';
-      const tc = u.fields?.tc_kimlik?.stringValue || u.fields?.tcKimlik?.stringValue || '-';
-      const s = u.fields?.status?.stringValue || '-';
-      const email = u.fields?.email?.stringValue || '-';
-      const branch = u.fields?.branch?.stringValue || u.fields?.class_id?.stringValue || '-';
-      csvContent += `${n},${r},${tc},${s},${email},${branch}\n`;
+  const handleExportCsv = () => {
+    const cell = (v) => `"${String(v ?? '—').replace(/"/g, '""')}"`;
+    const rows = [['Ad Soyad', 'Rol', 'TC Kimlik', 'Durum', 'E-posta', 'Sınıf/Branş']];
+    filteredUsers.forEach((u) => {
+      const f = u.fields || {};
+      rows.push([
+        f.full_name?.stringValue || f.fullName?.stringValue || f.displayName?.stringValue || 'İsimsiz',
+        f.role?.stringValue,
+        f.tc_kimlik?.stringValue || f.tcKimlik?.stringValue,
+        f.status?.stringValue,
+        f.email?.stringValue,
+        f.branch?.stringValue || f.class_id?.stringValue
+      ]);
     });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "kullanicilar.csv");
-    document.body.appendChild(link);
+
+    // BOM, Excel'in Türkçe karakterleri doğru çözmesi için gerekli.
+    const csv = '﻿' + rows.map((r) => r.map(cell).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement('a');
+    link.href = url;
+    link.download = `kullanicilar-${new Date().toISOString().slice(0, 10)}.csv`;
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    window.document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const hasFilters = Boolean(searchText.trim()) || selectedRole !== 'all' || selectedStatus !== 'all';
 
   return (
-    <>
-      <div className="absolute -top-[40px] -bottom-[40px] -left-[40px] -right-[40px] bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-8 md:p-12">
-
-        {/* Top Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 w-full shrink-0 gap-6">
-          <div className="flex items-center gap-5">
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">{currentDate}</span>
-              <h1 className="text-[34px] font-bold text-slate-900 dark:text-white tracking-tight leading-none">Kullanıcı Yönetimi</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              className="h-9 px-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-all"
-              onClick={fetchUsers}
-              disabled={loading}
-            >
-              <RefreshCcw size={15} strokeWidth={2} className={loading ? 'animate-spin' : ''} />
-              <span className="hidden md:inline">Yenile</span>
-            </button>
-
-            <div className="w-px h-5 bg-slate-200 dark:bg-white/10 mx-1" />
-
-            <button
-              className="h-9 px-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-all"
-              onClick={handleDownloadPDF}
-            >
-              <Download size={15} strokeWidth={2} />
-              <span className="hidden md:inline">Dışa Aktar</span>
-            </button>
-          </div>
+    <div className="w-full flex flex-col gap-5 pb-2">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
+            Kullanıcılar
+          </h1>
+          <p className="m-0 mt-2 text-[12.5px] text-slate-500 dark:text-slate-400">
+            {today} · {visibleUsers.length} kayıtlı hesap
+            {pendingCount > 0 && ` · ${pendingCount} onay bekliyor`}
+          </p>
         </div>
 
-        {/* Filter and Badges */}
-        <div className="flex flex-col gap-5 mb-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <button 
-              onClick={() => { setSelectedRole('all'); setSelectedStatus('all'); }}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
-                selectedRole === 'all' && selectedStatus === 'all'
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent font-bold'
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <Users size={14} className="-ml-[3px]" />
-              <span className="text-[13px] font-semibold">Toplam</span>
-              <span className="text-[13px] font-bold ml-1">{totalUsers}</span>
-            </button>
+        <div className="flex items-center gap-2">
+          <Button icon={Download} onClick={handleExportCsv} disabled={filteredUsers.length === 0}>
+            Dışa Aktar
+          </Button>
+          <IconButton
+            label="Yenile"
+            icon={RefreshCw}
+            variant="secondary"
+            onClick={refresh}
+            disabled={loading}
+            className={loading ? '[&_svg]:animate-spin' : ''}
+          />
+        </div>
+      </header>
 
-            <button 
-              onClick={() => setSelectedRole(selectedRole === 'student' ? 'all' : 'student')}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
-                selectedRole === 'student'
-                  ? 'bg-blue-600 text-white border-transparent font-bold'
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <GraduationCap size={14} className="text-blue-500 -ml-[3px]" />
-              <span className="text-[13px] font-semibold">Öğrenci</span>
-              <span className="text-[13px] font-bold ml-1 text-blue-500">{studentCount}</span>
-            </button>
-
-            <button 
-              onClick={() => setSelectedRole(selectedRole === 'teacher' ? 'all' : 'teacher')}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
-                selectedRole === 'teacher'
-                  ? 'bg-purple-600 text-white border-transparent font-bold'
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <UserSquare size={14} className="text-purple-500 -ml-[3px]" />
-              <span className="text-[13px] font-semibold">Öğretmen</span>
-              <span className="text-[13px] font-bold ml-1 text-purple-500">{teacherCount}</span>
-            </button>
-
-            <button 
-              onClick={() => setSelectedRole(selectedRole === 'parent' ? 'all' : 'parent')}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
-                selectedRole === 'parent'
-                  ? 'bg-emerald-600 text-white border-transparent font-bold'
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <UserPlus size={14} className="text-emerald-500 -ml-[3px]" />
-              <span className="text-[13px] font-semibold">Veli</span>
-              <span className="text-[13px] font-bold ml-1 text-emerald-500">{parentCount}</span>
-            </button>
-
-            <button 
-              onClick={() => setSelectedRole(selectedRole === 'personnel' ? 'all' : 'personnel')}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
-                selectedRole === 'personnel'
-                  ? 'bg-teal-600 text-white border-transparent font-bold'
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <Briefcase size={14} className="text-teal-500 -ml-[3px]" />
-              <span className="text-[13px] font-semibold">Yönetici & Personel</span>
-              <span className="text-[13px] font-bold ml-1 text-teal-500">{personnelCount}</span>
-            </button>
-
-            <button 
-              onClick={() => setSelectedStatus(selectedStatus === 'pending' ? 'all' : 'pending')}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-full border transition-all cursor-pointer shadow-xs ${
-                selectedStatus === 'pending'
-                  ? 'bg-rose-600 text-white border-transparent font-bold'
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <Inbox size={14} className="text-rose-500 -ml-[3px]" />
-              <span className="text-[13px] font-semibold">Bekleyen</span>
-              <span className="text-[13px] font-bold ml-1 text-rose-500">{pendingUsers}</span>
-            </button>
-          </div>
-
-          {/* Search bar & dropdowns */}
-          <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
-            <div className="relative flex-1 w-full flex items-center">
-              <Search size={18} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
-              <input
-                type="text"
-                className="w-full py-3 pl-11 pr-10 bg-white dark:bg-[#0f172a] border-0 rounded-2xl text-[14px] font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:outline-none focus:ring-0 transition-all shadow-xs"
-                placeholder="İsim, TC Kimlik No, Sınıf (Örn: 12B, 11A) veya Branş ile arama yapın..."
-                value={searchText}
-                onChange={e => setSearchText(e.target.value)}
-              />
-              {searchText && (
-                <button 
-                  onClick={() => setSearchText('')}
-                  className="absolute right-3.5 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors z-10"
-                >
-                  <X size={16} />
-                </button>
+      {/* Rol kısayolları */}
+      <div className="flex flex-wrap gap-1.5">
+        {ROLE_FILTERS.map((filter) => {
+          const Icon = filter.icon;
+          const isActive = selectedRole === filter.id;
+          return (
+            <button
+              key={filter.id}
+              onClick={() => setSelectedRole(filter.id)}
+              className={cx(
+                'inline-flex items-center gap-2 h-9 px-3.5 rounded-lg border text-[13px] font-medium transition-colors',
+                isActive
+                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent'
+                  : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.08]'
               )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row w-full lg:w-auto gap-3 shrink-0">
-              <div className="relative flex items-center min-w-[170px]">
-                <Filter size={15} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
-                <select
-                  style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                  className="w-full py-3 pl-10 pr-9 bg-white dark:bg-[#0f172a] border-0 rounded-2xl text-[13.5px] font-semibold text-slate-700 dark:text-slate-300 cursor-pointer outline-none focus:outline-none focus:ring-0 transition-all shadow-xs appearance-none"
-                  value={selectedRole}
-                  onChange={e => setSelectedRole(e.target.value)}
-                >
-                  <option value="all" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Tüm Roller</option>
-                  <option value="student" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Öğrenciler</option>
-                  <option value="teacher" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Öğretmenler</option>
-                  <option value="parent" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Veliler</option>
-                  <option value="personnel" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Personel</option>
-                  <option value="admin" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Yöneticiler</option>
-                </select>
-                <ChevronDown size={14} className="text-slate-400 dark:text-slate-500 absolute right-3.5 pointer-events-none z-10" />
-              </div>
-
-              <div className="relative flex items-center min-w-[170px]">
-                <SlidersHorizontal size={15} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
-                <select
-                  style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                  className="w-full py-3 pl-10 pr-9 bg-white dark:bg-[#0f172a] border-0 rounded-2xl text-[13.5px] font-semibold text-slate-700 dark:text-slate-300 cursor-pointer outline-none focus:outline-none focus:ring-0 transition-all shadow-xs appearance-none"
-                  value={selectedStatus}
-                  onChange={e => setSelectedStatus(e.target.value)}
-                >
-                  <option value="all" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Tüm Durumlar</option>
-                  <option value="active" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Onaylı (Aktif)</option>
-                  <option value="pending" className="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">Onay Bekleyen</option>
-                </select>
-                <ChevronDown size={14} className="text-slate-400 dark:text-slate-500 absolute right-3.5 pointer-events-none z-10" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Users Table */}
-        <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex flex-col overflow-hidden relative shadow-sm min-h-0">
-          <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar flex flex-col">
-            <div className="min-w-[850px] flex-1 flex flex-col relative pb-4">
-              <div className="flex items-center text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-[#1e293b]/50 border-b border-slate-200 dark:border-white/10 px-8 py-5 text-[11px] font-bold uppercase tracking-widest sticky top-0 z-10 shrink-0">
-                <div style={{ width: '25%' }}>Ad Soyad</div>
-                <div style={{ width: '18%' }} className="relative -left-[8px]">Rol & Sınıf/Branş</div>
-                <div style={{ width: '18%' }} className="relative -left-[14px]">TC Kimlik No</div>
-                <div style={{ width: '19%' }}>İletişim (Email)</div>
-                <div style={{ width: '10%' }}>Durum</div>
-                <div style={{ width: '10%' }} className="text-right">Aksiyon</div>
-              </div>
-
-              <div className="flex-1 px-4 bg-white dark:bg-[#0f172a] relative pt-2">
-                {loading && filteredUsers.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-600 dark:text-slate-400 py-16">
-                    <div className="w-8 h-8 rounded-full border-4 border-slate-200 dark:border-white/10 border-t-slate-900 animate-spin mb-4"></div>
-                    <p className="text-[13px] font-medium">Kullanıcı veritabanı senkronize ediliyor...</p>
-                  </div>
-                ) : filteredUsers.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-500 bg-slate-50/50 dark:bg-[#1e293b]/50 rounded-[24px] border border-slate-200 dark:border-white/10 m-4 p-12">
-                    <div className="w-16 h-16 bg-white dark:bg-[#0f172a] rounded-[16px] border border-slate-200 dark:border-white/10 flex items-center justify-center mb-4 shadow-sm">
-                      <Search size={24} className="text-slate-600 dark:text-slate-400" />
-                    </div>
-                    <h3 className="text-[18px] font-bold text-slate-700 dark:text-slate-300 mb-1">Kullanıcı Bulunamadı</h3>
-                    <p className="text-center max-w-sm text-slate-500 text-[14px]">
-                      Arama kriterlerinize uygun kayıtlı kullanıcı bulunmamaktadır. Filtreleri temizlemeyi deneyin.
-                    </p>
-                  </div>
-                ) : (
-                  filteredUsers.map((u, i) => (
-                    <div key={u.name || i} className="px-4">
-                      <UserRow
-                        document={u}
-                        showApprovalActions={u.fields?.status?.stringValue === 'pending'}
-                        onUpdate={fetchUsers}
-                      />
-                      {i < filteredUsers.length - 1 && <div className="h-px bg-slate-50/50 dark:bg-[#1e293b]/50 mx-4" />}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-[#1e293b] border-t border-slate-200 dark:border-white/10 p-4 text-center text-[12px] font-bold text-slate-500 shrink-0">
-            Gösterilen Kayıt: <strong className="text-slate-900 dark:text-white">{filteredUsers.length}</strong> / Toplam: {totalUsers}
-          </div>
-        </div>
-
+            >
+              <Icon size={14} strokeWidth={1.9} />
+              {filter.label}
+              <span className={cx('tnum', isActive ? 'opacity-60' : 'text-slate-400 dark:text-slate-500')}>
+                {countFor(filter)}
+              </span>
+            </button>
+          );
+        })}
       </div>
-    </>
+
+      <Panel>
+        <div className={cx('flex flex-col sm:flex-row gap-2.5 px-5 py-3 border-b', hairline)}>
+          <div className="relative flex-1 min-w-0">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="İsim, TC kimlik, e-posta, sınıf veya branş ara"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchText && (
+              <button
+                onClick={() => setSearchText('')}
+                aria-label="Aramayı temizle"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="sm:w-48 shrink-0">
+            <Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+              <option value="all">Tüm durumlar</option>
+              <option value="active">Onaylı</option>
+              <option value="pending">Onay bekleyen</option>
+            </Select>
+          </div>
+        </div>
+
+        {loading && filteredUsers.length === 0 ? (
+          <div className={cx('divide-y', divider)}>
+            {[0, 1, 2, 3, 4].map((n) => (
+              <div key={n} className="flex items-center gap-4 px-5 py-3.5 animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-slate-200/70 dark:bg-white/[0.06]" />
+                <div className="flex-1 h-3 rounded bg-slate-200/70 dark:bg-white/[0.06]" />
+                <div className="w-24 h-3 rounded bg-slate-200/70 dark:bg-white/[0.06]" />
+              </div>
+            ))}
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title={hasFilters ? 'Eşleşen kullanıcı yok' : 'Henüz kullanıcı yok'}
+            description={
+              hasFilters
+                ? 'Arama metnini veya filtreleri değiştirerek tekrar deneyin.'
+                : 'Sisteme kayıt olan hesaplar bu listede görünür.'
+            }
+            action={
+              hasFilters ? (
+                <Button
+                  onClick={() => {
+                    setSearchText('');
+                    setSelectedRole('all');
+                    setSelectedStatus('all');
+                  }}
+                >
+                  Filtreleri temizle
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto panel-scroll">
+            <div className={USER_TABLE_MIN_WIDTH}>
+              <UserTableHeader />
+              <div className={cx('divide-y', divider)}>
+                {filteredUsers.map((u, i) => (
+                  <UserRow
+                    key={u.name || i}
+                    document={u}
+                    showApprovalActions={['pending', 'awaiting_approval'].includes(statusOf(u))}
+                    onUpdate={refresh}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <PanelFooter>
+          <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
+            <span className="font-medium text-slate-700 dark:text-slate-200 tnum">{filteredUsers.length}</span> kayıt
+            gösteriliyor · toplam <span className="tnum">{visibleUsers.length}</span>
+          </span>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSearchText('');
+                setSelectedRole('all');
+                setSelectedStatus('all');
+              }}
+            >
+              Filtreleri temizle
+            </Button>
+          )}
+        </PanelFooter>
+      </Panel>
+    </div>
   );
 };
 

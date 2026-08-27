@@ -1,218 +1,328 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCcw, Inbox, Users, UserCheck, UserX, GraduationCap, Search, X } from 'lucide-react';
+import { RefreshCw, Inbox, Search, X, Check, Users, GraduationCap, UserSquare, UserPlus, Briefcase, CheckCircle2 } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
-import UserRow from '../components/UserRow';
+import UserRow, { UserTableHeader, USER_TABLE_MIN_WIDTH } from '../components/UserRow';
 import { updateDoc, doc, getFirestore } from 'firebase/firestore';
 import { app } from '../services/firebaseConfig';
+import { Panel, PanelFooter, Button, IconButton, Input, EmptyState, Modal } from '../components/ui/panel';
+import { cx, hairline, divider } from '../components/ui/tokens';
 
 const firestoreDb = getFirestore(app);
+
+const roleOf = (u) => u?.fields?.role?.stringValue?.toLowerCase() || '';
+
+const ROLE_SUMMARY = [
+  { id: 'student', label: 'Öğrenci', roles: ['student', 'öğrenci'], icon: GraduationCap },
+  { id: 'parent', label: 'Veli', roles: ['parent', 'veli'], icon: UserPlus },
+  { id: 'teacher', label: 'Öğretmen', roles: ['teacher', 'öğretmen'], icon: UserSquare },
+  { id: 'personnel', label: 'Personel', roles: ['personnel', 'personel'], icon: Briefcase }
+];
 
 const RegistrationApprovalView = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const fetchPending = async () => {
     setLoading(true);
-    const users = await firebaseService.fetchAllUsers();
-    const pending = users.filter(u => 
-      ['pending', 'awaiting_approval'].includes(u.fields?.status?.stringValue?.toLowerCase()) && 
-      u.fields?.role?.stringValue?.toLowerCase() !== 'patron'
-    );
-    setPendingUsers(pending);
+    try {
+      const users = await firebaseService.fetchAllUsers();
+      const pending = users.filter(
+        (u) =>
+          ['pending', 'awaiting_approval'].includes(u.fields?.status?.stringValue?.toLowerCase()) &&
+          roleOf(u) !== 'patron'
+      );
+      setPendingUsers(pending);
+    } catch (err) {
+      console.error('Onay listesi alınamadı:', err);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchPending();
+    // Onay kuyruğu başka bir yöneticiden de dolabildiği için düzenli tazelenir.
     const interval = setInterval(fetchPending, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const totalPending = pendingUsers.length;
-  const studentCount = pendingUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'student' || r === 'öğrenci';
-  }).length;
-  const parentCount = pendingUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'parent' || r === 'veli';
-  }).length;
-  const teacherCount = pendingUsers.filter(u => {
-    const r = u.fields?.role?.stringValue?.toLowerCase() || '';
-    return r === 'teacher' || r === 'öğretmen';
-  }).length;
-
   const filteredUsers = useMemo(() => {
-    if (!searchText.trim()) return pendingUsers;
-    const q = searchText.trim().toLowerCase();
-    return pendingUsers.filter(doc => {
-      const f = doc.fields || {};
-      const name = (f.displayName?.stringValue || f.full_name?.stringValue || f.fullName?.stringValue || '').toLowerCase();
-      const tc = (f.tc_kimlik?.stringValue || f.tcKimlik?.stringValue || '').toLowerCase();
-      const email = (f.email?.stringValue || '').toLowerCase();
-      const role = (f.role?.stringValue || '').toLowerCase();
-      return name.includes(q) || tc.includes(q) || email.includes(q) || role.includes(q);
-    });
-  }, [pendingUsers, searchText]);
+    let result = pendingUsers;
 
-  const currentDate = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const isEmpty = !loading && filteredUsers.length === 0;
-  const isFirstLoad = loading && pendingUsers.length === 0;
+    // Rol filtresi
+    if (selectedRole !== 'all') {
+      const targetRoles = ROLE_SUMMARY.find(r => r.id === selectedRole)?.roles || [];
+      result = result.filter(u => targetRoles.includes(roleOf(u)));
+    }
+
+    // Arama filtresi
+    const query = searchText.trim().toLowerCase();
+    if (query) {
+      result = result.filter((u) => {
+        const f = u.fields || {};
+        const haystack = [
+          f.displayName?.stringValue, f.full_name?.stringValue, f.fullName?.stringValue, f.name?.stringValue,
+          f.tc_kimlik?.stringValue, f.tcKimlik?.stringValue, f.tc?.stringValue,
+          f.email?.stringValue, f.role?.stringValue, f.phone?.stringValue,
+          f.branch?.stringValue, f.class_id?.stringValue
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    return result;
+  }, [pendingUsers, searchText, selectedRole]);
 
   const handleApproveAll = async () => {
+    setBulkConfirm(false);
     if (filteredUsers.length === 0) return;
-    if (!window.confirm(`${filteredUsers.length} kullanıcıyı onaylamak istediğinize emin misiniz?`)) return;
-    
-    setLoading(true);
+
+    setBulkRunning(true);
     try {
-      const promises = filteredUsers.map(u => {
-        const userId = u.name.split('/').pop();
-        return updateDoc(doc(firestoreDb, 'users', userId), { status: 'approved' });
-      });
-      await Promise.all(promises);
+      await Promise.all(
+        filteredUsers.map((u) =>
+          updateDoc(doc(firestoreDb, 'users', u.name.split('/').pop()), { status: 'approved' })
+        )
+      );
       await fetchPending();
     } catch (error) {
-      console.error("Toplu onay hatası:", error);
-      alert("Bir hata oluştu, lütfen tekrar deneyin.");
-      setLoading(false);
+      console.error('Toplu onay hatası:', error);
     }
+    setBulkRunning(false);
   };
 
-  return (
-    <>
-      <div className="absolute -top-[40px] -bottom-[40px] -left-[40px] -right-[40px] bg-[#FAFAFA] dark:bg-[#0b1120] z-40 overflow-y-auto overflow-x-hidden font-sans custom-scrollbar flex flex-col p-8 md:p-12">
+  const isFirstLoad = loading && pendingUsers.length === 0;
+  const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        { }
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 w-full shrink-0 gap-6">
-          <div className="flex items-center gap-5">
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">{currentDate}</span>
-              <h1 className="text-[34px] font-bold text-slate-900 dark:text-white tracking-tight leading-none">Kayıt Onay Merkezi</h1>
-            </div>
-          </div>
+  return (
+    <div className="w-full flex flex-col gap-5 pb-2">
+      {/* ÜST BAŞLIK */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
+            Onay Bekleyenler
+          </h1>
+          <p className="m-0 mt-2 text-[12.5px] text-slate-500 dark:text-slate-400">
+            {today} ·{' '}
+            {pendingUsers.length === 0
+              ? 'kuyruk boş'
+              : `${pendingUsers.length} hesap onayınızı bekliyor`}
+          </p>
         </div>
 
-        { }
-        <div className="flex flex-col gap-5 mb-8">
-          { }
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <Users size={14} className="text-slate-900 dark:text-white -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Toplam</span>
-              <span className="text-[13px] font-bold text-slate-900 dark:text-white ml-1">{totalPending}</span>
-            </div>
-
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <GraduationCap size={14} className="text-blue-600 dark:text-blue-400 -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Öğrenci</span>
-              <span className="text-[13px] font-bold text-blue-600 dark:text-blue-400 ml-1">{studentCount}</span>
-            </div>
-
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400 -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Veli</span>
-              <span className="text-[13px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">{parentCount}</span>
-            </div>
-
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-[#0f172a] rounded-full border border-slate-200 dark:border-white/10 shadow-xs">
-              <UserX size={14} className="text-amber-600 dark:text-amber-400 -ml-[3px]" />
-              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">Öğretmen</span>
-              <span className="text-[13px] font-bold text-amber-600 dark:text-amber-400 ml-1">{teacherCount}</span>
-            </div>
-
+        <div className="flex items-center gap-2">
+          {filteredUsers.length > 0 && (
             <button
-              className="ml-auto h-9 px-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] flex items-center gap-2 rounded-xl text-[13px] font-semibold transition-all"
-              onClick={fetchPending}
-              disabled={loading}
+              type="button"
+              onClick={() => setBulkConfirm(true)}
+              disabled={bulkRunning}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-[13px] shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
             >
-              <RefreshCcw size={15} strokeWidth={2} className={loading ? 'animate-spin' : ''} />
-              <span className="hidden md:inline">{loading ? 'Yükleniyor...' : 'Yenile'}</span>
+              {bulkRunning ? <RefreshCw size={15} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              <span>{bulkRunning ? 'Onaylanıyor…' : `Tümünü Kabul Et (${filteredUsers.length})`}</span>
             </button>
+          )}
+          <IconButton
+            label="Yenile"
+            icon={RefreshCw}
+            variant="secondary"
+            onClick={fetchPending}
+            disabled={loading}
+            className={loading ? '[&_svg]:animate-spin' : ''}
+          />
+        </div>
+      </header>
+
+      {/* ROL KARTLARI / DAĞILIM VE FİLTRELEME */}
+      {pendingUsers.length > 0 && (
+        <div className={cx('flex flex-col sm:flex-row divide-y sm:divide-y-0', divider, 'bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-xs')}>
+          {/* Tümü Butonu */}
+          <button
+            type="button"
+            onClick={() => setSelectedRole('all')}
+            className={cx(
+              'flex-1 px-5 py-3.5 text-left transition-colors cursor-pointer',
+              'sm:border-r', hairline,
+              selectedRole === 'all' 
+                ? 'bg-blue-50/70 dark:bg-blue-500/10' 
+                : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <span className={cx('text-[12px] font-bold', selectedRole === 'all' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400')}>
+                Tüm Bekleyenler
+              </span>
+              <Users size={14} className={selectedRole === 'all' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'} />
+            </div>
+            <div className={cx('mt-1 text-[22px] leading-none font-bold tnum', selectedRole === 'all' ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-white')}>
+              {pendingUsers.length}
+            </div>
+          </button>
+
+          {ROLE_SUMMARY.map((group, i) => {
+            const count = pendingUsers.filter((u) => group.roles.includes(roleOf(u))).length;
+            const isSelected = selectedRole === group.id;
+            const Icon = group.icon;
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => setSelectedRole(isSelected ? 'all' : group.id)}
+                className={cx(
+                  'flex-1 px-5 py-3.5 text-left transition-colors cursor-pointer',
+                  i < ROLE_SUMMARY.length - 1 && 'sm:border-r', hairline,
+                  isSelected 
+                    ? 'bg-blue-50/70 dark:bg-blue-500/10' 
+                    : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={cx('text-[12px] font-bold', isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400')}>
+                    {group.label}
+                  </span>
+                  <Icon size={14} className={isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'} />
+                </div>
+                <div className={cx('mt-1 text-[22px] leading-none font-bold tnum', isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-white')}>
+                  {count}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ANA TABLO VE ARAMA PANELİ */}
+      <Panel>
+        {/* ARAMA VE AKSİYON ÇUBUĞU */}
+        <div className={cx('flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-b', hairline)}>
+          <div className="relative w-full sm:max-w-md">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="İsim, TC kimlik, e-posta veya telefon ara..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="pl-9 pr-9 w-full"
+            />
+            {searchText && (
+              <button
+                type="button"
+                onClick={() => setSearchText('')}
+                aria-label="Aramayı temizle"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          { }
-          <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
-            <div className="relative flex-1 w-full flex items-center">
-              <Search size={18} className="text-slate-400 dark:text-slate-500 absolute left-4 pointer-events-none z-10" />
-              <input
-                type="text"
-                className="w-full py-3 pl-11 pr-10 bg-white dark:bg-[#0f172a] border-0 rounded-2xl text-[14px] font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:outline-none focus:ring-0 transition-all shadow-xs"
-                placeholder="İsim, TC Kimlik No veya Email ile arama yapın..."
-                value={searchText}
-                onChange={e => setSearchText(e.target.value)}
-              />
-              {searchText && (
-                <button
-                  onClick={() => setSearchText('')}
-                  className="absolute right-3.5 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors z-10"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <span className="text-[12px] text-slate-500 dark:text-slate-400">
+              <strong className="text-slate-900 dark:text-white">{filteredUsers.length}</strong> kayıt
+            </span>
             {filteredUsers.length > 0 && (
               <button
-                onClick={handleApproveAll}
-                disabled={loading}
-                className="h-12 px-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-[14px] font-bold shadow-sm flex items-center justify-center gap-2 transition-all whitespace-nowrap shrink-0 disabled:opacity-50"
+                type="button"
+                onClick={() => setBulkConfirm(true)}
+                disabled={bulkRunning}
+                className="inline-flex sm:hidden items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 text-white font-bold text-[12px]"
               >
-                <UserCheck size={18} />
-                Tümünü Onayla ({filteredUsers.length})
+                <Check size={13} strokeWidth={2.5} />
+                <span>Tümünü Kabul Et</span>
               </button>
             )}
           </div>
         </div>
 
-        { }
         {isFirstLoad ? (
-          <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex items-center justify-center shadow-sm">
-            <div className="flex flex-col items-center text-slate-500 dark:text-slate-400">
-              <div className="w-8 h-8 rounded-full border-[3px] border-slate-200 dark:border-white/10 border-t-slate-500 dark:border-t-slate-400 animate-spin mb-4"></div>
-              <p className="text-[13px] font-medium">Veriler getiriliyor...</p>
-            </div>
-          </div>
-        ) : isEmpty ? (
-          <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex items-center justify-center shadow-sm">
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/[0.06] flex items-center justify-center mb-4">
-                <Inbox size={22} className="text-slate-400 dark:text-slate-500" />
+          <div className={cx('divide-y', divider)}>
+            {[0, 1, 2].map((n) => (
+              <div key={n} className="flex items-center gap-4 px-5 py-3.5 animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-slate-200/70 dark:bg-white/[0.06]" />
+                <div className="flex-1 h-3 rounded bg-slate-200/70 dark:bg-white/[0.06]" />
+                <div className="w-24 h-3 rounded bg-slate-200/70 dark:bg-white/[0.06]" />
               </div>
-              <h3 className="text-[17px] font-bold text-slate-700 dark:text-slate-200 mb-1.5">Onay Bekleyen Kullanıcı Yok</h3>
-              <p className="text-center max-w-sm text-slate-400 dark:text-slate-500 text-[13.5px] leading-relaxed">
-                Şu anda sisteme kayıt olup onayınızı bekleyen herhangi bir hesap bulunmamaktadır.
-              </p>
-            </div>
+            ))}
           </div>
+        ) : filteredUsers.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title={pendingUsers.length === 0 ? 'Onay bekleyen hesap yok' : 'Eşleşen kayıt bulunamadı'}
+            description={
+              pendingUsers.length === 0
+                ? 'Sisteme yeni kayıt olan hesaplar burada listelenir ve tek tıkla onaylanır.'
+                : 'Arama veya rol filtresini değiştirerek tekrar deneyin.'
+            }
+            action={
+              (pendingUsers.length > 0 && (searchText || selectedRole !== 'all')) ? (
+                <Button onClick={() => { setSearchText(''); setSelectedRole('all'); }}>
+                  Filtreleri Temizle
+                </Button>
+              ) : null
+            }
+          />
         ) : (
-          <div className="bg-white dark:bg-[#0f172a] rounded-[32px] border border-slate-200 dark:border-white/10 flex-1 flex flex-col overflow-hidden relative shadow-sm min-h-0">
-            <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar flex flex-col">
-              <div className="min-w-[800px] flex-1 flex flex-col relative pb-4">
-                { }
-                <div className="flex items-center text-slate-400 dark:text-slate-500 bg-transparent px-8 py-5 text-[11px] font-bold uppercase tracking-widest sticky top-0 z-10 shrink-0 border-b border-slate-100 dark:border-white/[0.06]">
-                  <div style={{ width: '25%' }}>Ad Soyad</div>
-                  <div style={{ width: '15%' }}>Kullanıcı Tipi</div>
-                  <div style={{ width: '20%' }}>TC Kimlik Numarası</div>
-                  <div style={{ width: '20%' }}>İletişim (Email)</div>
-                  <div style={{ width: '15%' }}>Hesap Durumu</div>
-                  <div className="flex-1 text-right">Aksiyon</div>
-                </div>
-
-                <div className="flex-1 px-4 relative">
-                  <div className="flex flex-col gap-2 mt-4">
-                    {filteredUsers.map(doc => (
-                      <div key={doc.name} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.03] rounded-[20px] transition-colors px-4 py-1 border border-transparent hover:border-slate-200/60 dark:hover:border-white/[0.06] group">
-                        <UserRow document={doc} showApprovalActions={true} onUpdate={fetchPending} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          <div className="overflow-x-auto panel-scroll">
+            <div className={USER_TABLE_MIN_WIDTH}>
+              <UserTableHeader />
+              <div className={cx('divide-y', divider)}>
+                {filteredUsers.map((u) => (
+                  <UserRow key={u.name} document={u} showApprovalActions onUpdate={fetchPending} />
+                ))}
               </div>
             </div>
           </div>
         )}
-      </div>
-    </>
+
+        {pendingUsers.length > 0 && (
+          <PanelFooter>
+            <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
+              <span className="font-medium text-slate-700 dark:text-slate-200 tnum">{filteredUsers.length}</span> kayıt
+              gösteriliyor · toplam <span className="tnum">{pendingUsers.length}</span>
+            </span>
+            <span className="text-[11.5px] text-slate-400 dark:text-slate-500">10 saniyede bir tazelenir</span>
+          </PanelFooter>
+        )}
+      </Panel>
+
+      {/* TOPLU ONAY MODALI */}
+      <Modal
+        open={bulkConfirm}
+        onClose={() => setBulkConfirm(false)}
+        title="Tümünü Kabul Et / Onayla"
+        width="max-w-md"
+        footer={
+          <>
+            <Button type="button" onClick={() => setBulkConfirm(false)}>
+              Vazgeç
+            </Button>
+            <Button 
+              type="button" 
+              variant="primary" 
+              className="bg-emerald-600 hover:bg-emerald-700 text-white" 
+              onClick={handleApproveAll}
+            >
+              {filteredUsers.length} Hesabı Onayla
+            </Button>
+          </>
+        }
+      >
+        <div className="px-5 py-5">
+          <p className="m-0 text-[13.5px] leading-relaxed text-slate-600 dark:text-slate-300">
+            Listelenen{' '}
+            <strong className="text-slate-900 dark:text-white tnum">{filteredUsers.length}</strong> hesabın
+            tamamı anında onaylanacak ve kullanıcılar mobil uygulama ile portala giriş yapabilecek.
+            {searchText.trim() && ' Yalnızca arama sonucundaki kayıtlar onaylanır.'}
+          </p>
+        </div>
+      </Modal>
+    </div>
   );
 };
 
