@@ -12,7 +12,7 @@ import {
   CalendarClock, Bus, CircleDollarSign, MessageSquare,
   Settings, Shield, BellRing, UserCircle, HeartHandshake,
   BrainCircuit, Key, LogOut, ShieldBan, Building, ChevronDown, Moon, Sun, Wallet, Landmark, ClipboardList, PieChart,
-  Menu, X, Smartphone
+  Menu, X, Smartphone, Globe, ShoppingBag
 } from 'lucide-react';
 import logo from './assets/logo.png';
 
@@ -31,6 +31,7 @@ import AttendanceLiveView from './views/AttendanceLiveView';
 import TeacherManagementAdminView from './views/TeacherManagementAdminView';
 import ScheduleAdminView from './views/ScheduleAdminView';
 import AnnouncementsAdminView from './views/AnnouncementsAdminView';
+import WebManagementAdminView from './views/WebManagementAdminView';
 
 import CafeteriaAdminView from './views/CafeteriaAdminView';
 import AppointmentsAdminView from './views/AppointmentsAdminView';
@@ -126,6 +127,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           <NavItem to="/student-gate" icon={DoorOpen} label="Öğrenci Geçiş" onClick={onClose} />
           <NavItem to="/device-management" icon={Smartphone} label="Cihaz Yönetimi" onClick={onClose} />
           <NavItem to="/push" icon={BellRing} label="Bildirim Merkezi" onClick={onClose} />
+        </div>
+
+        <div className="sidebar-section">
+          <div className="sidebar-section-title">Web & Mağaza</div>
+          <NavItem to="/web-management" icon={Globe} label="Okul Web Yönetimi" onClick={onClose} />
         </div>
 
         <div className="sidebar-section">
@@ -264,6 +270,7 @@ const App = () => {
               <Route path="/transport" element={<RequireLicense requiredPath="/transport"><TransportAdminView /></RequireLicense>} />
               <Route path="/counseling" element={<RequireLicense requiredPath="/counseling"><CounselingAdminView /></RequireLicense>} />
               <Route path="/chat" element={<RequireLicense requiredPath="/chat"><ChatView /></RequireLicense>} />
+              <Route path="/web-management" element={<RequireLicense requiredPath="/settings"><WebManagementAdminView /></RequireLicense>} />
               <Route path="/settings" element={<RequireLicense requiredPath="/settings"><SettingsView /></RequireLicense>} />
               <Route path="/institution-settings" element={<RequireLicense requiredPath="/settings"><InstitutionSettingsAdminView /></RequireLicense>} />
               <Route path="/security" element={<RequireLicense requiredPath="/security"><SecurityLogsView /></RequireLicense>} />
