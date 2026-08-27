@@ -149,7 +149,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <NavItem to="/grades" icon={FileEdit} label="Not Yönetimi" onClick={onClose} />
           <NavItem to="/attendance" icon={UserCircle} label="Devamsızlık" onClick={onClose} />
           <NavItem to="/daily-absences" icon={CalendarX2} label="Günlük Devamsızlık Raporu" onClick={onClose} />
-          <NavItem to="/schedule" icon={CalendarClock} label="Ders Programı" onClick={onClose} />
+          {/* <NavItem to="/schedule" icon={CalendarClock} label="Ders Programı" onClick={onClose} /> */}
           <NavItem to="/counseling" icon={HeartHandshake} label="Rehberlik & Psikoloji" onClick={onClose} />
           <NavItem to="/announcements" icon={BellRing} label="Duyurular" onClick={onClose} />
         </div>
@@ -261,7 +261,7 @@ const App = () => {
               <Route path="/live-attendance" element={<RequireLicense requiredPath="/live-attendance"><AttendanceLiveView /></RequireLicense>} />
               <Route path="/teachers" element={<RequireLicense requiredPath="/teachers"><TeacherManagementAdminView /></RequireLicense>} />
               <Route path="/teachers/ai-analysis/:teacherId" element={<RequireLicense requiredPath="/teachers"><TeacherAIAnalysisView /></RequireLicense>} />
-              <Route path="/schedule" element={<RequireLicense requiredPath="/schedule"><ScheduleAdminView /></RequireLicense>} />
+              {/* <Route path="/schedule" element={<RequireLicense requiredPath="/schedule"><ScheduleAdminView /></RequireLicense>} /> */}
               <Route path="/announcements" element={<RequireLicense requiredPath="/announcements"><AnnouncementsAdminView /></RequireLicense>} />
               <Route path="/device-management" element={<RequireLicense requiredPath="/student-gate"><DeviceManagementView /></RequireLicense>} />
 
