@@ -338,7 +338,7 @@ h6,
   font-family: 'Outfit', sans-serif;
 }
 
-input,
+input:not(.nova-ai-input):not([class*="bg-"]):not([class*="h-"]):not([class*="pl-"]),
 select,
 textarea {
   background: rgba(15, 23, 42, 0.7);

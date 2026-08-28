@@ -16,6 +16,9 @@ dist/
 **/dist/
 dist-ssr/
 dist-electron/
+.next/
+out/
+venv/
 *.local
 
 # Environment

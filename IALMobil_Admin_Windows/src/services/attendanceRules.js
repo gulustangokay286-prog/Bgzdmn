@@ -758,6 +758,21 @@ export const buildAutoAbsenceRecord = (options) => {
   if (opts.hasExcuse) return null;        // Raporlu/izinli öğrenciye yazılmaz
   if (opts.hasManualRecord) return null;  // İdarenin elle girdiği kayıt önceliklidir
 
+  // Yeni kayıt koruması: Saat 09:00'dan sonra sisteme kaydolan öğrencilere o gün otomatik devamsızlık yazılmaz
+  const cAt = opts.createdAt || opts.studentCreatedAt;
+  if (cAt) {
+    try {
+      const createdDate = cAt.toDate ? cAt.toDate() : new Date(cAt);
+      const createdDateKey = getDateKeyInTimeZone(createdDate, cfg.timeZone);
+      if (createdDateKey === opts.dateKey) {
+        const createdMinutes = getMinutesInTimeZone(createdDate, cfg.timeZone);
+        if (createdMinutes >= 540) { // 09:00 ve sonrası
+          return null;
+        }
+      }
+    } catch (e) {}
+  }
+
   const evaluation = opts.evaluation || evaluateStudentDay(opts);
   const dateKey = opts.dateKey;
   const studentId = opts.studentId;

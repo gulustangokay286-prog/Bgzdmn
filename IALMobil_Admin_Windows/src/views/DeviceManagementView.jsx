@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, Smartphone, ShieldCheck, ShieldAlert, AlertCircle, X, Unlock } from 'lucide-react';
 import { db } from '../services/firebaseConfig';
-import { collection, getDocs, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { firebaseService } from '../services/firebase';
 
 const DeviceManagementView = () => {
