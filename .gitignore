@@ -58,3 +58,4 @@ capture/
 *.dll
 *.pak
 *.bin
+IALMobil_Native/build_test/

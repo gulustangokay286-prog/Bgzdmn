@@ -409,9 +409,9 @@ const AttendanceAdminView = () => {
         </Panel>
 
         {/* Detay */}
-        <div className={cx('flex flex-col gap-5 min-w-0', !studentId && 'hidden lg:flex')}>
+        <div className={cx('flex flex-col gap-5 min-w-0 h-full', !studentId && 'hidden lg:flex')}>
           {!studentId ? (
-            <Panel>
+            <Panel className="h-[600px] flex flex-col items-center justify-center">
               <EmptyState
                 icon={CalendarX2}
                 title={`${roleLabel} seçin`}

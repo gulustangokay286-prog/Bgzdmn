@@ -35,14 +35,14 @@ const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) =>
           <span className="text-[11.5px] text-slate-400 dark:text-slate-500 tnum">{filteredUsers.length}</span>
         </div>
 
-        <div className="relative">
+        <div className="relative w-full min-w-0 box-border">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <Input
             type="text"
             placeholder={viewMode === 'student' ? 'İsim veya okul no' : 'İsim ara'}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="pl-9 pr-8"
+            className="!pl-9 !pr-8 !w-full !box-border"
           />
           {searchText && (
             <button
@@ -56,11 +56,13 @@ const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) =>
         </div>
 
         {viewMode === 'student' && (
-          <Select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
-            {CLASS_OPTIONS.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </Select>
+          <div className="w-full min-w-0 box-border">
+            <Select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="!w-full !box-border">
+              {CLASS_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </Select>
+          </div>
         )}
       </div>
 

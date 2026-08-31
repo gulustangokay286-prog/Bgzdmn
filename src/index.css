@@ -338,9 +338,14 @@ h6,
   font-family: 'Outfit', sans-serif;
 }
 
-input,
-select,
-textarea {
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+input:not(.nova-ai-input):not([class*="bg-"]):not([class*="h-"]):not([class*="pl-"]):not([class*="rounded-"]),
+select:not([class*="bg-"]):not([class*="rounded-"]):not([class*="appearance-"]),
+textarea:not([class*="bg-"]):not([class*="rounded-"]) {
+  box-sizing: border-box;
   background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -356,9 +361,9 @@ textarea {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.01);
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+input:not([class*="focus:bg-"]):focus,
+select:not([class*="focus:bg-"]):focus,
+textarea:not([class*="focus:bg-"]):focus {
   background: #FFFFFF;
   border-color: var(--info);
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), inset 0 1px 2px rgba(0, 0, 0, 0.02);
