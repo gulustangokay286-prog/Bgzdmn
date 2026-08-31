@@ -38,29 +38,23 @@ const ChatView = () => {
   const auth = getAuth();
   const currentUser = auth.currentUser;
   const adminId = currentUser ? currentUser.uid : 'admin_fallback'; 
-  const adminName = (currentUser && currentUser.displayName) ? currentUser.displayName : 'Muharrem Özkan';
+  const [adminName, setAdminName] = useState((currentUser && (currentUser.displayName || currentUser.email)) ? (currentUser.displayName || currentUser.email.split('@')[0]) : 'Yetkili');
   const [adminProfileData, setAdminProfileData] = useState(null);
 
   useEffect(() => {
     if (!adminId || adminId === 'admin_fallback') return;
     const unsubscribe = onSnapshot(doc(db, 'users', adminId), (docSnap) => {
       if (docSnap.exists()) {
-        setAdminProfileData({ fields: Object.fromEntries(Object.entries(docSnap.data()).map(([k, v]) => [k, { stringValue: String(v) }])) });
+        const d = docSnap.data();
+        setAdminProfileData({ fields: Object.fromEntries(Object.entries(d).map(([k, v]) => [k, { stringValue: String(v) }])) });
+        const fetchedName = d.name || d.fullName || d.full_name || d.displayName;
+        if (fetchedName) {
+          setAdminName(fetchedName);
+        }
       }
     });
     return () => unsubscribe();
   }, [adminId]);
-
-  useEffect(() => {
-    if (currentUser) {
-      setDoc(doc(db, 'users', currentUser.uid), {
-        uid: currentUser.uid,
-        displayName: adminName,
-        fullName: adminName,
-        name: adminName
-      }, { merge: true }).catch(err => console.error("Admin profil güncelleme hatası:", err));
-    }
-  }, [currentUser, adminName]);
 
   useEffect(() => {
     const loadUsers = async () => {

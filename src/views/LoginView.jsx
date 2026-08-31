@@ -51,7 +51,6 @@ const LoginView = () => {
     setError('');
     setLoading(true);
 
-    // Update rememberMe email persistence
     if (rememberMe && email) {
       try {
         localStorage.setItem('bgz_admin_remember', 'true');
@@ -136,11 +135,9 @@ const LoginView = () => {
     const originalHtmlBg = document.documentElement.style.background;
     const originalBodyBg = document.body.style.background;
     
-    const overscrollBg = `linear-gradient(to top, #0f172a 0%, #0f172a 50%, transparent 50%), url("https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=2070&auto=format&fit=crop") center top / cover no-repeat fixed`;
-    
-    document.documentElement.style.background = overscrollBg;
+    document.documentElement.style.background = '#0f172a';
     document.documentElement.style.backgroundColor = '#0f172a';
-    document.body.style.background = overscrollBg;
+    document.body.style.background = '#0f172a';
     document.body.style.backgroundColor = '#0f172a';
 
     return () => {
@@ -152,75 +149,94 @@ const LoginView = () => {
   return (
     <div className="relative w-full h-[100dvh] flex flex-col bg-[#0f172a] overflow-y-auto overflow-x-hidden select-none">
       
-      {/* Top Banner & School Info */}
-      <div className="relative w-full min-h-[200px] md:min-h-[260px] h-[32vh] md:h-[36vh] shrink-0 flex flex-col items-center justify-center overflow-hidden">
-        
-        <div
-          className="absolute inset-0 w-full h-full bg-cover bg-center scale-105 z-0 opacity-80"
-          style={{ backgroundImage: 'url("/login-bg.jpg")' }}
-        ></div>
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-t from-[#0f172a] via-[#0f172a]/60 to-[#0f172a]/10 z-0"></div>
+      {/* 1. GLOBAL WATERMARK ICONS (z-0) 
+          These sit in the background of the ENTIRE page. They will flawlessly show through 
+          wherever the SVG Hero Image is clipped, completely eliminating any "sütun" or straight line gaps! */}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.035] overflow-hidden flex justify-center items-center">
+        <div className="w-[180%] h-[180%] flex flex-wrap justify-center items-center gap-16 -rotate-12 scale-125 transform translate-y-8">
+          {Array.from({ length: 48 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-center w-24 h-24">
+              {i % 5 === 0 && <img src="/logo-4327.png" alt="" className="w-16 h-auto grayscale opacity-80" />}
+              {i % 5 === 1 && <GraduationCap size={72} className="text-white" />}
+              {i % 5 === 2 && <BookOpen size={72} className="text-white" />}
+              {i % 5 === 3 && <Library size={72} className="text-white" />}
+              {i % 5 === 4 && <Award size={72} className="text-white" />}
+            </div>
+          ))}
+        </div>
+      </div>
 
-        {/* Logo & Title Section */}
-        <div className="relative z-10 flex flex-col items-center text-center px-4">
-          <img 
-            src="/logo-chatgpt.png" 
-            alt="Logo" 
-            className="w-14 md:w-16 h-auto mb-2 md:mb-3 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]" 
+      {/* 2. TOP BANNER HERO (Native SVG <image> with internal clipPath for 100% browser compatibility) */}
+      <div className="relative w-full min-h-[220px] md:min-h-[280px] h-[34vh] md:h-[38vh] shrink-0 z-10">
+        
+        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+          <defs>
+            {/* The clip path that perfectly curves the bottom of the image */}
+            <clipPath id="heroCurve">
+              <path d="M0,0 L1440,0 L1440,220 Q720,320 0,220 Z" />
+            </clipPath>
+            
+            {/* Dark gradient for the image overlay */}
+            <linearGradient id="heroGradient" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="#0f172a" stopOpacity="1" />
+              <stop offset="40%" stopColor="#0f172a" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="#0f172a" stopOpacity="0.2" />
+            </linearGradient>
+
+            {/* Path for the text overlay to follow exactly */}
+            <path id="textWarpPath" d="M0,212 Q720,312 1440,212" />
+          </defs>
+
+          {/* The Hero Image, drawn natively in SVG and clipped */}
+          <image 
+            href="/login-bg.jpg" 
+            x="0" y="0" 
+            width="1440" height="320" 
+            preserveAspectRatio="xMidYMid slice" 
+            clipPath="url(#heroCurve)" 
+            opacity="0.85"
           />
-          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight drop-shadow-[0_0_20px_rgba(0,0,0,1)] [text-shadow:0_4px_8px_rgba(0,0,0,0.8)] flex items-center justify-center">
+
+          {/* The Dark Gradient Overlay, clipped exactly like the image */}
+          <rect 
+            x="0" y="0" 
+            width="1440" height="320" 
+            fill="url(#heroGradient)" 
+            clipPath="url(#heroCurve)" 
+          />
+
+          {/* The Text Overlay perfectly following the curve */}
+          <text className="fill-slate-400 font-bold opacity-60 tracking-[0.22em] uppercase text-[15px] sm:text-[13px]" dy="20">
+            <textPath href="#textWarpPath" startOffset="50%" textAnchor="middle">
+              Lütfen yetkili hesabınıza giriş yapın
+            </textPath>
+          </text>
+        </svg>
+
+        {/* Center Logo & Title (HTML overlaid on top of the SVG) */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 -mt-6 z-20 pointer-events-none">
+          <img 
+            src="/logo-4327.png" 
+            alt="Boğaziçi Koleji Logo" 
+            className="w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)] mb-2.5" 
+          />
+          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] flex items-center justify-center gap-2.5">
             <span>Boğaziçi</span>
-            <span className="text-red-500 ml-2.5 md:ml-3">Koleji</span>
+            <span className="text-red-500">Koleji</span>
           </h1>
-          <p className="text-[10px] md:text-xs font-bold text-slate-300 mt-1 uppercase tracking-[0.15em] drop-shadow-lg">
+          <p className="text-[10.5px] md:text-[11.5px] font-bold text-slate-300 mt-1 uppercase tracking-[0.2em] drop-shadow-md">
             Yetkili Girişi
           </p>
         </div>
       </div>
 
-      {/* Login / Reset Area */}
-      <div className="relative flex-1 bg-[#0f172a] pt-8 md:pt-10 pb-8 md:pb-12 px-4 md:px-6 flex flex-col items-center justify-start z-10">
-        
-        {/* Subtle Watermark Icons */}
-        <div className="absolute z-0 pointer-events-none opacity-[0.03] overflow-hidden flex justify-center items-center inset-0">
-          <div className="w-[200%] h-[200%] flex flex-wrap justify-center items-center gap-16 -rotate-12 scale-125 transform translate-y-32 pt-24">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-center w-24 h-24">
-                {i % 5 === 0 && <img src="/logo.png" alt="" className="w-20 h-auto grayscale opacity-80" />}
-                {i % 5 === 1 && <GraduationCap size={72} className="text-white" />}
-                {i % 5 === 2 && <BookOpen size={72} className="text-white" />}
-                {i % 5 === 3 && <Library size={72} className="text-white" />}
-                {i % 5 === 4 && <Award size={72} className="text-white" />}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Waved Separator */}
-        <div className="absolute bottom-full left-0 w-full h-[60px] sm:h-[80px] md:h-[100px] pointer-events-none translate-y-[1px]">
-          <svg
-            className="w-full h-full text-[#0f172a]"
-            viewBox="0 0 1440 120"
-            preserveAspectRatio="xMidYMax slice"
-          >
-            <defs>
-              <path id="textWarpPath" d="M0,120 Q720,10 1440,120" />
-            </defs>
-            <path d="M0,120 Q720,-20 1440,120 Z" className="fill-current" />
-            <text className="fill-white font-bold opacity-50 tracking-[0.2em] uppercase text-[24px] sm:text-[18px] md:text-[13px]" dy="15">
-              <textPath href="#textWarpPath" startOffset="50%" textAnchor="middle">
-                Lütfen yetkili hesabınıza giriş yapın
-              </textPath>
-            </text>
-          </svg>
-        </div>
-
-        {/* Main Content Box */}
-        <div className="relative w-full max-w-[360px] flex flex-col items-center box-border z-10">
+      {/* 3. MAIN CONTENT AREA / FORM (z-30) */}
+      <div className="relative flex-1 px-4 md:px-6 flex flex-col items-center pt-8 z-30">
+        <div className="w-full max-w-[360px] flex flex-col items-center box-border">
 
           {/* Error Banner */}
           {error && (
-            <div className="flex items-center gap-2.5 p-3 bg-red-950/40 text-red-400 rounded-xl text-xs mb-4 border border-red-900/50 font-bold w-full box-border animate-fade-in">
+            <div className="flex items-center gap-2.5 p-3 bg-red-950/50 text-red-400 rounded-xl text-xs mb-3.5 border border-red-900/60 font-semibold w-full box-border animate-fade-in">
               <ShieldAlert size={16} className="shrink-0 text-red-500" />
               <span className="flex-1 leading-snug">{error}</span>
             </div>
@@ -228,7 +244,7 @@ const LoginView = () => {
 
           {/* Success Banner */}
           {resetSuccess && (
-            <div className="flex items-center gap-2.5 p-3 bg-blue-950/40 text-blue-300 rounded-xl text-xs mb-4 border border-blue-900/50 font-bold w-full box-border animate-fade-in">
+            <div className="flex items-center gap-2.5 p-3 bg-blue-950/50 text-blue-300 rounded-xl text-xs mb-3.5 border border-blue-900/60 font-semibold w-full box-border animate-fade-in">
               <CheckCircle2 size={16} className="shrink-0 text-blue-400" />
               <span className="flex-1 leading-snug text-center">{resetSuccess}</span>
             </div>
@@ -238,25 +254,26 @@ const LoginView = () => {
           {view === 'login' ? (
             <form onSubmit={handleLogin} className="flex flex-col gap-3.5 w-full box-border">
 
-              {/* Email Input */}
+              {/* Modern Sleek Email Input */}
               <div className="relative w-full group">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-400 transition-colors pointer-events-none" />
                 <input
                   type="email"
-                  className="w-full !h-12 bg-slate-800/50 !bg-slate-800/50 backdrop-blur-md shadow-inner border border-slate-700/40 rounded-xl focus-within:border-blue-500 focus-within:bg-slate-800/80 transition-all !pl-11 !pr-4 !py-0 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border m-0"
+                  className="w-full !h-11 !pl-10 !pr-4 bg-slate-800/60 hover:bg-slate-800/80 focus-within:bg-slate-800 border border-slate-700/60 focus:border-blue-500 rounded-xl text-white text-xs font-medium placeholder:text-slate-400 outline-none transition-all box-border !m-0 shadow-sm"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
+                  autoFocus
                   placeholder="E-posta Adresi"
                 />
               </div>
 
-              {/* Password Input */}
+              {/* Modern Sleek Password Input */}
               <div className="relative w-full group">
-                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-400 transition-colors pointer-events-none" />
                 <input
                   type="password"
-                  className="w-full !h-12 bg-slate-800/50 !bg-slate-800/50 backdrop-blur-md shadow-inner border border-slate-700/40 rounded-xl focus-within:border-blue-500 focus-within:bg-slate-800/80 transition-all !pl-11 !pr-4 !py-0 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border m-0"
+                  className="w-full !h-11 !pl-10 !pr-4 bg-slate-800/60 hover:bg-slate-800/80 focus-within:bg-slate-800 border border-slate-700/60 focus:border-blue-500 rounded-xl text-white text-xs font-medium placeholder:text-slate-400 outline-none transition-all box-border !m-0 shadow-sm"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
@@ -265,15 +282,15 @@ const LoginView = () => {
               </div>
 
               {/* Controls: Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between w-full px-1 mt-0.5">
+              <div className="flex items-center justify-between w-full px-1 pt-0.5">
                 
                 {/* Remember Me Toggle */}
                 <div
                   onClick={handleRememberToggle}
                   className="flex items-center gap-2.5 cursor-pointer select-none group"
                 >
-                  <div className={`w-8 h-4.5 rounded-full relative transition-all duration-200 box-border ${rememberMe ? 'bg-blue-600' : 'bg-slate-800/60 border border-slate-700/50'}`}>
-                    <div className={`w-3 h-3 rounded-full absolute top-[2px] transition-all duration-200 ${rememberMe ? 'left-[16px] bg-white' : 'left-[3px] bg-slate-400'}`}></div>
+                  <div className={`w-8 h-[18px] rounded-full relative transition-colors duration-200 ${rememberMe ? 'bg-blue-600' : 'bg-slate-800 border border-slate-700'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white absolute top-[2.5px] transition-transform duration-200 ${rememberMe ? 'translate-x-[15px]' : 'translate-x-[2.5px]'}`} />
                   </div>
                   <span className="text-xs font-semibold text-slate-400 group-hover:text-slate-200 transition-colors">
                     Beni Hatırla
@@ -289,26 +306,19 @@ const LoginView = () => {
                 </span>
               </div>
 
-              {/* Multi-Animated Clean Submit Button */}
+              {/* Multi-Animated Clean Blue Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="relative w-full h-12 rounded-xl text-sm font-bold text-white transition-all duration-300 mt-2 bg-blue-600 hover:bg-blue-500 border border-blue-400/20 active:scale-[0.99] disabled:opacity-50 overflow-hidden group cursor-pointer box-border flex items-center justify-center"
+                className="relative w-full h-11 rounded-xl text-xs font-bold text-white transition-all duration-300 mt-1.5 bg-blue-600 hover:bg-blue-500 border border-blue-400/20 active:scale-[0.99] disabled:opacity-50 overflow-hidden group cursor-pointer box-border flex items-center justify-center shadow-lg shadow-blue-900/20"
               >
                 {/* White Slide Shine Sweep Effect */}
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out pointer-events-none" />
 
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2.5 w-full">
-                    <div className="relative flex items-center justify-center w-5 h-5">
-                      <svg className="animate-spin absolute inset-0 w-full h-full text-white/20" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      </svg>
-                      <svg className="animate-spin absolute inset-0 w-full h-full text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    </div>
-                    <span className="tracking-wide text-xs">Yetkiler Kontrol Ediliyor...</span>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-xs font-semibold">Yetkiler Kontrol Ediliyor...</span>
                   </div>
                 ) : (
                   <div className="relative z-10 flex items-center justify-center gap-2 font-bold tracking-wide">
@@ -316,7 +326,7 @@ const LoginView = () => {
                       Giriş Yap
                     </span>
                     <ArrowRight 
-                      size={17} 
+                      size={15} 
                       className="transition-transform duration-300 ease-out group-hover:translate-x-1" 
                     />
                   </div>
@@ -329,21 +339,22 @@ const LoginView = () => {
             <form onSubmit={handleResetPassword} className="flex flex-col gap-3.5 w-full box-border">
               
               <div className="text-center mb-1">
-                <h3 className="text-base font-bold text-white mb-1">Şifre Sıfırlama</h3>
+                <h3 className="text-sm font-bold text-white mb-1">Şifre Sıfırlama</h3>
                 <p className="text-xs text-slate-400 font-medium leading-relaxed">
                   Kayıtlı e-posta adresinizi girin. Size bir şifre sıfırlama bağlantısı göndereceğiz.
                 </p>
               </div>
 
-              {/* Email Input */}
+              {/* Modern Sleek Email Input */}
               <div className="relative w-full group">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-white transition-colors z-10 pointer-events-none" />
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-400 transition-colors pointer-events-none" />
                 <input
                   type="email"
-                  className="w-full !h-12 bg-slate-800/50 !bg-slate-800/50 backdrop-blur-md shadow-inner border border-slate-700/40 rounded-xl focus-within:border-blue-500 focus-within:bg-slate-800/80 transition-all !pl-11 !pr-4 !py-0 text-white placeholder-slate-400 text-[14px] font-medium outline-none box-border m-0"
+                  className="w-full !h-11 !pl-10 !pr-4 bg-slate-800/60 hover:bg-slate-800/80 focus-within:bg-slate-800 border border-slate-700/60 focus:border-blue-500 rounded-xl text-white text-xs font-medium placeholder:text-slate-400 outline-none transition-all box-border !m-0 shadow-sm"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
+                  autoFocus
                   placeholder="E-posta Adresi"
                 />
               </div>
@@ -352,7 +363,7 @@ const LoginView = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="relative w-full h-12 rounded-xl text-sm font-bold text-white transition-all duration-300 mt-1 bg-blue-600 hover:bg-blue-500 border border-blue-400/20 active:scale-[0.99] disabled:opacity-50 overflow-hidden group cursor-pointer box-border flex items-center justify-center"
+                className="relative w-full h-11 rounded-xl text-xs font-bold text-white transition-all duration-300 mt-1 bg-blue-600 hover:bg-blue-500 border border-blue-400/20 active:scale-[0.99] disabled:opacity-50 overflow-hidden group cursor-pointer box-border flex items-center justify-center shadow-lg shadow-blue-900/20"
               >
                 {/* White Slide Shine Sweep Effect */}
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out pointer-events-none" />
@@ -365,7 +376,7 @@ const LoginView = () => {
                       Bağlantı Gönder
                     </span>
                     <ArrowRight 
-                      size={17} 
+                      size={15} 
                       className="transition-transform duration-300 ease-out group-hover:translate-x-1" 
                     />
                   </div>
@@ -376,17 +387,17 @@ const LoginView = () => {
               <button
                 type="button"
                 onClick={() => { setView('login'); setError(''); setResetSuccess(''); }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-200 box-border flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                className="w-full py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all box-border flex items-center justify-center gap-1.5 cursor-pointer mt-0.5"
               >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={13} />
                 <span>Giriş Ekranına Dön</span>
               </button>
             </form>
           )}
 
           {/* Footer Copyright */}
-          <div className="text-center mt-8 md:mt-10 w-full pb-4 md:pb-0">
-            <p className="text-[10px] md:text-xs text-slate-500/70 font-medium tracking-wide">
+          <div className="text-center mt-8 w-full pb-4 md:pb-0">
+            <p className="text-[10.5px] text-slate-500/80 font-medium tracking-wide">
               Boğaziçi Koleji © {new Date().getFullYear()} Tüm hakları saklıdır.
             </p>
           </div>

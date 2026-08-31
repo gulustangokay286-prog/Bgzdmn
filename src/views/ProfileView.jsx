@@ -5,11 +5,13 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 
 const ProfileView = () => {
-  const [adminName, setAdminName] = useState('Muharrem Özkan');
+  const [adminName, setAdminName] = useState('Yetkili');
   const [profileImage, setProfileImage] = useState(null);
-  const [email, setEmail] = useState('admin@bogazici.edu.tr');
-  const [phone, setPhone] = useState('+90 (555) 123 45 67');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('Merkez Kampüs');
+  const [roleTitle, setRoleTitle] = useState('Sistem Yöneticisi');
+  const [tierText, setTierText] = useState('TIER 1');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -18,9 +20,8 @@ const ProfileView = () => {
     const currentUser = auth.currentUser;
     
     if (currentUser) {
-      if (currentUser.displayName) {
-        setAdminName(currentUser.displayName);
-      }
+      if (currentUser.email) setEmail(currentUser.email);
+      if (currentUser.displayName) setAdminName(currentUser.displayName);
       
       const fetchProfile = async () => {
         try {
@@ -28,6 +29,10 @@ const ProfileView = () => {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
+            const fetchedName = data.name || data.fullName || data.full_name || data.displayName || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Yetkili');
+            setAdminName(fetchedName);
+            localStorage.setItem('adminName', fetchedName);
+            
             const imageUrl = data.profile_image || data.profileImageUrl || data.profileImage;
             if (imageUrl) {
               setProfileImage(imageUrl);
@@ -35,6 +40,12 @@ const ProfileView = () => {
             if (data.email) setEmail(data.email);
             if (data.phone) setPhone(data.phone);
             if (data.location) setLocation(data.location);
+            if (data.role) {
+              setRoleTitle(data.role === 'superadmin' ? 'Süper Yönetici' : data.role === 'Admin' || data.role === 'admin' ? 'Sistem Yöneticisi' : data.role);
+            }
+            if (data.superadmin) {
+              setTierText('SUPERADMIN');
+            }
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);
@@ -44,7 +55,7 @@ const ProfileView = () => {
       fetchProfile();
     } else {
       const storedName = localStorage.getItem('adminName');
-      if (storedName) {
+      if (storedName && storedName !== 'Muharrem Özkan') {
         setAdminName(storedName);
       }
     }
@@ -163,10 +174,10 @@ const ProfileView = () => {
             <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
               <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight">{adminName}</h1>
               <span className="bg-amber-100 text-amber-700 px-3 py-1 text-[12px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1.5">
-                <Award size={14} /> TIER 1
+                <Award size={14} /> {tierText}
               </span>
             </div>
-            <p className="text-[15px] text-slate-500 font-medium">Nihai Sistem Yöneticisi</p>
+            <p className="text-[15px] text-slate-500 font-medium">{roleTitle}</p>
           </div>
         </div>
 

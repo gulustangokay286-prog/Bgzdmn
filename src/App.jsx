@@ -12,7 +12,7 @@ import {
   CalendarClock, Bus, CircleDollarSign, MessageSquare,
   Settings, Shield, BellRing, UserCircle, HeartHandshake,
   BrainCircuit, Key, LogOut, ShieldBan, Building, ChevronDown, Moon, Sun, Wallet, Landmark, ClipboardList, PieChart,
-  Menu, X, Smartphone, Globe, ShoppingBag
+  Menu, X, Smartphone, Globe, ShoppingBag, Inbox
 } from 'lucide-react';
 import logo from './assets/logo.png';
 
@@ -32,6 +32,7 @@ import TeacherManagementAdminView from './views/TeacherManagementAdminView';
 import ScheduleAdminView from './views/ScheduleAdminView';
 import AnnouncementsAdminView from './views/AnnouncementsAdminView';
 import WebManagementAdminView from './views/WebManagementAdminView';
+import WebApplicationsAdminView from './views/WebApplicationsAdminView';
 
 import CafeteriaAdminView from './views/CafeteriaAdminView';
 import AppointmentsAdminView from './views/AppointmentsAdminView';
@@ -91,7 +92,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div 
         className="sidebar-header relative flex flex-col items-center justify-center pt-12 pb-6 px-4 gap-3 select-none"
       >
-        <img src="/logo-chatgpt.png" alt="Logo" className="h-10 w-auto object-contain drop-shadow-lg rounded-lg mb-1" />
+        <img src="/logo-4327.png" alt="Logo" className="h-12 w-auto object-contain drop-shadow-md rounded-lg mb-1" />
         
         <div className="flex flex-col items-center text-center">
           <span className="text-[20px] font-black text-slate-900 dark:text-white leading-tight tracking-wide">Boğaziçi Koleji</span>
@@ -130,7 +131,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         <div className="sidebar-section">
-          <div className="sidebar-section-title">Web & Mağaza</div>
+          <div className="sidebar-section-title">Web & Başvurular</div>
+          <NavItem to="/web-applications" icon={Inbox} label="Başvurular & Mesajlar" onClick={onClose} />
           <NavItem to="/web-management" icon={Globe} label="Okul Web Yönetimi" onClick={onClose} />
         </div>
 
@@ -239,7 +241,7 @@ const App = () => {
                   <Menu size={24} />
                 </button>
                 <div id="nova-ai-mobile-portal" className="empty:hidden" />
-                <img src="/logo-chatgpt.png" alt="Logo" className="h-7 w-auto drop-shadow-sm dark:drop-shadow-md rounded-md" />
+                <img src="/logo-4327.png" alt="Logo" className="h-8 w-auto drop-shadow-sm dark:drop-shadow-md rounded-md" />
               </div>
               <div className="font-bold text-[15px] text-slate-800 dark:text-white tracking-wide">Boğaziçi Koleji</div>
             </div>
@@ -270,6 +272,7 @@ const App = () => {
               <Route path="/transport" element={<RequireLicense requiredPath="/transport"><TransportAdminView /></RequireLicense>} />
               <Route path="/counseling" element={<RequireLicense requiredPath="/counseling"><CounselingAdminView /></RequireLicense>} />
               <Route path="/chat" element={<RequireLicense requiredPath="/chat"><ChatView /></RequireLicense>} />
+              <Route path="/web-applications" element={<RequireLicense requiredPath="/settings"><WebApplicationsAdminView /></RequireLicense>} />
               <Route path="/web-management" element={<RequireLicense requiredPath="/settings"><WebManagementAdminView /></RequireLicense>} />
               <Route path="/settings" element={<RequireLicense requiredPath="/settings"><SettingsView /></RequireLicense>} />
               <Route path="/institution-settings" element={<RequireLicense requiredPath="/settings"><InstitutionSettingsAdminView /></RequireLicense>} />

@@ -92,7 +92,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div 
         className="sidebar-header relative flex flex-col items-center justify-center pt-12 pb-6 px-4 gap-3 select-none"
       >
-        <img src="/logo-chatgpt.png" alt="Logo" className="h-10 w-auto object-contain drop-shadow-lg rounded-lg mb-1" />
+        <img src="/logo-4327.png" alt="Logo" className="h-12 w-auto object-contain drop-shadow-md rounded-lg mb-1" />
         
         <div className="flex flex-col items-center text-center">
           <span className="text-[20px] font-black text-slate-900 dark:text-white leading-tight tracking-wide">Boğaziçi Koleji</span>
@@ -241,7 +241,7 @@ const App = () => {
                   <Menu size={24} />
                 </button>
                 <div id="nova-ai-mobile-portal" className="empty:hidden" />
-                <img src="/logo-chatgpt.png" alt="Logo" className="h-7 w-auto drop-shadow-sm dark:drop-shadow-md rounded-md" />
+                <img src="/logo-4327.png" alt="Logo" className="h-8 w-auto drop-shadow-sm dark:drop-shadow-md rounded-md" />
               </div>
               <div className="font-bold text-[15px] text-slate-800 dark:text-white tracking-wide">Boğaziçi Koleji</div>
             </div>
