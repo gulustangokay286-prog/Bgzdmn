@@ -1,21 +1,4 @@
-/**
- * ============================================================================
- *  UÇTAN UCA YOKLAMA TESTİ — GERÇEK ALTYAPI
- * ============================================================================
- *  Sahte veritabanı YOKTUR. Test doğrudan canlı sisteme bağlanır:
- *
- *    • Firestore  (bgz-mobil)              — users, gate_status, attendance,
- *                                            attendance_logs, late_approvals
- *    • Realtime DB(bgz-mobil-default-rtdb) — qr_system/*
- *    • VDS        (213.142.159.36:8080)    — /api/health, /api/qr/scan
- *
- *  GÜVENLİK: Test yalnızca "__E2E_TEST_ÖĞRENCİ__" adlı geçici bir öğrenci
- *  üzerinde çalışır. Otomasyon `onlyStudentIds` ile bu öğrenciye kilitlenir,
- *  gerçek öğrencilere ASLA dokunulmaz. Test sonunda ürettiği her kayıt silinir.
- *
- *  Çalıştırma:  node tests/e2e-attendance.mjs
- * ============================================================================
- */
+
 
 import {
   collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, where
@@ -51,10 +34,6 @@ import {
   VDS_ENDPOINT
 } from '../src/services/attendanceService.js';
 
-/* -------------------------------------------------------------------------- */
-/*  Test altyapısı                                                             */
-/* -------------------------------------------------------------------------- */
-
 const TEST_STUDENT_ID = 'zz-e2e-attendance-test-student';
 const TEST_STUDENT = {
   id: TEST_STUDENT_ID,
@@ -82,10 +61,6 @@ const check = (label, condition, extra = '') => {
 const section = (title) => console.log(`\n\x1b[1m${title}\x1b[0m`);
 const info = (msg) => console.log(`  · ${msg}`);
 
-/* -------------------------------------------------------------------------- */
-/*  Temizlik                                                                   */
-/* -------------------------------------------------------------------------- */
-
 async function cleanup(dateKey) {
   const tasks = [];
 
@@ -100,21 +75,18 @@ async function cleanup(dateKey) {
     tasks.push(deleteDoc(doc(db, 'late_approvals', buildLateApprovalId(dateKey, TEST_STUDENT_ID, session))).catch(() => {}));
   }
 
-  // Test öğrencisine ait tüm attendance / attendance_logs kayıtları
   for (const col of ['attendance', 'attendance_logs']) {
     try {
       const snap = await getDocs(query(collection(db, col), where('studentId', '==', TEST_STUDENT_ID)));
       snap.forEach(d => tasks.push(deleteDoc(doc(db, col, d.id)).catch(() => {})));
-    } catch (e) { /* yok say */ }
+    } catch (e) {  }
   }
 
   await Promise.all(tasks);
 
-  // RTDB temizliği
   await remove(ref(rtdb, `qr_system/gate_status/${TEST_STUDENT_ID}`)).catch(() => {});
   await remove(ref(rtdb, `qr_system/late_approvals/${dateKey}`)).catch(() => {});
 
-  // Günlük geçiş defterinden yalnızca test öğrencisinin kayıtları
   try {
     const snap = await get(ref(rtdb, `qr_system/attendance_logs/${dateKey}`));
     if (snap.exists()) {
@@ -128,9 +100,8 @@ async function cleanup(dateKey) {
       });
       if (Object.keys(updates).length) await update(ref(rtdb), updates);
     }
-  } catch (e) { /* yok say */ }
+  } catch (e) {  }
 
-  // live_scans içinde kalmış olabilecekler
   try {
     const snap = await get(ref(rtdb, 'qr_system/live_scans'));
     if (snap.exists()) {
@@ -141,12 +112,8 @@ async function cleanup(dateKey) {
       });
       if (Object.keys(updates).length) await update(ref(rtdb), updates);
     }
-  } catch (e) { /* yok say */ }
+  } catch (e) {  }
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Ana akış                                                                   */
-/* -------------------------------------------------------------------------- */
 
 async function main() {
   console.log('\x1b[1m\x1b[36m╔══════════════════════════════════════════════════════════════╗\x1b[0m');
@@ -166,11 +133,6 @@ async function main() {
   info(`Öğleden sonra     : ${config.afternoonEntryHour} → tolerans ${minutesToTime(windows.afternoonGraceEnd)}`);
   info(`Okul çıkışı       : ${config.schoolExitHour}`);
 
-  /* ---------------------------------------------------------------------- */
-  /*  Çalışma kilidi                                                         */
-  /*  Aynı test öğrencisi üzerinde iki test aynı anda koşarsa birbirlerinin  */
-  /*  verisini ezer ve yanıltıcı sonuç üretirler. Kilit bunu engeller.       */
-  /* ---------------------------------------------------------------------- */
   const RUN_ID = `run_${process.pid}_${Date.now()}`;
   const lockRef = ref(rtdb, 'qr_system/zz_e2e_run_lock');
   const lockRes = await runTransaction(lockRef, (current) => {
@@ -190,9 +152,7 @@ async function main() {
 
   await cleanup(dateKey);
 
-  /* ---------------------------------------------------------------------- */
   section('1) ALTYAPI BAĞLANTILARI');
-  /* ---------------------------------------------------------------------- */
 
   try {
     const res = await fetch(`${VDS_ENDPOINT}/api/health`, { signal: AbortSignal.timeout(8000) });
@@ -227,9 +187,7 @@ async function main() {
     check('Realtime Database yazma/okuma çalışıyor', false, err.message);
   }
 
-  /* ---------------------------------------------------------------------- */
   section('2) GEÇİŞ KAYDI — MOBİL WEB ↔ ADMIN WINDOWS SENKRONU');
-  /* ---------------------------------------------------------------------- */
 
   const entryResult = await recordGatePassage({
     student: TEST_STUDENT,
@@ -271,9 +229,7 @@ async function main() {
   const fsLogs = await getDocs(query(collection(db, 'attendance_logs'), where('studentId', '==', TEST_STUDENT_ID)));
   check('Firestore attendance_logs kaydı oluştu', fsLogs.size >= 1, `${fsLogs.size} kayıt`);
 
-  /* ---------------------------------------------------------------------- */
   section('3) GEÇİŞ KAYITLARININ MOTOR TARAFINDAN OKUNMASI');
-  /* ---------------------------------------------------------------------- */
 
   const scans = await fetchDayScans(dateKey, config);
   const myScans = scans[TEST_STUDENT_ID] || [];
@@ -282,9 +238,7 @@ async function main() {
     myScans.some(s => s.action === 'entry' && /^\d{2}:\d{2}$/.test(s.time)),
     JSON.stringify(myScans.map(s => `${s.time} ${s.action}`)));
 
-  /* ---------------------------------------------------------------------- */
   section('4) ÇIKIŞ VE DURUM DEĞİŞİMİ');
-  /* ---------------------------------------------------------------------- */
 
   await recordGatePassage({
     student: TEST_STUDENT, action: 'exit', method: 'auto', autoKind: 'lunch_exit',
@@ -298,9 +252,7 @@ async function main() {
   check('Otomatik çıkış "lunch_exit" olarak etiketlendi',
     (await fetchDayScans(dateKey, config))[TEST_STUDENT_ID]?.some(s => s.autoKind === 'lunch_exit'));
 
-  /* ---------------------------------------------------------------------- */
   section('5) OTOMATİK DEVAMSIZLIK YAZMA (yalnızca test öğrencisi)');
-  /* ---------------------------------------------------------------------- */
 
   const auto = await runAttendanceAutomation({ config, onlyStudentIds: [TEST_STUDENT_ID] });
   info(`Otomasyon turu: ${auto.time} · işlenen ${auto.studentsProcessed} · ` +
@@ -312,7 +264,6 @@ async function main() {
   const records = await fetchDayAttendanceRecords(dateKey);
   const myRecords = records[TEST_STUDENT_ID] || [];
 
-  // Öğrenci okutmayı ŞU AN yaptı; hangi oturuma denk geldiğini motor belirler.
   const attendedSession = classifyScanMinutes(ctx.nowMinutes, config).session;
   const missedSession = attendedSession === 'morning' ? 'afternoon' : 'morning';
   const written = myRecords.map(r => `${r.courseName}=${r.absenceWeight}`);
@@ -323,11 +274,10 @@ async function main() {
   } else if (!attendedSession) {
     check('Mesai dışı okutmada oturum devamsızlığı hesabı bozulmadı', auto.errors.length === 0);
   } else {
-    // Katıldığı oturuma ASLA devamsızlık yazılmamalı.
+    
     check(`Katıldığı oturuma (${attendedSession}) devamsızlık YAZILMADI`,
       !myRecords.some(r => (r.missingSessions || []).includes(attendedSession)), written.join(', '));
 
-    // Kaçırdığı oturum kesinleşmişse 0,5 yazılmalı, kesinleşmemişse yazılmamalı.
     const missedFinalized = missedSession === 'morning'
       ? ctx.nowMinutes >= windows.halfDayCutoff
       : ctx.nowMinutes >= windows.schoolExit;
@@ -346,11 +296,8 @@ async function main() {
     }
   }
 
-  /* ---------------------------------------------------------------------- */
   section('6) HİÇ GELMEYEN ÖĞRENCİ — TAM GÜN YOK ZİNCİRİ');
-  /* ---------------------------------------------------------------------- */
 
-  // Test öğrencisinin bugünkü tüm geçişlerini temizleyip "hiç gelmedi" senaryosunu kur.
   await cleanup(dateKey);
   await setDoc(doc(db, 'users', TEST_STUDENT_ID), {
     role: 'student', full_name: TEST_STUDENT.name, tc_kimlik: TEST_STUDENT.tc,
@@ -384,7 +331,6 @@ async function main() {
     check('Yarım gün sınırından önce hiçbir devamsızlık yazılmadı', noShow.length === 0, `${noShow.length} kayıt`);
   }
 
-  // Aynı turu tekrar çalıştır: mükerrer kayıt oluşmamalı
   await runAttendanceAutomation({ config, onlyStudentIds: [TEST_STUDENT_ID] });
   await runAttendanceAutomation({ config, onlyStudentIds: [TEST_STUDENT_ID] });
   const records3 = await fetchDayAttendanceRecords(dateKey);
@@ -397,9 +343,7 @@ async function main() {
     ids.length === 0 || (ids.length === 1 && ids[0] === buildAutoAbsenceId(dateKey, TEST_STUDENT_ID)),
     ids.join(', '));
 
-  /* ---------------------------------------------------------------------- */
   section('7) GEÇ GİRİŞ → REHBERLİK ONAYI AKIŞI');
-  /* ---------------------------------------------------------------------- */
 
   await cleanup(dateKey);
   await setDoc(doc(db, 'users', TEST_STUDENT_ID), {
@@ -443,7 +387,6 @@ async function main() {
     const statusDuringPending = await readGateStatus(TEST_STUDENT_ID, dateKey);
     check('Onay beklerken öğrenci HÂLÂ kurum dışında', statusDuringPending === 'outside', statusDuringPending);
 
-    // Görevli öğretmen onaylıyor
     await approveLateEntry({ request: { ...rtApproval.val(), id: approvalId }, approvedBy: 'E2E Test Öğretmeni' });
 
     const statusAfter = await readGateStatus(TEST_STUDENT_ID, dateKey);
@@ -467,9 +410,7 @@ async function main() {
     info(`(Şu an ${minutesToTime(ctx.nowMinutes)} — okul giriş penceresi dışında)`);
   }
 
-  /* ---------------------------------------------------------------------- */
   section('8) VDS /api/qr/scan GEÇ KALMA KURALI');
-  /* ---------------------------------------------------------------------- */
 
   try {
     const res = await fetch(`${VDS_ENDPOINT}/api/qr/scan`, {
@@ -492,9 +433,7 @@ async function main() {
     check('VDS /api/qr/scan yanıt veriyor (çökmedi)', false, err.message);
   }
 
-  /* ---------------------------------------------------------------------- */
   section('9) OTOMASYON KİRALAMASI (çift işleme koruması)');
-  /* ---------------------------------------------------------------------- */
 
   const leaseA = await tryAcquireAutomationLease('e2e_owner_A');
   const leaseB = await tryAcquireAutomationLease('e2e_owner_B');
@@ -502,9 +441,7 @@ async function main() {
   check('İkinci panel aynı anda kiralama alamadı', leaseB === false);
   await remove(ref(rtdb, 'qr_system/automation_lease')).catch(() => {});
 
-  /* ---------------------------------------------------------------------- */
   section('10) KURUM AYARLARI OKUNABİLİRLİĞİ');
-  /* ---------------------------------------------------------------------- */
 
   const cfgSnap = await getDoc(doc(db, 'config', 'institution'));
   if (cfgSnap.exists()) {
@@ -516,16 +453,10 @@ async function main() {
     info('config/institution henüz oluşturulmamış — Kurum Ayarları ekranından kaydedince oluşacak.');
   }
 
-  /* ---------------------------------------------------------------------- */
   section('11) ZAMAN YOLCULUĞU — 12:00 / 12:10 / OKUL ÇIKIŞI EŞİKLERİ');
-  /* ---------------------------------------------------------------------- */
-  /*  Otomasyon `now` parametresi alır. Gerçek Firebase üzerinde, gerçek     */
-  /*  geçiş kayıtlarıyla, günün farklı saatlerinde ne olacağını doğrular.    */
 
-  /** Bugünün belirli saatinde (Türkiye) bir Date üretir. Istanbul = UTC+3.  */
   const atToday = (hhmm) => new Date(`${dateKey}T${hhmm}:00+03:00`);
 
-  /** Gerçek bir karekod okutmasını, geçmiş bir saate yazar. */
   const writeScanAt = async (hhmm, action, extra = {}) => {
     const when = atToday(hhmm);
     const logRef = push(ref(rtdb, `qr_system/attendance_logs/${dateKey}`));
@@ -584,7 +515,6 @@ async function main() {
     return scans.filter(sc => sc.action === 'exit' && sc.autoKind === kind);
   };
 
-  // ---- SENARYO A: hiç gelmeyen öğrenci, saat saat ------------------------
   info('SENARYO A — öğrenci hiç gelmedi');
   await resetStudent();
 
@@ -614,7 +544,6 @@ async function main() {
   w = await weightNow();
   check('A · Tekrar çalıştırmada mükerrer kayıt oluşmadı', w.count === 1 && w.total === 1, JSON.stringify(w));
 
-  // ---- SENARYO B: sabah geldi, öğleden sonra gelmedi ---------------------
   info('SENARYO B — sabah geldi (09:02), öğleden sonra gelmedi');
   await resetStudent();
   await writeScanAt('09:02', 'entry');
@@ -628,7 +557,6 @@ async function main() {
   check('B · 16:00 — öğleden sonra gelmediği için YARIM GÜN YOK (0,5)',
     w.count === 1 && w.total === 0.5 && w.labels[0] === 'Yarım Gün Yok (Öğleden Sonra)', JSON.stringify(w));
 
-  // ---- SENARYO C: 12:10 otomatik çıkış -----------------------------------
   info('SENARYO C — sabah okuttu, çıkış okutmadı (12:10 otomatik çıkış)');
   await resetStudent();
   await writeScanAt('09:00', 'entry');
@@ -654,7 +582,6 @@ async function main() {
   autoExits = await exitLogs('lunch_exit');
   check('C · Otomatik çıkış tekrar tekrar yazılmadı', autoExits.length === 1, `${autoExits.length}`);
 
-  // ---- SENARYO D: kullanıcının kuralı — yarım var + yarım yok = yarım yok
   info('SENARYO D — sabah gelmedi, öğleden sonra geldi (13:05)');
   await resetStudent();
   await writeScanAt('13:05', 'entry');
@@ -668,20 +595,18 @@ async function main() {
   check('D · TOPLAM = yarım gün yok (0,5), tam gün DEĞİL',
     w.count === 1 && w.total === 0.5, `toplam ${w.total}`);
 
-  // ---- SENARYO H: sonradan gelen öğrencinin kaydı kaldırılır -------------
   info('SENARYO H — 12:00 de yok yazıldı, sonra 13:05 te geldi');
   await resetStudent();
   await runAt('12:00');
   w = await weightNow();
   check('H · 12:00 — yarım gün yok yazıldı', w.count === 1 && w.total === 0.5, JSON.stringify(w));
 
-  await writeScanAt('09:05', 'entry');   // geç ulaşan sabah kaydı
+  await writeScanAt('09:05', 'entry');   
   await runAt('12:30');
   w = await weightNow();
   check('H · Sabah kaydı sonradan gelince otomatik devamsızlık KALDIRILDI',
     w.count === 0, JSON.stringify(w));
 
-  // ---- SENARYO E: tam gün mevcut ----------------------------------------
   info('SENARYO E — sabah 08:55 geldi, 12:05 çıktı, 13:02 tekrar geldi');
   await resetStudent();
   await writeScanAt('08:55', 'entry');
@@ -696,7 +621,6 @@ async function main() {
   check('E · Okul çıkışında içeride kalan öğrenciye otomatik çıkış verildi',
     schoolExitAuto.length === 1, `${schoolExitAuto.length}`);
 
-  // ---- SENARYO F: okul çıkış saati değiştirilirse -------------------------
   info('SENARYO F — okul çıkış saati 17:30 yapıldığında');
   await resetStudent();
   const cfg1730 = resolveAttendanceConfig({ ...config, schoolExitHour: '17:30' });
@@ -709,7 +633,6 @@ async function main() {
   w = await weightNow();
   check('F · 17:30 — ayarlanan çıkış saatinde TAM GÜN YOK yazıldı', w.total === 1, JSON.stringify(w));
 
-  // ---- SENARYO G: raporlu öğrenciye otomatik yok yazılmaz ----------------
   info('SENARYO G — raporlu/izinli öğrenci');
   await resetStudent();
   await setDoc(doc(db, 'attendance', `zz_e2e_excuse_${dateKey}`), {
@@ -729,9 +652,7 @@ async function main() {
     !excusedRecs.some(r => r.autoGenerated), excusedRecs.map(r => r.courseName).join(' | '));
   await deleteDoc(doc(db, 'attendance', `zz_e2e_excuse_${dateKey}`)).catch(() => {});
 
-  /* ---------------------------------------------------------------------- */
   section('TEMİZLİK');
-  /* ---------------------------------------------------------------------- */
 
   await cleanup(dateKey);
   await releaseLock();
@@ -742,7 +663,6 @@ async function main() {
   check('Test devamsızlık kayıtları silindi', leftoverAttendance.size === 0, `${leftoverAttendance.size} kaldı`);
   check('Test RTDB kayıtları silindi', !leftoverRt.exists());
 
-  /* ---------------------------------------------------------------------- */
   console.log('\n' + '─'.repeat(64));
   console.log(`\x1b[1mSONUÇ: ${passed} geçti, ${failed} kaldı\x1b[0m`);
   if (failures.length) {
@@ -760,6 +680,6 @@ main().catch(async (err) => {
     await cleanup(getDateKeyInTimeZone(new Date(), 'Europe/Istanbul'));
     await remove(ref(rtdb, 'qr_system/zz_e2e_run_lock')).catch(() => {});
     console.log('Temizlik yapıldı, kilit bırakıldı.');
-  } catch (e) { /* yok say */ }
+  } catch (e) {  }
   process.exit(1);
 });

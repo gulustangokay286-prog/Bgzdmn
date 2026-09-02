@@ -1,7 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-/** Kaydedilmemiş değişiklik uyarısı — ekranın altında sabit, hafif bir şerit. */
 const UnsavedBanner = ({ visible, message }) => {
   if (!visible) return null;
 

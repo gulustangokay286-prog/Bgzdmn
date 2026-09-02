@@ -1,58 +1,31 @@
-/**
- * ============================================================================
- *  YOKLAMA & DEVAMSIZLIK KURAL MOTORU  (Attendance Rules Engine)
- * ============================================================================
- *  Saf (pure) fonksiyonlardan oluşur. Firebase / DOM / Node bağımlılığı YOKTUR.
- *  Bu sayede aynı dosya üç yerde birden çalışır:
- *
- *    1) BGZ Mobil Web App  (QRCodeRedirect.jsx - öğrencinin karekod okuttuğu ekran)
- *    2) IALMobil Admin Windows (Electron paneli - geçiş, devamsızlık, rapor ekranları)
- *    3) VDS Backend (ial-backend/attendanceRules.cjs - otomatik üretilen CommonJS kopyası)
- *
- *  Üç taraf da BİREBİR aynı kararı üretir; bu yüzden mobil ile masaüstü asla
- *  çelişmez. Backend kopyası `scripts/build-backend-rules.cjs` ile üretilir.
- * ============================================================================
- */
 
-/* -------------------------------------------------------------------------- */
-/*  Varsayılan kurum yapılandırması                                            */
-/* -------------------------------------------------------------------------- */
 
 export const DEFAULT_ATTENDANCE_CONFIG = {
   timeZone: 'Europe/Istanbul',
 
-  // Gün sınırları: bu saatlerin dışındaki okutmalar "mesai dışı" sayılır.
   dayStartHour: '06:00',
 
-  // Sabah oturumu
   morningEntryHour: '09:00',
-  morningGraceMinutes: 10,          // 09:10'a kadar serbest, 09:11 -> rehberlik
+  morningGraceMinutes: 10,          
 
-  // Öğle çıkışı
   lunchExitHour: '12:00',
-  lunchExitGraceMinutes: 10,        // 12:10'a kadar bekle, okutmadıysa otomatik çıkış
+  lunchExitGraceMinutes: 10,        
 
-  // Öğleden sonra oturumu
   afternoonEntryHour: '13:00',
-  afternoonGraceMinutes: 10,        // 13:10'a kadar serbest, 13:11 -> rehberlik
+  afternoonGraceMinutes: 10,        
 
-  // Okul çıkış saati (kurum ayarlarından değiştirilebilir)
   schoolExitHour: '16:00',
 
-  // Yarım gün sınırı: bu saatten ÖNCE gelen "sabah var" sayılır.
   halfDayCutoffHour: '12:00',
 
-  // Otomasyon anahtarları
-  autoAttendanceEnabled: true,      // otomatik yarım/tam gün yok yazma
-  autoLunchExitEnabled: true,       // 12:10 otomatik çıkış
-  autoSchoolExitEnabled: true,      // okul çıkış saatinde otomatik çıkış
-  lateRequiresCounselorApproval: true, // geç kalan rehber öğretmene yönlendirilsin
+  autoAttendanceEnabled: true,      
+  autoLunchExitEnabled: true,       
+  autoSchoolExitEnabled: true,      
+  lateRequiresCounselorApproval: true, 
 
-  // Takvim
-  closedDays: ['Pazar'],            // haftalık kapalı günler
-  holidays: [],                     // ['2026-04-23', ...] tatil günleri
+  closedDays: ['Pazar'],            
+  holidays: [],                     
 
-  // Geriye dönük uyumluluk (eski kurum ayarları ekranı)
   openingHour: '08:00',
   closingHour: '18:00',
   lunchBreakStart: '12:00',
@@ -66,11 +39,6 @@ export const TURKISH_DAY_NAMES = [
 export const SESSION_MORNING = 'morning';
 export const SESSION_AFTERNOON = 'afternoon';
 
-/* -------------------------------------------------------------------------- */
-/*  Zaman yardımcıları                                                         */
-/* -------------------------------------------------------------------------- */
-
-/** "09:05" -> 545 dakika. Geçersizse null. */
 export const timeToMinutes = (value) => {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -85,7 +53,6 @@ export const timeToMinutes = (value) => {
   return h * 60 + m;
 };
 
-/** 545 -> "09:05" */
 export const minutesToTime = (minutes) => {
   if (!Number.isFinite(minutes)) return '--:--';
   const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.round(minutes)));
@@ -94,11 +61,6 @@ export const minutesToTime = (minutes) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-/**
- * Verilen tarihin, hedef saat diliminde (varsayılan Europe/Istanbul) gece
- * yarısından itibaren kaçıncı dakika olduğunu döner.
- * Sunucu UTC'de çalışsa bile Türkiye saatine göre karar verilmesini sağlar.
- */
 export const getMinutesInTimeZone = (date, timeZone) => {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return null;
@@ -118,7 +80,6 @@ export const getMinutesInTimeZone = (date, timeZone) => {
   }
 };
 
-/** Hedef saat diliminde "YYYY-MM-DD" gün anahtarı. */
 export const getDateKeyInTimeZone = (date, timeZone) => {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return null;
@@ -135,7 +96,6 @@ export const getDateKeyInTimeZone = (date, timeZone) => {
   }
 };
 
-/** Hedef saat diliminde Türkçe gün adı ("Pazartesi"). */
 export const getDayNameInTimeZone = (date, timeZone) => {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return null;
@@ -144,16 +104,12 @@ export const getDayNameInTimeZone = (date, timeZone) => {
       timeZone: timeZone || DEFAULT_ATTENDANCE_CONFIG.timeZone,
       weekday: 'long'
     }).format(d);
-    // Bazı ICU sürümleri küçük harf döndürebiliyor -> baş harfi büyüt.
+    
     return name.charAt(0).toLocaleUpperCase('tr-TR') + name.slice(1);
   } catch {
     return TURKISH_DAY_NAMES[d.getDay()];
   }
 };
-
-/* -------------------------------------------------------------------------- */
-/*  Yapılandırma çözümleme                                                     */
-/* -------------------------------------------------------------------------- */
 
 const coerceTime = (raw, fallback) => {
   const parsed = timeToMinutes(raw);
@@ -176,14 +132,6 @@ const coerceBool = (raw, fallback) => {
   return fallback;
 };
 
-/**
- * Firestore `config/institution` dökümanını güvenli, tutarlı ve tam bir
- * yapılandırmaya dönüştürür. Eksik alanlar varsayılanla doldurulur, geçersiz
- * saatler düzeltilir, sıralama bozuksa mantıklı biçimde onarılır.
- *
- * Sıra kuralı: dayStart <= morningEntry <= halfDayCutoff(=lunchExit) <=
- *              afternoonEntry <= schoolExit
- */
 export const resolveAttendanceConfig = (raw) => {
   const src = raw && typeof raw === 'object' ? raw : {};
   const d = DEFAULT_ATTENDANCE_CONFIG;
@@ -202,7 +150,6 @@ export const resolveAttendanceConfig = (raw) => {
   const lunchGrace = coerceInt(src.lunchExitGraceMinutes, d.lunchExitGraceMinutes, 0, 240);
   const afternoonGrace = coerceInt(src.afternoonGraceMinutes, d.afternoonGraceMinutes, 0, 240);
 
-  // --- Tutarlılık onarımı (kullanıcı saatleri ters girerse sistem kilitlenmesin) ---
   if (morningEntry < dayStart) dayStart = morningEntry;
   if (lunchExit <= morningEntry) lunchExit = Math.min(24 * 60 - 1, morningEntry + 60);
   if (halfDayCutoff < morningEntry) halfDayCutoff = lunchExit;
@@ -239,7 +186,6 @@ export const resolveAttendanceConfig = (raw) => {
     closedDays,
     holidays,
 
-    // Eski alanlar korunur (başka ekranlar kullanıyor olabilir)
     openingHour: typeof src.openingHour === 'string' ? src.openingHour : d.openingHour,
     closingHour: minutesToTime(schoolExit),
     lunchBreakStart: minutesToTime(lunchExit),
@@ -247,13 +193,6 @@ export const resolveAttendanceConfig = (raw) => {
   };
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Zaman pencereleri                                                          */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Çözümlenmiş yapılandırmadan dakika cinsinden tüm eşikleri üretir.
- */
 export const getAttendanceWindows = (config) => {
   const cfg = config && config.morningEntryHour ? config : resolveAttendanceConfig(config);
 
@@ -281,7 +220,6 @@ export const getAttendanceWindows = (config) => {
   };
 };
 
-/** Verilen gün kurum takvimine göre kapalı mı? */
 export const isClosedDay = (date, config) => {
   const cfg = config && config.morningEntryHour ? config : resolveAttendanceConfig(config);
   const dayName = getDayNameInTimeZone(date, cfg.timeZone);
@@ -293,14 +231,6 @@ export const isClosedDay = (date, config) => {
   return closedByWeekday || closedByHoliday;
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Okutma (scan) sınıflandırma                                                */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Bir okutma anının hangi oturuma denk geldiğini ve geç kalınıp
- * kalınmadığını belirler.
- */
 export const classifyScanMinutes = (minutes, config) => {
   const w = getAttendanceWindows(config);
 
@@ -335,10 +265,6 @@ export const classifyScanMinutes = (minutes, config) => {
   return { session: null, isLate: false, lateByMinutes: 0, phase: 'after_school' };
 };
 
-/**
- * Farklı kaynaklardan (RTDB / Firestore / VDS) gelen ham geçiş kaydını
- * tek tip hale getirir.
- */
 export const normalizeScanRecord = (raw, config) => {
   if (!raw || typeof raw !== 'object') return null;
   const cfg = config && config.morningEntryHour ? config : resolveAttendanceConfig(config);
@@ -358,7 +284,6 @@ export const normalizeScanRecord = (raw, config) => {
     if (!Number.isNaN(parsed.getTime())) minutes = getMinutesInTimeZone(parsed, cfg.timeZone);
   }
 
-  // Zaman damgası yoksa "HH:MM" alanına düş.
   if (minutes === null) minutes = timeToMinutes(raw.time);
   if (minutes === null) return null;
 
@@ -386,23 +311,18 @@ export const normalizeScanRecord = (raw, config) => {
   };
 };
 
-/** Okutmaları zaman sırasına dizip tekrarları temizler. */
 export const sortAndDedupeScans = (scans) => {
   const list = (scans || []).filter(Boolean).slice();
   list.sort((a, b) => a.minutes - b.minutes);
   const out = [];
   for (const scan of list) {
     const prev = out[out.length - 1];
-    // Aynı dakikada aynı yönde tekrar eden kayıtlar tek sayılır.
+    
     if (prev && prev.action === scan.action && Math.abs(prev.minutes - scan.minutes) < 1) continue;
     out.push(scan);
   }
   return out;
 };
-
-/* -------------------------------------------------------------------------- */
-/*  Giriş denemesi kararı (mobil web + turnike)                                */
-/* -------------------------------------------------------------------------- */
 
 export const ENTRY_DECISION = {
   OK: 'OK',
@@ -416,13 +336,6 @@ export const ENTRY_DECISION = {
 
 export const COUNSELOR_TITLE = 'Rehber Öğretmeninizle Görüşün';
 
-/**
- * Öğrenci karekod okuttuğunda girişin kabul edilip edilmeyeceğini belirler.
- *
- * Geç kalma durumunda giriş OTOMATİK YAPILMAZ; öğrenciye rehberlik ekranı
- * gösterilir ve nöbetçi/görevli öğretmenin "Öğrenci Geçiş" ekranından manuel
- * "Giriş Yap" butonuna basması beklenir.
- */
 export const evaluateEntryAttempt = (options) => {
   const opts = options || {};
   const cfg = opts.config && opts.config.morningEntryHour
@@ -452,7 +365,6 @@ export const evaluateEntryAttempt = (options) => {
     return { ...base, message: 'Geçiş saati okunamadı. Lütfen görevli öğretmene başvurun.' };
   }
 
-  // Kapalı gün kontrolü (manuel onay bunu da aşabilir)
   if (!isManualApproval && opts.isClosedDay) {
     return {
       ...base,
@@ -465,7 +377,6 @@ export const evaluateEntryAttempt = (options) => {
 
   const classification = classifyScanMinutes(minutes, cfg);
 
-  // Nöbetçi öğretmen manuel onayı: saat ne olursa olsun giriş kaydedilir.
   if (isManualApproval) {
     return {
       ...base,
@@ -546,10 +457,6 @@ export const evaluateEntryAttempt = (options) => {
   };
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Günlük devamsızlık hesabı                                                  */
-/* -------------------------------------------------------------------------- */
-
 export const ABSENCE_STATUS = {
   PENDING: 'BEKLEMEDE',
   PRESENT: 'MEVCUT',
@@ -558,16 +465,6 @@ export const ABSENCE_STATUS = {
   EXCUSED: 'RAPORLU'
 };
 
-/**
- * Bir öğrencinin bir gününü, o ana kadarki okutmalarına göre değerlendirir.
- *
- * Kurallar (kullanıcının tanımladığı şekliyle):
- *  - Yarım gün sınırından (12:00) ÖNCE giriş yaptıysa "sabah var".
- *  - Saat 12:00 olduğunda sabah oturumu kesinleşir: gelmeyene 0,5 gün yazılır.
- *  - Öğleden sonra gelirse ikinci yarım gün silinir  => toplam 0,5 (yarım gün yok).
- *  - Okul çıkış saatinde (varsayılan 16:00) öğleden sonra oturumu kesinleşir:
- *    hiç gelmeyene bir yarım gün daha yazılır => 1,0 (tam gün yok).
- */
 export const evaluateStudentDay = (options) => {
   const opts = options || {};
   const cfg = opts.config && opts.config.morningEntryHour
@@ -594,7 +491,6 @@ export const evaluateStudentDay = (options) => {
   const morningFinalized = !closed && nowMinutes >= w.halfDayCutoff;
   const afternoonFinalized = !closed && nowMinutes >= w.schoolExit;
 
-  // İçeride mi? Son okutma yönüne bakılır.
   const lastScan = scans.length ? scans[scans.length - 1] : null;
   const isInside = Boolean(lastScan && lastScan.action === 'entry');
   const lastEntry = entries.length ? entries[entries.length - 1] : null;
@@ -602,7 +498,6 @@ export const evaluateStudentDay = (options) => {
   const hasAutoLunchExit = scans.some(s => s.action === 'exit' && s.autoKind === 'lunch_exit');
   const hasAutoSchoolExit = scans.some(s => s.action === 'exit' && s.autoKind === 'school_exit');
 
-  // 12:10 otomatik çıkış: sabah girmiş, hâlâ içeride görünüyor, çıkış okutmamış.
   const needsAutoLunchExit = Boolean(
     cfg.autoLunchExitEnabled &&
     !closed &&
@@ -613,7 +508,6 @@ export const evaluateStudentDay = (options) => {
     !hasAutoLunchExit
   );
 
-  // Okul çıkışında hâlâ içeride görünenler kapatılır.
   const needsAutoSchoolExit = Boolean(
     cfg.autoSchoolExitEnabled &&
     !closed &&
@@ -623,13 +517,11 @@ export const evaluateStudentDay = (options) => {
     !hasAutoSchoolExit
   );
 
-  // --- Devamsızlık ağırlığı -------------------------------------------------
   let absenceWeight = 0;
   const missingSessions = [];
   if (morningFinalized && !morningPresent) { absenceWeight += 0.5; missingSessions.push(SESSION_MORNING); }
   if (afternoonFinalized && !afternoonPresent) { absenceWeight += 0.5; missingSessions.push(SESSION_AFTERNOON); }
 
-  // Gün bitince oluşacak nihai ağırlık (öngörü)
   const projectedWeight = (morningPresent ? 0 : 0.5) + (afternoonPresent ? 0 : 0.5);
 
   const isLate = Boolean(
@@ -637,7 +529,6 @@ export const evaluateStudentDay = (options) => {
     (firstAfternoonEntry && firstAfternoonEntry.isLate)
   );
 
-  // --- Durum etiketi --------------------------------------------------------
   let status;
   let statusLabel;
 
@@ -658,7 +549,6 @@ export const evaluateStudentDay = (options) => {
     statusLabel = `Giriş Bekleniyor (${cfg.halfDayCutoffHour} sonrası kesinleşir)`;
   }
 
-  // --- Açıklama -------------------------------------------------------------
   const parts = [];
   if (firstMorningEntry) parts.push(`Sabah giriş: ${firstMorningEntry.time}${firstMorningEntry.isLate ? ' (geç)' : ''}`);
   else if (morningFinalized) parts.push('Sabah gelmedi');
@@ -697,28 +587,14 @@ export const evaluateStudentDay = (options) => {
   };
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Otomatik devamsızlık kayıtları                                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Otomatik devamsızlık kaydının deterministik döküman kimliği.
- * Öğrenci başına GÜNDE TEK kayıt tutulur; gün ilerledikçe bu kayıt güncellenir
- * (12:00'de yarım gün olarak açılır, okul çıkışında tam güne yükseltilir).
- */
 export const buildAutoAbsenceId = (dateKey, studentId) =>
   `auto_${dateKey}_${studentId}`;
 
-/**
- * Eski (oturum başına ayrı kayıt tutan) şemadan kalan döküman kimlikleri.
- * Yeni tek kayıt yazılırken bunlar temizlenir.
- */
 export const buildLegacyAutoAbsenceIds = (dateKey, studentId) => [
   `auto_${dateKey}_${studentId}_morning`,
   `auto_${dateKey}_${studentId}_afternoon`
 ];
 
-/** Rehberlik onayı bekleyen geç giriş talebinin deterministik kimliği. */
 export const buildLateApprovalId = (dateKey, studentId, session) =>
   `${dateKey}_${studentId}_${session}`;
 
@@ -727,7 +603,6 @@ export const SESSION_LABELS = {
   afternoon: 'Öğleden Sonra'
 };
 
-/** Kaçırılan oturumları okunabilir etikete çevirir. */
 export const describeMissingSessions = (sessions) => {
   const list = sessions || [];
   if (list.length >= 2) return 'Sabah + Öğleden Sonra';
@@ -736,17 +611,6 @@ export const describeMissingSessions = (sessions) => {
   return '';
 };
 
-/**
- * Bir öğrencinin o günkü devamsızlık kaydını üretir — GÜNDE TEK KAYIT.
- *
- *   • Sabah gelmedi, öğleden sonra henüz kesinleşmedi -> Yarım Gün Yok (Sabah)      0,5
- *   • Sabah geldi, öğleden sonra gelmedi              -> Yarım Gün Yok (Öğleden Sonra) 0,5
- *   • Hiç gelmedi (okul çıkışı geçti)                 -> TAM GÜN YOK               1,0
- *   • Devamsızlık yok                                 -> null (kayıt silinmeli)
- *
- * Deterministik kimlik kullandığı için tekrar tekrar çalıştırmak güvenlidir;
- * kayıt her turda mevcut duruma göre GÜNCELLENİR, yenisi eklenmez.
- */
 export const buildAutoAbsenceRecord = (options) => {
   const opts = options || {};
   const cfg = opts.config && opts.config.morningEntryHour
@@ -755,10 +619,9 @@ export const buildAutoAbsenceRecord = (options) => {
 
   if (!cfg.autoAttendanceEnabled) return null;
   if (opts.isClosedDay) return null;
-  if (opts.hasExcuse) return null;        // Raporlu/izinli öğrenciye yazılmaz
-  if (opts.hasManualRecord) return null;  // İdarenin elle girdiği kayıt önceliklidir
+  if (opts.hasExcuse) return null;        
+  if (opts.hasManualRecord) return null;  
 
-  // Yeni kayıt koruması: Saat 09:00'dan sonra sisteme kaydolan öğrencilere o gün otomatik devamsızlık yazılmaz
   const cAt = opts.createdAt || opts.studentCreatedAt;
   if (cAt) {
     try {
@@ -766,7 +629,7 @@ export const buildAutoAbsenceRecord = (options) => {
       const createdDateKey = getDateKeyInTimeZone(createdDate, cfg.timeZone);
       if (createdDateKey === opts.dateKey) {
         const createdMinutes = getMinutesInTimeZone(createdDate, cfg.timeZone);
-        if (createdMinutes >= 540) { // 09:00 ve sonrası
+        if (createdMinutes >= 540) { 
           return null;
         }
       }
@@ -810,10 +673,6 @@ export const buildAutoAbsenceRecord = (options) => {
   };
 };
 
-/**
- * Bir günün toplam devamsızlık ağırlığını, ilgili kayıtlardan hesaplar.
- * Otomatik yarım günler toplanır: 0.5 + 0.5 = 1.0 (tam gün yok).
- */
 export const sumAbsenceWeight = (records) => {
   let total = 0;
   for (const r of records || []) {
@@ -832,14 +691,12 @@ export const sumAbsenceWeight = (records) => {
   return Math.min(1, Math.round(total * 2) / 2);
 };
 
-/** Ağırlığı okunabilir Türkçe etikete çevirir. */
 export const describeAbsenceWeight = (weight) => {
   if (!weight) return 'Devamsızlık Yok';
   if (weight >= 1) return 'Tam Gün Yok (1.0)';
   return 'Yarım Gün Yok (0.5)';
 };
 
-/** Sayıyı Türkçe ondalık gösterimine çevirir: 1.5 -> "1,5" */
 export const formatDayCount = (value) => {
   const n = Number(value) || 0;
   return (Math.round(n * 2) / 2).toFixed(1).replace('.0', '').replace('.', ',');

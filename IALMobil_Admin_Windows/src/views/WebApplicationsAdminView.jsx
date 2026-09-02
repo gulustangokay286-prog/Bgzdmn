@@ -72,27 +72,22 @@ const WebApplicationsAdminView = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // HR Applications State
   const [hrApps, setHrApps] = useState([]);
   const [loadingHr, setLoadingHr] = useState(true);
   const [selectedHrApp, setSelectedHrApp] = useState(null);
 
-  // Contact Messages State
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [selectedContact, setSelectedContact] = useState(null);
 
-  // Delete Confirmation
-  const [deleteTarget, setDeleteTarget] = useState(null); // { id, collection, name }
+  const [deleteTarget, setDeleteTarget] = useState(null); 
 
-  // Toast
   const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
   const showToast = (message, tone = 'success') => {
     setToast({ open: true, message, tone });
     setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 3500);
   };
 
-  // 1. Subscribe to HR Applications
   useEffect(() => {
     try {
       const q = query(collection(db, 'hr_applications'), orderBy('createdAtMillis', 'desc'));
@@ -105,7 +100,7 @@ const WebApplicationsAdminView = () => {
         setLoadingHr(false);
       }, (err) => {
         console.warn('HR Applications listener fallback without sort:', err);
-        // Fallback without orderBy in case index/field is missing
+        
         const unsubFallback = onSnapshot(collection(db, 'hr_applications'), (snapshot) => {
           const list = snapshot.docs.map((d) => ({
             id: d.id,
@@ -124,7 +119,6 @@ const WebApplicationsAdminView = () => {
     }
   }, []);
 
-  // 2. Subscribe to Contact Messages
   useEffect(() => {
     try {
       const q = query(collection(db, 'contact_messages'), orderBy('createdAtMillis', 'desc'));
@@ -155,7 +149,6 @@ const WebApplicationsAdminView = () => {
     }
   }, []);
 
-  // Filtered HR
   const filteredHrApps = useMemo(() => {
     return hrApps.filter((app) => {
       const matchesSearch =
@@ -169,7 +162,6 @@ const WebApplicationsAdminView = () => {
     });
   }, [hrApps, searchQuery, statusFilter]);
 
-  // Filtered Contacts
   const filteredContacts = useMemo(() => {
     return contacts.filter((c) => {
       const matchesSearch =
@@ -184,7 +176,6 @@ const WebApplicationsAdminView = () => {
     });
   }, [contacts, searchQuery, statusFilter]);
 
-  // Counts
   const unreadHrCount = hrApps.filter((a) => a.status === 'yeni' || !a.status).length;
   const unreadContactsCount = contacts.filter((c) => c.status === 'yeni' || !c.status).length;
 
@@ -199,7 +190,6 @@ const WebApplicationsAdminView = () => {
     }
   ];
 
-  // Actions
   const handleUpdateStatus = async (colName, docId, newStatus) => {
     try {
       await updateDoc(doc(db, colName, docId), { status: newStatus });
@@ -232,7 +222,7 @@ const WebApplicationsAdminView = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-[1400px] mx-auto pb-16">
-      {/* Toast Notification */}
+      
       <Toast
         open={toast.open}
         message={toast.message}
@@ -240,7 +230,6 @@ const WebApplicationsAdminView = () => {
         onClose={() => setToast((prev) => ({ ...prev, open: false }))}
       />
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className={eyebrow}>WEB PORTAL YÖNETİMİ</div>
@@ -252,7 +241,6 @@ const WebApplicationsAdminView = () => {
           </p>
         </div>
 
-        {/* Sleek Minimalist Counter Badges */}
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-200">
             <span className={`w-2 h-2 rounded-full ${unreadHrCount > 0 ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'}`} />
@@ -266,7 +254,6 @@ const WebApplicationsAdminView = () => {
         </div>
       </div>
 
-      {/* Main Panel */}
       <Panel>
         <PanelHeader
           title="Gelen Başvurular ve Mesajlar"
@@ -274,7 +261,7 @@ const WebApplicationsAdminView = () => {
         />
 
         <div className="p-5 flex flex-col gap-5">
-          {/* Top Control Bar: Tabs & Search */}
+          
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <Segmented
               value={activeTab}
@@ -286,7 +273,7 @@ const WebApplicationsAdminView = () => {
             />
 
             <div className="flex items-center gap-2">
-              {/* Status Filter Dropdown */}
+              
               <div className="relative flex items-center">
                 <select
                   value={statusFilter}
@@ -301,7 +288,6 @@ const WebApplicationsAdminView = () => {
                 <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
 
-              {/* Compact Search Box */}
               <div className="relative flex items-center w-48 sm:w-56">
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
@@ -323,7 +309,6 @@ const WebApplicationsAdminView = () => {
             </div>
           </div>
 
-          {/* TAB 1: İNSAN KAYNAKLARI BAŞVURULARI */}
           {activeTab === 'hr' && (
             <div className="flex flex-col gap-3">
               {loadingHr ? (
@@ -480,7 +465,6 @@ const WebApplicationsAdminView = () => {
             </div>
           )}
 
-          {/* TAB 2: İLETİŞİM & ÖN KAYIT MESAJLARI */}
           {activeTab === 'contacts' && (
             <div className="flex flex-col gap-3">
               {loadingContacts ? (
@@ -616,7 +600,6 @@ const WebApplicationsAdminView = () => {
         </div>
       </Panel>
 
-      {/* HR APPLICATION DETAIL MODAL */}
       {selectedHrApp && (
         <Modal
           open={Boolean(selectedHrApp)}
@@ -788,7 +771,6 @@ const WebApplicationsAdminView = () => {
         </Modal>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
       {deleteTarget && (
         <Modal
           open={Boolean(deleteTarget)}

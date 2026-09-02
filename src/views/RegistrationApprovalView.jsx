@@ -109,7 +109,7 @@ const RegistrationApprovalView = () => {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-2">
-      {/* ÜST BAŞLIK */}
+      
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -146,7 +146,6 @@ const RegistrationApprovalView = () => {
         </div>
       </header>
 
-      {/* ROL FİLTRE KISAYOLLARI */}
       <div className="flex flex-wrap gap-1.5">
         {ROLE_SUMMARY.map((group) => {
           const count = countFor(group);
@@ -173,9 +172,8 @@ const RegistrationApprovalView = () => {
         })}
       </div>
 
-      {/* ANA TABLO VE ARAMA PANELİ */}
       <Panel className="min-h-[580px]">
-        {/* ARAMA ÇUBUĞU */}
+        
         <div className={cx('flex items-center px-5 py-3 border-b overflow-hidden', hairline)}>
           <div className="relative flex-1 min-w-0">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -250,7 +248,6 @@ const RegistrationApprovalView = () => {
         )}
       </Panel>
 
-      {/* TOPLU ONAY MODALI */}
       <Modal
         open={bulkConfirm}
         onClose={() => setBulkConfirm(false)}

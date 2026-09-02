@@ -6,20 +6,8 @@ import {
 } from '../services/attendanceService';
 import { getDateKeyInTimeZone, getMinutesInTimeZone, minutesToTime } from '../services/attendanceRules';
 
-const TICK_MS = 60_000; // dakikada bir
+const TICK_MS = 60_000; 
 
-/**
- * Otomatik yoklama motoru (arka plan görevi).
- *
- * IALMobil Admin Windows açık olduğu sürece dakikada bir çalışır ve:
- *   • 12:10'da sabah okutup çıkış okutmayanlara otomatik çıkış verir
- *   • 12:00'de sabah gelmeyenlere yarım gün yok yazar
- *   • Okul çıkış saatinde (kurum ayarlarından) hiç gelmeyenlere ikinci yarım
- *     günü yazarak tam gün yok'a tamamlar
- *
- * Tüm yazmalar deterministik döküman kimliği kullandığı için birden fazla panel
- * açık olsa bile mükerrer devamsızlık oluşmaz.
- */
 const useAttendanceAutomation = (enabled = true) => {
   const [lastRun, setLastRun] = useState(null);
   const runningRef = useRef(false);
@@ -29,7 +17,6 @@ const useAttendanceAutomation = (enabled = true) => {
     if (!enabled) return undefined;
     let cancelled = false;
 
-    // Bu panele özgü kiralama kimliği (render sırasında değil, efekt içinde üretilir).
     if (!ownerIdRef.current) {
       ownerIdRef.current = `admin_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
     }
@@ -75,11 +62,9 @@ const useAttendanceAutomation = (enabled = true) => {
       }
     };
 
-    // Panel açılır açılmaz bir kez çalış (gün içinde geç açıldıysa telafi eder)
     tick();
     const id = setInterval(tick, TICK_MS);
 
-    // Bilgisayar uykudan döndüğünde / sekmeye geri gelindiğinde hemen kontrol et
     const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
     document.addEventListener('visibilitychange', onVisible);
 

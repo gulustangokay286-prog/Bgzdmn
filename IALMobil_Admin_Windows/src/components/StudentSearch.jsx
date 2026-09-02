@@ -5,10 +5,6 @@ import { cx, eyebrow, hairline } from './ui/tokens';
 
 const CLASS_OPTIONS = ['Tümü', '9. Sınıf', '10. Sınıf', '11. Sınıf', '12. Sınıf'];
 
-/**
- * Ana-detay ekranlarının sol sütunu: aranabilir kişi listesi.
- * Not Yönetimi, Devamsızlık, Rehberlik ve Kasa ekranları paylaşır.
- */
 const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) => {
   const [searchText, setSearchText] = useState('');
   const [selectedClass, setSelectedClass] = useState('Tümü');

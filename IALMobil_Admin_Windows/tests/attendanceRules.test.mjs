@@ -1,7 +1,4 @@
-/**
- * Yoklama Kural Motoru Testleri
- * Çalıştırma:  node --test tests/
- */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -35,10 +32,6 @@ import {
 const CFG = resolveAttendanceConfig({});
 const at = (t) => timeToMinutes(t);
 
-/* ========================================================================== */
-/*  1. Zaman yardımcıları                                                     */
-/* ========================================================================== */
-
 test('timeToMinutes / minutesToTime gidiş-dönüş', () => {
   assert.equal(timeToMinutes('09:00'), 540);
   assert.equal(timeToMinutes('09:10'), 550);
@@ -57,13 +50,13 @@ test('timeToMinutes geçersiz girdilerde null döner', () => {
 });
 
 test('getMinutesInTimeZone UTC damgasını Türkiye saatine çevirir', () => {
-  // 2026-08-25T06:11:00Z  ->  Türkiye (UTC+3) 09:11
+  
   const d = new Date('2026-08-25T06:11:00Z');
   assert.equal(getMinutesInTimeZone(d, 'Europe/Istanbul'), timeToMinutes('09:11'));
 });
 
 test('getDateKeyInTimeZone gün anahtarını doğru üretir', () => {
-  // 2026-08-25T21:30:00Z -> Türkiye'de 26 Ağustos 00:30
+  
   assert.equal(getDateKeyInTimeZone(new Date('2026-08-25T21:30:00Z'), 'Europe/Istanbul'), '2026-08-26');
   assert.equal(getDateKeyInTimeZone(new Date('2026-08-25T06:00:00Z'), 'Europe/Istanbul'), '2026-08-25');
 });
@@ -72,10 +65,6 @@ test('getDayNameInTimeZone Türkçe gün adı döner', () => {
   assert.equal(getDayNameInTimeZone(new Date('2026-08-25T09:00:00Z'), 'Europe/Istanbul'), 'Salı');
   assert.equal(getDayNameInTimeZone(new Date('2026-08-23T09:00:00Z'), 'Europe/Istanbul'), 'Pazar');
 });
-
-/* ========================================================================== */
-/*  2. Yapılandırma çözümleme                                                 */
-/* ========================================================================== */
 
 test('varsayılan yapılandırma kullanıcının istediği saatleri verir', () => {
   assert.equal(CFG.morningEntryHour, '09:00');
@@ -112,9 +101,9 @@ test('eski kurum ayarları (lunchBreakStart/End, closingHour) geriye dönük oku
 test('bozuk saat sırası otomatik onarılır, sistem kilitlenmez', () => {
   const broken = resolveAttendanceConfig({
     morningEntryHour: '09:00',
-    lunchExitHour: '08:00',       // sabahtan önce (hatalı)
-    afternoonEntryHour: '07:00',  // daha da erken (hatalı)
-    schoolExitHour: '06:00'       // en erken (hatalı)
+    lunchExitHour: '08:00',       
+    afternoonEntryHour: '07:00',  
+    schoolExitHour: '06:00'       
   });
   const w = getAttendanceWindows(broken);
   assert.ok(w.morningStart < w.lunchExitStart, 'sabah < öğle çıkışı');
@@ -134,10 +123,6 @@ test('kapalı gün ve tatil kontrolü', () => {
   assert.equal(isClosedDay(new Date('2026-08-25T09:00:00Z'), cfg), false, 'Salı açık');
   assert.equal(isClosedDay(new Date('2026-08-30T09:00:00Z'), cfg), true,  'tatil günü kapalı');
 });
-
-/* ========================================================================== */
-/*  3. GEÇ KALMA — kullanıcının birebir istediği senaryolar                    */
-/* ========================================================================== */
 
 test('09:00 tam vaktinde giriş kabul edilir', () => {
   const d = evaluateEntryAttempt({ minutes: at('09:00'), config: CFG });
@@ -243,10 +228,6 @@ test('rehberlik onayı kapatılırsa geç giriş doğrudan kaydedilir', () => {
   assert.equal(d.requiresCounselor, false);
 });
 
-/* ========================================================================== */
-/*  4. GÜN DEĞERLENDİRME — yarım gün / tam gün mantığı                        */
-/* ========================================================================== */
-
 const scan = (time, action = 'entry', extra = {}) => ({
   minutes: at(time), time, action,
   session: classifyScanMinutes(at(time), CFG).session,
@@ -291,7 +272,7 @@ test('sabah geldi + öğleden sonra GELMEDİ = yarım gün yok (0.5)', () => {
 });
 
 test('KULLANICI KURALI: yarım gün var + yarım gün yok = yarım gün yok', () => {
-  // Sabah gelmedi (12:00 itibarıyla 0.5), öğleden sonra geldi -> toplam 0.5
+  
   const r = evaluateStudentDay({
     scans: [scan('13:05')],
     nowMinutes: at('16:00'), config: CFG
@@ -340,10 +321,6 @@ test('kapalı günde devamsızlık işlenmez', () => {
   assert.match(r.statusLabel, /Kapalı/);
 });
 
-/* ========================================================================== */
-/*  5. OKUL ÇIKIŞ SAATİ AYARLANABİLİRLİĞİ                                     */
-/* ========================================================================== */
-
 test('okul çıkış saati 15:00 yapılırsa tam gün 15:00 de kesinleşir', () => {
   const cfg = resolveAttendanceConfig({ schoolExitHour: '15:00' });
   assert.equal(cfg.schoolExitHour, '15:00');
@@ -379,10 +356,6 @@ test('sabah giriş saati 08:30 + 5 dk tolerans olarak değiştirilebilir', () =>
   assert.equal(gec.allowed, false);
   assert.equal(gec.requiresCounselor, true);
 });
-
-/* ========================================================================== */
-/*  6. 12:10 OTOMATİK ÇIKIŞ                                                   */
-/* ========================================================================== */
 
 test('12:10 — sabah okuttu, çıkış okutmadı => OTOMATİK ÇIKIŞ gerekir', () => {
   const r = evaluateStudentDay({ scans: [scan('09:00')], nowMinutes: at('12:10'), config: CFG });
@@ -445,10 +418,6 @@ test('otomatik çıkış ayarı kapatılabilir', () => {
   assert.equal(r.needsAutoLunchExit, false);
 });
 
-/* ========================================================================== */
-/*  7. OTOMATİK DEVAMSIZLIK KAYITLARI                                         */
-/* ========================================================================== */
-
 const autoRecord = (nowTime, scans = [], extra = {}) => {
   const evaluation = evaluateStudentDay({ scans, nowMinutes: at(nowTime), config: CFG });
   return buildAutoAbsenceRecord({
@@ -477,7 +446,6 @@ test('KULLANICI KURALI: 16:00 — AYNI kayıt TAM GÜN YOK a yükseltilir', () =
   assert.deepEqual(tam.missingSessions, ['morning', 'afternoon']);
   assert.equal(tam.sessionLabel, 'Sabah + Öğleden Sonra');
 
-  // En kritik nokta: aynı döküman kimliği -> iki ayrı "yarım gün" satırı OLUŞMAZ
   assert.equal(tam.id, yarim.id, 'aynı kayıt güncellenmeli, yenisi eklenmemeli');
   assert.equal(tam.id, 'auto_2026-08-25_stu1');
 });
@@ -548,10 +516,6 @@ test('tek kayıt ağırlığı doğrudan okunur, toplama gerekmez', () => {
   assert.equal(sumAbsenceWeight([autoRecord('12:00')]), 0.5);
 });
 
-/* ========================================================================== */
-/*  8. Ağırlık toplama ve biçimlendirme                                       */
-/* ========================================================================== */
-
 test('sumAbsenceWeight yarım günleri toplar, tam günü aşmaz', () => {
   assert.equal(sumAbsenceWeight([{ absenceWeight: 0.5 }, { absenceWeight: 0.5 }]), 1);
   assert.equal(sumAbsenceWeight([{ courseName: 'Yarım Gün Yok (Sabah)' }]), 0.5);
@@ -570,10 +534,6 @@ test('formatDayCount Türkçe ondalık gösterir', () => {
   assert.equal(formatDayCount(0.5), '0,5');
   assert.equal(formatDayCount(0), '0');
 });
-
-/* ========================================================================== */
-/*  9. Ham kayıt normalizasyonu (RTDB / Firestore / VDS uyumu)                */
-/* ========================================================================== */
 
 test('RTDB epoch damgalı kayıt normalize edilir', () => {
   const s = normalizeScanRecord(
@@ -619,23 +579,18 @@ test('sortAndDedupeScans mükerrer okutmaları temizler', () => {
   assert.deepEqual(list.map(s => s.time), ['09:00', '12:05', '13:00']);
 });
 
-/* ========================================================================== */
-/*  10. UÇTAN UCA GÜN SİMÜLASYONU                                             */
-/* ========================================================================== */
-
 test('E2E: normal bir okul günü dakika dakika ilerler', () => {
   const timeline = [];
   const scans = [];
   const push = (t) => scans.push(scan(t.time, t.action, t.extra || {}));
 
-  // 08:55 giriş
   push({ time: '08:55', action: 'entry' });
   timeline.push(['09:30', evaluateStudentDay({ scans, nowMinutes: at('09:30'), config: CFG })]);
-  // 12:10 otomatik çıkış tetiklenir
+  
   const at1210 = evaluateStudentDay({ scans, nowMinutes: at('12:10'), config: CFG });
   assert.equal(at1210.needsAutoLunchExit, true);
   push({ time: '12:10', action: 'exit', extra: { auto: true, autoKind: 'lunch_exit' } });
-  // 13:02 tekrar giriş
+  
   push({ time: '13:02', action: 'entry' });
 
   const final = evaluateStudentDay({ scans, nowMinutes: at('16:00'), config: CFG });
@@ -662,17 +617,15 @@ test('E2E: hiç gelmeyen öğrencinin günü', () => {
 });
 
 test('E2E: geç kalıp rehberlikten onay alan öğrenci', () => {
-  // 09:25 te okuttu -> reddedildi, rehberlik ekranı
+  
   const red = evaluateEntryAttempt({ minutes: at('09:25'), config: CFG });
   assert.equal(red.allowed, false);
   assert.equal(red.title, COUNSELOR_TITLE);
 
-  // Görevli öğretmen 09:40 ta manuel giriş yaptı
   const onay = evaluateEntryAttempt({ minutes: at('09:40'), config: CFG, isManualApproval: true });
   assert.equal(onay.allowed, true);
   assert.equal(onay.isLate, true);
 
-  // Gün sonunda: sabah var (geç), öğleden sonra yok -> 0.5
   const gun = evaluateStudentDay({
     scans: [scan('09:40', 'entry', { isLate: true })],
     nowMinutes: at('16:00'), config: CFG

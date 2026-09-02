@@ -224,7 +224,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
           'px-5 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors group'
         )}
       >
-        {/* Ad soyad */}
+        
         <div className="flex items-center gap-2.5 min-w-0">
           {pp && !imgError ? (
             <img
@@ -261,7 +261,6 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
           </div>
         </div>
 
-        {/* Rol */}
         <div className="min-w-0">
           <div className="text-[13px] text-slate-700 dark:text-slate-200 truncate">
             {ROLE_LABELS[roleKey] || rawRole}
@@ -273,17 +272,14 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
           )}
         </div>
 
-        {/* TC */}
         <div className="text-[12.5px] text-slate-500 dark:text-slate-400 tnum truncate" title={tc}>
           {tc}
         </div>
 
-        {/* E-posta */}
         <div className="text-[12.5px] text-slate-500 dark:text-slate-400 truncate" title={email}>
           {email}
         </div>
 
-        {/* Durum / İşlem (Hover Toggle) */}
         <div className="relative flex items-center w-full h-8 min-w-0">
           {showApprovalActions ? (
             isProcessing ? (
@@ -332,7 +328,6 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
         </div>
       </div>
 
-      {/* Düzenleme Modalı */}
       <Modal
         open={showDetails}
         onClose={() => setShowDetails(false)}
@@ -464,7 +459,6 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
         </form>
       </Modal>
 
-      {/* Onay diyalogları */}
       <Modal
         open={Boolean(confirmAction)}
         onClose={() => setConfirmAction(null)}

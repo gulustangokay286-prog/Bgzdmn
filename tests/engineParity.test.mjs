@@ -1,12 +1,4 @@
-/**
- * MOTOR EŞİTLİK TESTİ
- *
- * Mobil web + Admin Windows (ESM) ile VDS backend (CJS) BİREBİR aynı kuralları
- * çalıştırmalıdır. Bu test:
- *   1) Backend kopyasının kaynakla senkron olduğunu,
- *   2) İki motorun tüm senaryolarda aynı kararı ürettiğini
- * doğrular.
- */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

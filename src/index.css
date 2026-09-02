@@ -361,12 +361,11 @@ textarea:not([class*="bg-"]):not([class*="rounded-"]) {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.01);
 }
 
-input:not([class*="focus:bg-"]):focus,
-select:not([class*="focus:bg-"]):focus,
-textarea:not([class*="focus:bg-"]):focus {
-  background: #FFFFFF;
+input:not([class*="border-"]):focus,
+select:not([class*="border-"]):focus,
+textarea:not([class*="border-"]):focus {
   border-color: var(--info);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
 }
 
 input::placeholder,
@@ -812,9 +811,9 @@ tr:hover td {
   animation: wp-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---------------------------------------------------------------------- */
-/* Panel arayüz seti — ince kaydırma çubuğu ve sayısal hizalama yardımcıları */
-/* ---------------------------------------------------------------------- */
+
+
+
 
 .panel-scroll::-webkit-scrollbar {
   width: 8px;

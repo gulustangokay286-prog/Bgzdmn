@@ -1,21 +1,4 @@
-/**
- * ============================================================================
- *  1000 ÖĞRENCİ YÜK TESTİ — GERÇEK ALTYAPI
- * ============================================================================
- *  Sahte veri tabanı yok. Gerçek Firestore + RTDB üzerinde:
- *
- *    1) N geçici öğrenci oluşturur ("zz-load-...")
- *    2) Peş peşe karekod okutmasını simüle eder (gerçek yazma yolu)
- *    3) Otomasyon turunu çalıştırıp SÜRESİNİ ölçer
- *    4) Doğruluğu kontrol eder: her öğrenciye doğru kayıt, mükerrer yok
- *    5) Her şeyi temizler
- *
- *  Otomasyon `onlyStudentIds` ile SADECE yük testi öğrencilerine kilitlenir;
- *  kurumun gerçek öğrencilerine dokunulmaz.
- *
- *  Kullanım:  node tests/run-loadtest.mjs [öğrenciSayısı]
- * ============================================================================
- */
+
 
 import {
   collection, doc, setDoc, getDocs, deleteDoc, query, where, writeBatch
@@ -45,7 +28,6 @@ const section = (t) => console.log(`\n\x1b[1m${t}\x1b[0m`);
 const info = (m) => console.log(`  · ${m}`);
 const ms = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)} sn` : `${Math.round(n)} ms`;
 
-/** Eş zamanlılık sınırlı paralel işleyici. */
 async function mapLimit(items, limit, fn) {
   const results = new Array(items.length);
   let idx = 0;
@@ -62,7 +44,7 @@ async function mapLimit(items, limit, fn) {
 
 async function seedStudents(config, dateKey) {
   const t0 = performance.now();
-  const CHUNK = 400; // Firestore batch üst sınırı 500
+  const CHUNK = 400; 
   let written = 0;
   for (let i = 0; i < ids.length; i += CHUNK) {
     const slice = ids.slice(i, i + CHUNK);
@@ -93,7 +75,7 @@ async function cleanupAll(dateKey) {
     for (let i = 0; i < docIds.length; i += 400) {
       const batch = writeBatch(db);
       docIds.slice(i, i + 400).forEach(id => batch.delete(doc(db, colName, id)));
-      // Hatalar yutulmaz: temizlik eksik kalırsa görünür olmalı.
+      
       let attempt = 0;
       for (;;) {
         try { await batch.commit(); break; }
@@ -105,7 +87,6 @@ async function cleanupAll(dateKey) {
     }
   };
 
-  /** Kalan varsa sorguyla toplayıp tekrar dener. */
   const sweep = async (colName) => {
     for (let round = 0; round < 3; round++) {
       let leftovers = [];
@@ -122,11 +103,9 @@ async function cleanupAll(dateKey) {
   await delDocs('gate_status', ids);
   await delDocs('attendance', ids.map(id => buildAutoAbsenceId(dateKey, id)));
 
-  // Sorguyla kalanları topla (attendance_logs rastgele kimlikli)
   await sweep('attendance');
   await sweep('attendance_logs');
 
-  // RTDB
   const rtdbUpdates = {};
   ids.forEach(id => { rtdbUpdates[`qr_system/gate_status/${id}`] = null; });
   for (let i = 0; i < ids.length; i += 500) {
@@ -149,7 +128,7 @@ async function cleanupAll(dateKey) {
         await update(ref(rtdb), chunk).catch(() => {});
       }
     }
-  } catch (e) { /* yok say */ }
+  } catch (e) {  }
 
   try {
     const snap = await get(ref(rtdb, 'qr_system/live_scans'));
@@ -162,7 +141,7 @@ async function cleanupAll(dateKey) {
         await update(ref(rtdb), chunk).catch(() => {});
       }
     }
-  } catch (e) { /* yok say */ }
+  } catch (e) {  }
 
   return performance.now() - t0;
 }
@@ -181,10 +160,8 @@ async function main() {
   info(`Gün: ${dateKey} · şu an ${minutesToTime(getMinutesInTimeZone(now, config.timeZone))}`);
   info(`Okul çıkışı: ${config.schoolExitHour} · yarım gün sınırı: ${config.halfDayCutoffHour}`);
 
-  // Kirli kalıntı varsa temizle
   await cleanupAll(dateKey);
 
-  /* ---------------------------------------------------------------- */
   section(`1) ${N} ÖĞRENCİ OLUŞTURULUYOR`);
   const seedMs = await seedStudents(config, dateKey);
   info(`süre: ${ms(seedMs)}`);
@@ -193,7 +170,6 @@ async function main() {
   check(`${N} öğrenci oluşturuldu`, loadCount === N, `${loadCount} bulundu`);
   info(`veritabanındaki TOPLAM öğrenci: ${usersSnap.size}`);
 
-  /* ---------------------------------------------------------------- */
   section('2) PEŞ PEŞE KAREKOD OKUTMA (gerçek yazma yolu)');
   const SCAN_COUNT = Math.min(N, 200);
   const CONCURRENCY = 25;
@@ -219,7 +195,6 @@ async function main() {
   const dupes = ids.slice(0, SCAN_COUNT).filter(id => (scans[id] || []).filter(s => s.action === 'entry').length > 1);
   check('Tekilleştirme çalışıyor (çift giriş yok)', dupes.length === 0, `${dupes.length} öğrencide çift kayıt`);
 
-  /* ---------------------------------------------------------------- */
   section('3) OTOMASYON TURU — 12:00 (yarım gün eşiği)');
   const t12 = performance.now();
   const run12 = await runAttendanceAutomation({ config, now: atToday('12:00'), onlyStudentIds: ids });
@@ -232,7 +207,6 @@ async function main() {
     run12.absencesWritten === N - SCAN_COUNT, `${run12.absencesWritten} yazıldı`);
   check('60 sn içinde bitti (cron aralığı)', ms12 < 60_000, ms(ms12));
 
-  /* ---------------------------------------------------------------- */
   section('4) OTOMASYON TURU — OKUL ÇIKIŞI (tam güne yükseltme)');
   const tEx = performance.now();
   const runEx = await runAttendanceAutomation({ config, now: atToday(config.schoolExitHour), onlyStudentIds: ids });
@@ -242,7 +216,6 @@ async function main() {
   check('Okul çıkışı turu hatasız', runEx.errors.length === 0, runEx.errors.slice(0, 3).join(' | '));
   check('60 sn içinde bitti', msEx < 60_000, ms(msEx));
 
-  /* ---------------------------------------------------------------- */
   section('5) DOĞRULUK KONTROLÜ');
   const records = await fetchDayAttendanceRecords(dateKey, atToday(config.schoolExitHour));
 
@@ -254,11 +227,11 @@ async function main() {
     const r = recs[0];
     const scanned = i < SCAN_COUNT;
     if (scanned) {
-      // sabah geldi, öğleden sonra gelmedi -> yarım gün (öğleden sonra)
+      
       if (r.absenceWeight === 0.5 && r.courseName.includes('Öğleden Sonra')) halfDay++;
       else wrong++;
     } else {
-      // hiç gelmedi -> tam gün
+      
       if (r.absenceWeight === 1 && r.courseName === 'Tam Gün Yok (Özürsüz)') fullDay++;
       else wrong++;
     }
@@ -271,7 +244,6 @@ async function main() {
   check('Hiç yanlış etiket yok', wrong === 0, `${wrong} öğrenci`);
   check('Hiç eksik kayıt yok', missing === 0, `${missing} öğrenci`);
 
-  /* ---------------------------------------------------------------- */
   section('6) İDEMPOTANSLIK — tur tekrar çalıştırılıyor');
   const tRe = performance.now();
   const runRe = await runAttendanceAutomation({ config, now: atToday(config.schoolExitHour), onlyStudentIds: ids });
@@ -284,7 +256,6 @@ async function main() {
   const totalAfter = ids.reduce((a, id) => a + (after[id] || []).filter(r => r.autoGenerated).length, 0);
   check(`Toplam kayıt hâlâ ${N}`, totalAfter === N, `${totalAfter}`);
 
-  /* ---------------------------------------------------------------- */
   section('7) TEMİZLİK');
   const cleanMs = await cleanupAll(dateKey);
   info(`süre: ${ms(cleanMs)}`);
@@ -295,7 +266,6 @@ async function main() {
   const leftAbs = Object.keys(leftRecs).filter(k => k.startsWith(PREFIX)).length;
   check('Yük testi devamsızlıkları silindi', leftAbs === 0, `${leftAbs} kaldı`);
 
-  /* ---------------------------------------------------------------- */
   console.log('\n' + '═'.repeat(62));
   console.log('\x1b[1mPERFORMANS ÖZETİ\x1b[0m');
   console.log(`  ${N} öğrenci oluşturma      : ${ms(seedMs)}`);

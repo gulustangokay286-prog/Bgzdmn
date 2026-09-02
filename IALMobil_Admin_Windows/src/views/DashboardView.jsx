@@ -23,7 +23,6 @@ const nfCompact = new Intl.NumberFormat('tr-TR', { notation: 'compact', maximumF
 const money = (n) => `₺${nf.format(Math.round(Number(n) || 0))}`;
 const moneyCompact = (n) => (n === 0 ? '0' : `₺${nfCompact.format(n)}`);
 
-/** Firestore REST ve SDK kayıtlarının ikisinden de alan okur. */
 const readField = (record, key) => {
   const f = record?.fields?.[key];
   if (f) return f.stringValue ?? f.timestampValue ?? f.doubleValue ?? f.integerValue ?? null;
@@ -36,7 +35,6 @@ const recordDate = (record) => {
   return d && !Number.isNaN(d.getTime()) ? d : null;
 };
 
-/** Eksen üst sınırını 1 / 2 / 2,5 / 5 katlarına yuvarlar. */
 const niceCeil = (value) => {
   if (!value || value <= 0) return 1000;
   const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
@@ -44,8 +42,6 @@ const niceCeil = (value) => {
   const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
   return step * magnitude;
 };
-
-/* ------------------------------------------------------------------ ölçüm şeridi */
 
 const MetricCell = ({ icon: Icon, label, value, share, last }) => (
   <div className={cx('flex-1 min-w-0 px-5 py-4', !last && 'sm:border-r', !last && hairline)}>
@@ -70,8 +66,6 @@ const MetricCell = ({ icon: Icon, label, value, share, last }) => (
   </div>
 );
 
-/* -------------------------------------------------------------------- grafik */
-
 const CashflowChart = ({ records }) => {
   const monthly = useMemo(() => {
     const data = Array.from({ length: 12 }, () => ({ income: 0, expense: 0 }));
@@ -95,7 +89,7 @@ const CashflowChart = ({ records }) => {
   return (
     <div className="px-5 pt-5 pb-4">
       <div className="flex">
-        {/* Değer ekseni */}
+        
         <div className="relative w-14 shrink-0 h-[188px]">
           {ticks.map((t, i) => (
             <span
@@ -108,7 +102,6 @@ const CashflowChart = ({ records }) => {
           ))}
         </div>
 
-        {/* Çizim alanı */}
         <div className="relative flex-1 h-[188px] min-w-0">
           {ticks.map((t, i) => (
             <div
@@ -162,7 +155,6 @@ const CashflowChart = ({ records }) => {
         </div>
       </div>
 
-      {/* Ay ekseni */}
       <div className="flex mt-2">
         <div className="w-14 shrink-0" />
         <div className="flex-1 flex min-w-0">
@@ -183,8 +175,6 @@ const CashflowChart = ({ records }) => {
   );
 };
 
-/* --------------------------------------------------------------- özet satırı */
-
 const SummaryRow = ({ label, value, tone = 'default' }) => (
   <div className="flex items-center justify-between gap-3 px-5 py-3">
     <span className="text-[12.5px] text-slate-500 dark:text-slate-400">{label}</span>
@@ -200,8 +190,6 @@ const SummaryRow = ({ label, value, tone = 'default' }) => (
     </span>
   </div>
 );
-
-/* --------------------------------------------------------------------- ekran */
 
 const DashboardView = () => {
   const [users, setUsers] = useState([]);
@@ -311,7 +299,7 @@ const DashboardView = () => {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-2">
-      {/* Başlık */}
+      
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -340,7 +328,6 @@ const DashboardView = () => {
         </div>
       </header>
 
-      {/* Kadro dağılımı */}
       <div
         className={cx(
           'flex flex-col sm:flex-row divide-y sm:divide-y-0',
@@ -354,7 +341,6 @@ const DashboardView = () => {
         <MetricCell icon={Users} label="Veli" value={parents} share={share(parents)} last />
       </div>
 
-      {/* Nakit akışı + mali özet */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <Panel className="lg:col-span-8">
           <PanelHeader title="Nakit Akışı" description="Aylık gelir ve gider hareketleri">
@@ -446,7 +432,6 @@ const DashboardView = () => {
         </Panel>
       </div>
 
-      {/* Son hareketler */}
       <Panel>
         <PanelHeader title="Son Hareketler" description="Kasa üzerindeki en güncel finansal işlemler">
           <span className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400 tnum">

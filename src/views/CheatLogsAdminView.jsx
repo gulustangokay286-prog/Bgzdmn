@@ -242,7 +242,7 @@ const CheatLogsAdminView = () => {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-4">
-      {/* Üst Başlık */}
+      
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -254,7 +254,6 @@ const CheatLogsAdminView = () => {
         </div>
       </header>
 
-      {/* 1. ERP Özet Şeridi */}
       <StatStrip>
         <Stat
           label="Toplam İhlal Sayısı"
@@ -282,7 +281,6 @@ const CheatLogsAdminView = () => {
         />
       </StatStrip>
 
-      {/* 2. Ana ERP Kayıt Paneli */}
       <Panel>
         <PanelHeader
           title="Tespit Edilen Güvenlik İhlalleri"
@@ -362,7 +360,7 @@ const CheatLogsAdminView = () => {
 
               return (
                 <div key={group.key} className="transition-colors">
-                  {/* Satır Başlığı */}
+                  
                   <div
                     onClick={() => toggleGroup(group.key)}
                     className={cx(
@@ -372,9 +370,9 @@ const CheatLogsAdminView = () => {
                         : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.02]'
                     )}
                   >
-                    {/* Eşleşen Öğrenciler */}
+                    
                     <div className="flex items-center gap-4 min-w-0">
-                      {/* Çift Avatar */}
+                      
                       <div className="flex items-center -space-x-2 shrink-0">
                         {group.origPhoto ? (
                           <img
@@ -401,7 +399,6 @@ const CheatLogsAdminView = () => {
                         )}
                       </div>
 
-                      {/* İsimler */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 text-[13.5px]">
                           <span className="font-medium text-slate-900 dark:text-white truncate">
@@ -421,7 +418,6 @@ const CheatLogsAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Sağ Taraf: İhlal Sayısı & Tarih */}
                     <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                       <Badge tone="danger">
                         {count > 1 ? `${count} İhlal` : '1 İhlal'}
@@ -439,11 +435,10 @@ const CheatLogsAdminView = () => {
                     </div>
                   </div>
 
-                  {/* Genişletilmiş Detay Alanı */}
                   {isExpanded && (
                     <div className={cx('px-5 py-4 border-t bg-slate-50/40 dark:bg-white/[0.01]', hairline)}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        {/* Kart Sahibi Kartı */}
+                        
                         <div className={cx('p-4 rounded-xl border bg-white dark:bg-[#0f172a]', hairline)}>
                           <div className="flex items-center gap-3.5">
                             {group.origPhoto ? (
@@ -473,7 +468,6 @@ const CheatLogsAdminView = () => {
                           </div>
                         </div>
 
-                        {/* Okutan Kişi Kartı */}
                         <div className={cx('p-4 rounded-xl border bg-white dark:bg-[#0f172a]', hairline)}>
                           <div className="flex items-center gap-3.5">
                             {group.attPhoto ? (
@@ -504,7 +498,6 @@ const CheatLogsAdminView = () => {
                         </div>
                       </div>
 
-                      {/* Tespit Geçmişi Tablosu */}
                       <div className={cx('rounded-xl border overflow-hidden bg-white dark:bg-[#0f172a]', hairline)}>
                         <div className={cx('flex items-center justify-between px-4 py-2 border-b bg-slate-50/70 dark:bg-white/[0.02]', hairline)}>
                           <span className={eyebrow}>Tespit Geçmişi ({count} İşlem)</span>

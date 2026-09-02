@@ -7,11 +7,6 @@ import { getDateKeyInTimeZone, buildLateApprovalId } from '../services/attendanc
 import fpPromise from '@fingerprintjs/fingerprintjs';
 import { detectIncognito as detectIncognitoLib } from 'detectincognitojs';
 
-// ============================================================
-// V2 SECURITY ENGINE — Composite Fingerprint + Incognito Detection
-// ============================================================
-
-// --- Haversine Distance Calculator (meters) ---
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3;
   const p1 = lat1 * Math.PI/180;
@@ -25,22 +20,19 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-// --- SHA-256 Hash Utility ---
 const sha256 = async (str) => {
   const buf = new TextEncoder().encode(str);
   const hash = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// --- Signal 1: Canvas Fingerprint (GPU-level, kendi implementasyonumuz) ---
 const getCanvasFingerprint = () => {
   try {
     const canvas = document.createElement('canvas');
     canvas.width = 280;
     canvas.height = 60;
     const ctx = canvas.getContext('2d');
-    
-    // Complex text rendering (GPU specific)
+
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = '#f60';
     ctx.fillRect(125, 1, 62, 20);
@@ -50,8 +42,7 @@ const getCanvasFingerprint = () => {
     ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
     ctx.font = '18pt Arial';
     ctx.fillText('BGZ Güvenlik Mührü 🔒', 4, 45);
-    
-    // Blend modes
+
     ctx.globalCompositeOperation = 'multiply';
     ctx.fillStyle = 'rgb(255,0,255)';
     ctx.beginPath();
@@ -70,7 +61,6 @@ const getCanvasFingerprint = () => {
   }
 };
 
-// --- Signal 2: WebGL Renderer String (GPU bilgisi) ---
 const getWebGLRenderer = () => {
   try {
     const canvas = document.createElement('canvas');
@@ -84,7 +74,6 @@ const getWebGLRenderer = () => {
   }
 };
 
-// --- Signal 3: AudioContext Fingerprint (ses işleme parmak izi) ---
 const getAudioFingerprint = () => {
   return new Promise((resolve) => {
     try {
@@ -121,17 +110,14 @@ const getAudioFingerprint = () => {
   });
 };
 
-// --- Signal 4: Screen Config ---
 const getScreenConfig = () => {
   return `${screen.width}x${screen.height}|${window.devicePixelRatio}|${screen.colorDepth}|${screen.pixelDepth}`;
 };
 
-// --- Signal 5: System Config ---
 const getSystemConfig = () => {
   return `${Intl.DateTimeFormat().resolvedOptions().timeZone}|${navigator.language}|${navigator.platform}|${navigator.hardwareConcurrency || 'x'}|${navigator.maxTouchPoints || 0}`;
 };
 
-// --- Signal 6: Font Enumeration (hızlı yöntem, DOM ölçümleriyle) ---
 const getFontFingerprint = () => {
   const baseFonts = ['monospace', 'sans-serif', 'serif'];
   const testFonts = [
@@ -170,7 +156,6 @@ const getFontFingerprint = () => {
   return detected.join(',');
 };
 
-// --- COMPOSITE DEVICE ID (8 sinyal birleştirme) ---
 const generateCompositeDeviceId = async (fpVisitorId, clientIp) => {
   const [audioFp] = await Promise.all([getAudioFingerprint()]);
   
@@ -195,7 +180,6 @@ const generateCompositeDeviceId = async (fpVisitorId, clientIp) => {
   };
 };
 
-// --- STABLE DEVICE ID (TARAYICININ DEĞİŞTİREMEYECEĞİ sinyaller) ---
 const getStableDeviceId = async (clientIp) => {
   const stableSignals = [
     `${screen.width}x${screen.height}`,
@@ -211,7 +195,6 @@ const getStableDeviceId = async (clientIp) => {
   return await sha256(stableSignals.join('|'));
 };
 
-// --- ADVANCED OS & HARDWARE DETECTION ---
 const getExactDeviceModel = async () => {
   let detectedHardware = 'Bilinmeyen Cihaz';
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -253,7 +236,6 @@ const getExactDeviceModel = async () => {
   return detectedHardware;
 };
 
-// --- INCOGNITO DETECTION ---
 const detectIncognito = async (hardwareId) => {
   let score = 100;
   const flags = [];
@@ -274,7 +256,6 @@ const detectIncognito = async (hardwareId) => {
   return { score: Math.max(0, score), flags, isIncognito: score <= 50 };
 };
 
-// --- AUTO-LOGIN: IndexedDB Storage ---
 const IDB_NAME = '__bgz_vault';
 const IDB_STORE = 'auth';
 
@@ -298,7 +279,7 @@ const idbSet = async (key, value) => {
     const tx = idb.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).put({ key, value, ts: Date.now() });
     idb.close();
-  } catch { /* silent */ }
+  } catch {  }
 };
 
 const idbGet = async (key) => {
@@ -341,7 +322,6 @@ const getAutoLogin = async (currentHardwareId) => {
   return null;
 };
 
-// --- RATE LIMITING ---
 const checkRateLimit = () => {
   try {
     const key = '__bgz_rate';
@@ -413,25 +393,21 @@ const QRCodeRedirect = () => {
   const [params, setParams] = useState('');
   const [storeLink, setStoreLink] = useState('#');
   const [osName, setOsName] = useState('');
-  
-  // Security
+
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const [pageError, setPageError] = useState("");
   const [isLinkValidated, setIsLinkValidated] = useState(false);
 
-  // V2 Security Engine
   const [compositeId, setCompositeId] = useState('');
   const [hardwareId, setHardwareId] = useState('');
   const [incognitoScore, setIncognitoScore] = useState(100);
   const [incognitoFlags, setIncognitoFlags] = useState([]);
   const [clientIp, setClientIp] = useState('');
 
-  // Auto-Login
   const [autoLoginStudent, setAutoLoginStudent] = useState(null);
   const [autoLoginReady, setAutoLoginReady] = useState(false);
 
-  // Web Fallback States
   const [showFallback, setShowFallback] = useState(false);
   const [geoStatus, setGeoStatus] = useState('idle');
   const [tcInput, setTcInput] = useState('');
@@ -469,7 +445,7 @@ const QRCodeRedirect = () => {
         const ipData = await ipRes.json();
         ip = ipData.ip;
         setClientIp(ip);
-      } catch { /* silent */ }
+      } catch {  }
       
       try {
         const fp = await fpPromise.load();
@@ -537,14 +513,13 @@ const QRCodeRedirect = () => {
               ipAddress: ip
             });
           }
-        } catch { /* Ağ hatası */ }
+        } catch {  }
       }
       
       setIsLinkValidated(true);
     };
     initSecurityEngine();
-    
-    // Nonce validation
+
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('sessionId');
     const qrType = urlParams.get('type');
@@ -571,7 +546,6 @@ const QRCodeRedirect = () => {
       checkAndClaimLink();
     }
 
-    // Prefetch students
     const prefetchStudents = async () => {
       try {
         const q = query(collection(db, "users"), where("role", "in", ["student", "öğrenci"]));
@@ -639,17 +613,6 @@ const QRCodeRedirect = () => {
     }
   };
 
-  /**
-   * Karekod okutulduğunda çalışır.
-   *
-   * Kurum geçişlerinde karar TAMAMEN ortak kural motoruna (attendanceRules.js)
-   * bırakılır; bu motor IALMobil Admin Windows panelinde de birebir aynı
-   * şekilde çalıştığı için mobil web ile panel asla çelişmez.
-   *
-   * Tolerans süresi dolduktan sonra okutulursa giriş KAYDEDİLMEZ; öğrenciye
-   * "Rehber Öğretmeninizle Görüşün" ekranı gösterilir ve görevli öğretmenin
-   * "Öğrenci Geçiş" ekranından manuel giriş yapması beklenir.
-   */
   const processAttendance = async (foundStudent) => {
     const urlParams = new URLSearchParams(window.location.search);
     const qrType = urlParams.get('type') || 'institution';
@@ -658,7 +621,6 @@ const QRCodeRedirect = () => {
 
     const isInstitutionGate = ['institution', 'kurum', 'institution_gate', 'gate'].includes(qrType);
 
-    // Ders yoklaması (kurum turnikesi değil) — eski davranış korunur.
     if (!isInstitutionGate) {
       setScanResult({ kind: 'entry', title: 'Hoş geldiniz', message: 'Yoklamanız başarıyla alındı.', detail: '' });
       setSuccessMessage('Yoklamanız başarıyla alındı.');
@@ -694,7 +656,6 @@ const QRCodeRedirect = () => {
       setStudent(foundStudent);
       setIsVerifying(false);
 
-      // Geç kalındıysa görevli öğretmenin onayını canlı bekle.
       if (result.kind === 'counselor' && result.decision) {
         try {
           const cfg = await loadAttendanceConfig();
@@ -708,7 +669,6 @@ const QRCodeRedirect = () => {
         }
       }
 
-      // Cihaz hatırlama yalnızca gerçekten kaydedilen geçişlerde.
       if (result.recorded) {
         const hw = localStorage.getItem('__bgz_hardware_id');
         if (hw && incognitoScore >= 50) {
@@ -853,7 +813,7 @@ const QRCodeRedirect = () => {
   }
 
   if (student) {
-    // Kural motorunun kararına göre ekran tipi belirlenir.
+    
     const kind = scanResult?.kind
       || (successMessage.includes('Zaten') || successMessage.includes('Önce') ? 'warning'
         : (successMessage.toLowerCase().includes('çık') ? 'exit' : 'entry'));
@@ -866,7 +826,6 @@ const QRCodeRedirect = () => {
     const isWarning = effectiveKind === 'warning';
     const isCheckout = effectiveKind === 'exit';
 
-    // Rehberlik ekranı ayrı bir tema kullanır: dikkat çekici ama suçlayıcı değil.
     const THEMES = {
       counselor: { grad: 'linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%)', theme: '#b91c1c', base: '#7f1d1d', badge: '#dc2626' },
       warning:   { grad: 'linear-gradient(180deg, #ea580c 0%, #9a3412 100%)', theme: '#ea580c', base: '#9a3412', badge: '#ef4444' },
@@ -893,7 +852,6 @@ const QRCodeRedirect = () => {
         <ThemeColorUpdater topColor={T.theme} bottomColor={T.base} />
         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%', zIndex: 10 }}>
 
-          {/* Profil fotoğrafı + durum rozeti */}
           <div style={{ position: 'relative', marginBottom: '24px', zIndex: 10, marginTop: '20px' }}>
             <img src={student.photo} alt="Profile" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '5px solid #ffffff', boxShadow: '0 15px 35px rgba(0,0,0,0.25)' }} />
             <div style={{ position: 'absolute', bottom: '4px', right: '4px', backgroundColor: T.badge, width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid #ffffff', zIndex: 11 }}>
@@ -943,7 +901,6 @@ const QRCodeRedirect = () => {
             </div>
           )}
 
-          {/* Geç kalan öğrenci için yapılacaklar listesi + canlı onay bekleme */}
           {isCounselor && (
             <div style={{ marginTop: '26px', maxWidth: '330px', width: '100%', zIndex: 10 }}>
               <div style={{ backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: '18px', padding: '18px 20px', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'left' }}>
@@ -1019,7 +976,7 @@ const QRCodeRedirect = () => {
       </style>
       
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%' }}>
-      {/* Top Bright Section */}
+      
       <div style={{
         position: 'relative',
         width: '100%',
@@ -1031,7 +988,7 @@ const QRCodeRedirect = () => {
         backgroundColor: '#f8fafc',
         overflow: 'hidden'
       }}>
-        {/* Timer Badge */}
+        
         <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(159,18,57,0.1)', color: '#9f1239', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', animation: timeLeft <= 10 ? 'pulseGlow 1.5s infinite' : 'none' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
@@ -1048,7 +1005,6 @@ const QRCodeRedirect = () => {
         </div>
       </div>
 
-      {/* Bottom Navy Section */}
       <div style={{
         position: 'relative',
         flex: 1,

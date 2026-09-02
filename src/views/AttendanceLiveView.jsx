@@ -125,7 +125,6 @@ const AttendanceLiveView = () => {
     };
     fetchUsers();
 
-    // 1. VDS Socket.io
     const socket = io('http://213.142.159.36:8080', {
       reconnectionAttempts: 5,
       timeout: 5000
@@ -140,7 +139,6 @@ const AttendanceLiveView = () => {
       soundManager.playSuccessDing();
     });
 
-    // 2. Firebase RTDB Live Scans
     const seenRef = { current: new Set() };
     let firstRtdbBatch = true;
     const liveRef = rtdbQuery(ref(rtdb, 'qr_system/live_scans'), limitToLast(50));
@@ -174,20 +172,18 @@ const AttendanceLiveView = () => {
       try {
         unsubRtdb();
       } catch {
-        /* ignore */
+        
       }
       clearTimeout(guard);
     };
   }, [mergeRecords]);
 
-  // Rol ayrıştırma
   const isPersonnelRecord = useCallback((record) => {
     const studentId = record.studentId || record.userId || 'unknown';
     const rawRole = (record.userRole || usersMap[studentId]?.role || 'student').toLowerCase();
     return ['personnel', 'personel', 'teacher', 'öğretmen', 'admin', 'yönetici'].includes(rawRole);
   }, [usersMap]);
 
-  // Filtrelenmiş liste
   const filteredRecords = useMemo(() => {
     return liveRecords.filter((record) => {
       const isPersonnel = isPersonnelRecord(record);
@@ -198,7 +194,6 @@ const AttendanceLiveView = () => {
     });
   }, [liveRecords, filterType, isPersonnelRecord]);
 
-  // İstatistikler
   const studentCount = useMemo(() => liveRecords.filter((r) => !isPersonnelRecord(r)).length, [liveRecords, isPersonnelRecord]);
   const personnelCount = useMemo(() => liveRecords.filter((r) => isPersonnelRecord(r)).length, [liveRecords, isPersonnelRecord]);
   const lastScanTime = useMemo(() => (liveRecords[0] ? formatTime(liveRecords[0].timestamp) : '—'), [liveRecords]);
@@ -221,7 +216,7 @@ const AttendanceLiveView = () => {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-4">
-      {/* Üst Başlık */}
+      
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -233,7 +228,6 @@ const AttendanceLiveView = () => {
         </div>
       </header>
 
-      {/* Özet İstatistik Şeridi */}
       <StatStrip>
         <Stat label="Toplam Canlı Kayıt" value={liveRecords.length} hint="Son 50 işlem penceresi" />
         <Stat label="Öğrenci Giriş / Çıkış" value={studentCount} hint="Turnike ve kapı taramaları" />
@@ -241,7 +235,6 @@ const AttendanceLiveView = () => {
         <Stat label="Son İşlem Saati" value={lastScanTime} hint="En son okunan kart / QR" last />
       </StatStrip>
 
-      {/* Ana ERP Kayıt Paneli */}
       <Panel>
         <PanelHeader
           title="Gerçek Zamanlı Kayıt Akışı"
@@ -278,7 +271,7 @@ const AttendanceLiveView = () => {
         ) : (
           <div className="overflow-x-auto panel-scroll">
             <div className="min-w-[700px]">
-              {/* Tablo Başlıkları */}
+              
               <div
                 className={cx(
                   'grid grid-cols-[minmax(0,1.8fr)_140px_130px_100px] gap-4 px-5 py-2.5 border-b bg-slate-50/70 dark:bg-white/[0.02]',
@@ -291,7 +284,6 @@ const AttendanceLiveView = () => {
                 <span className={cx(eyebrow, 'text-right')}>Saat</span>
               </div>
 
-              {/* Kayıt Satırları */}
               <div className={cx('divide-y', divider)}>
                 {filteredRecords.map((record, index) => {
                   const studentId = record.studentId || record.userId || 'unknown';
@@ -341,7 +333,7 @@ const AttendanceLiveView = () => {
                           : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.02]'
                       )}
                     >
-                      {/* Kişi & Avatar & Rol */}
+                      
                       <div className="flex items-center gap-3 min-w-0">
                         {profileImageUrl ? (
                           <img
@@ -366,7 +358,6 @@ const AttendanceLiveView = () => {
                         </div>
                       </div>
 
-                      {/* İşlem Türü */}
                       <div className="text-[13px] font-medium">
                         {isAttendance ? (
                           <span className="inline-flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
@@ -386,14 +377,12 @@ const AttendanceLiveView = () => {
                         )}
                       </div>
 
-                      {/* Kaynak */}
                       <div>
                         <Badge tone="neutral">
                           {isVds ? 'VDS Turnike' : 'Mobil QR'}
                         </Badge>
                       </div>
 
-                      {/* Saat */}
                       <div className="text-right">
                         <span className="text-[13px] font-medium text-slate-600 dark:text-slate-300 tnum">
                           {timeString}

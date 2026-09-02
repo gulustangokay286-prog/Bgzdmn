@@ -110,7 +110,6 @@ const TeacherManagementAdminView = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('Tümü');
 
-  // Modaller
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isClassSelectModalOpen, setIsClassSelectModalOpen] = useState(false);
@@ -123,25 +122,20 @@ const TeacherManagementAdminView = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Sınıf atama taslak
   const [assignedClassesDraft, setAssignedClassesDraft] = useState([]);
   const [newClassInput, setNewClassInput] = useState('');
   const [showNewClassInput, setShowNewClassInput] = useState(false);
 
-  // Görev atama
   const [taskData, setTaskData] = useState({ title: '', description: '', dueDate: '' });
 
-  // Program hücresi seçimi
   const [scheduleData, setScheduleData] = useState({ classId: '9A', dayIndex: 0, lessonIndex: 0 });
 
-  // Toast
   const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
   const showToast = (message, tone = 'success') => {
     setToast({ open: true, message, tone });
     setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 3500);
   };
 
-  // Dinleyiciler
   useEffect(() => {
     setLoading(true);
 
@@ -216,7 +210,6 @@ const TeacherManagementAdminView = () => {
       .filter(Boolean);
   };
 
-  // Öğretmen Ekle / Düzenle
   const openAddModal = () => {
     setEditingTeacher(null);
     setFormData(INITIAL_FORM_DATA);
@@ -312,7 +305,6 @@ const TeacherManagementAdminView = () => {
     }
   };
 
-  // Sınıf Atama
   const openClassAssignModal = (teacher) => {
     setActiveTeacher(teacher);
     setAssignedClassesDraft(getAssignedClasses(teacher));
@@ -357,7 +349,6 @@ const TeacherManagementAdminView = () => {
     setIsSaving(false);
   };
 
-  // Görev Atama
   const openTaskModal = (teacher) => {
     setActiveTeacher(teacher);
     setTaskData({ title: '', description: '', dueDate: '' });
@@ -388,7 +379,6 @@ const TeacherManagementAdminView = () => {
     setIsSaving(false);
   };
 
-  // Program Dersi Ekleme
   const handleAssignSchedule = async (e) => {
     e.preventDefault();
     if (!activeTeacher) return;
@@ -468,7 +458,6 @@ const TeacherManagementAdminView = () => {
     }
   };
 
-  // Filtreleme
   const filteredTeachers = useMemo(() => {
     return teachers.filter((t) => {
       const name = (t.fields?.full_name?.stringValue || t.fields?.fullName?.stringValue || '').toLowerCase();
@@ -496,7 +485,6 @@ const TeacherManagementAdminView = () => {
     <div className="w-full flex flex-col gap-5 pb-4">
       <Toast open={toast.open} message={toast.message} tone={toast.tone} />
 
-      {/* 1. ÜST BAŞLIK */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -514,9 +502,8 @@ const TeacherManagementAdminView = () => {
         </div>
       </header>
 
-      {/* 2. TABLO VE ARAMA PANELİ */}
       <Panel>
-        {/* Arama & Branş Filtre Çubuğu */}
+        
         <div className={cx('flex flex-col sm:flex-row gap-2.5 px-5 py-3 border-b', hairline)}>
           <div className="relative flex-1 min-w-0">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -584,7 +571,7 @@ const TeacherManagementAdminView = () => {
         ) : (
           <div className="overflow-x-auto panel-scroll">
             <div className="min-w-[860px]">
-              {/* Tablo Başlığı */}
+              
               <div
                 className={cx(
                   'grid grid-cols-[minmax(0,1.8fr)_130px_130px_130px_minmax(0,1.4fr)_180px] gap-4 px-5 py-2.5 border-b bg-slate-50/70 dark:bg-white/[0.02]',
@@ -599,7 +586,6 @@ const TeacherManagementAdminView = () => {
                 <span className={cx(eyebrow, 'text-right')}>İşlemler</span>
               </div>
 
-              {/* Satırlar */}
               <div className={cx('divide-y', divider)}>
                 {filteredTeachers.map((t) => {
                   const name = getTeacherName(t);
@@ -616,7 +602,7 @@ const TeacherManagementAdminView = () => {
                       key={t.name}
                       className="grid grid-cols-[minmax(0,1.8fr)_130px_130px_130px_minmax(0,1.4fr)_180px] gap-4 px-5 py-3 items-center hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
                     >
-                      {/* Öğretmen Adı + Avatar */}
+                      
                       <div className="flex items-center gap-3 min-w-0">
                         {pp ? (
                           <img
@@ -648,22 +634,18 @@ const TeacherManagementAdminView = () => {
                         </div>
                       </div>
 
-                      {/* Branş */}
                       <div>
                         <Badge tone="accent">{branch}</Badge>
                       </div>
 
-                      {/* Unvan */}
                       <div className="text-[12.5px] text-slate-600 dark:text-slate-300 truncate">
                         {title}
                       </div>
 
-                      {/* İletişim */}
                       <div className="text-[12px] text-slate-600 dark:text-slate-400 tnum truncate">
                         {phone}
                       </div>
 
-                      {/* Atanan Dersler */}
                       <div className="min-w-0">
                         {teacherSchedules.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
@@ -686,7 +668,6 @@ const TeacherManagementAdminView = () => {
                         )}
                       </div>
 
-                      {/* Aksiyon Butonları */}
                       <div className="flex items-center justify-end gap-1">
                         <IconButton
                           label="Haftalık Ders Programı"
@@ -742,11 +723,6 @@ const TeacherManagementAdminView = () => {
         )}
       </Panel>
 
-      {/* ========================================================================= */}
-      {/* MODALLER                                                                  */}
-      {/* ========================================================================= */}
-
-      {/* 1. Öğretmen Ekle / Düzenle Modalı */}
       <Modal
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -869,7 +845,6 @@ const TeacherManagementAdminView = () => {
         </form>
       </Modal>
 
-      {/* 2. Sınıf Atama Modalı */}
       <Modal
         open={isClassAssignModalOpen && Boolean(activeTeacher)}
         onClose={() => setIsClassAssignModalOpen(false)}
@@ -959,7 +934,6 @@ const TeacherManagementAdminView = () => {
         </div>
       </Modal>
 
-      {/* 3. Görev Atama Modalı */}
       <Modal
         open={isTaskModalOpen && Boolean(activeTeacher)}
         onClose={() => setIsTaskModalOpen(false)}
@@ -1016,7 +990,6 @@ const TeacherManagementAdminView = () => {
         </form>
       </Modal>
 
-      {/* 4. Ders Programı Modalı (Haftalık ERP Matrisi) */}
       <Modal
         open={isScheduleModalOpen && Boolean(activeTeacher)}
         onClose={() => setIsScheduleModalOpen(false)}
@@ -1119,7 +1092,6 @@ const TeacherManagementAdminView = () => {
         </div>
       </Modal>
 
-      {/* 5. Program Sınıf Seçme Modalı */}
       <Modal
         open={isClassSelectModalOpen}
         onClose={() => setIsClassSelectModalOpen(false)}
@@ -1159,7 +1131,6 @@ const TeacherManagementAdminView = () => {
         </form>
       </Modal>
 
-      {/* 6. Silme Onay Modalı */}
       <Modal
         open={Boolean(deleteConfirm)}
         onClose={() => setDeleteConfirm(null)}

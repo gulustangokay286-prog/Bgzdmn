@@ -1,9 +1,4 @@
-/**
- * Node ESM çözümleyicisine Vite uyumluluğu kazandırır.
- * Kaynak dosyalar `./firebaseConfig` gibi uzantısız içe aktarım kullanır
- * (Vite bunu destekler, Node desteklemez). Bu kanca eksik `.js` / `.jsx`
- * uzantısını tamamlar; böylece testler kaynağı DEĞİŞTİRMEDEN çalışır.
- */
+
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 

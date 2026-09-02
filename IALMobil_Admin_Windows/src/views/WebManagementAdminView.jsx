@@ -96,14 +96,12 @@ const money = (n) => `₺${Number(n || 0).toLocaleString('tr-TR')}`;
 const WebManagementAdminView = () => {
   const [activeTab, setActiveTab] = useState('products');
 
-  // Toast
   const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
   const showToast = (message, tone = 'success') => {
     setToast({ open: true, message, tone });
     setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 3500);
   };
 
-  // 1. Ürünler
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,11 +126,9 @@ const WebManagementAdminView = () => {
     isFeatured: true
   });
 
-  // 2. Siparişler
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
 
-  // 3. Hero & Banner
   const [heroSettings, setHeroSettings] = useState({
     topBannerActive: true,
     topBannerText: '🔔 2026-2027 Eğitim Öğretim Yılı Erken Kayıt Avantajları Başladı! Kontenjanlar Sınırlıdır.',
@@ -146,7 +142,6 @@ const WebManagementAdminView = () => {
   const [isSavingHero, setIsSavingHero] = useState(false);
   const [heroImageFile, setHeroImageFile] = useState(null);
 
-  // 4. İstatistikler
   const [statsSettings, setStatsSettings] = useState({
     stat1_num: '20',
     stat1_suffix: '+',
@@ -163,7 +158,6 @@ const WebManagementAdminView = () => {
   });
   const [isSavingStats, setIsSavingStats] = useState(false);
 
-  // 5. Eğitim Kademeleri
   const [educationSettings, setEducationSettings] = useState({
     kindergarten: 'Erken yaşta yabancı dil, robotik kodlama ve keşif odaklı montessori destekli okul öncesi programı.',
     primary: 'Temel akademik beceriler, okuma kültürü ve sanatsal atölyelerle donatılmış zenginleştirilmiş ilkokul eğitimi.',
@@ -172,7 +166,6 @@ const WebManagementAdminView = () => {
   });
   const [isSavingEducation, setIsSavingEducation] = useState(false);
 
-  // 6. SSS (FAQ)
   const [faqs, setFaqs] = useState([
     {
       q: 'Boğaziçi Koleji’ne kayıt kabul ve bursluluk şartları nelerdir?',
@@ -191,7 +184,6 @@ const WebManagementAdminView = () => {
   const [newFaqModal, setNewFaqModal] = useState(false);
   const [faqForm, setFaqForm] = useState({ q: '', a: '' });
 
-  // 7. İletişim Bilgileri
   const [contactSettings, setContactSettings] = useState({
     phone: '0 (364) 666 05 00',
     whatsapp: '905000000000',
@@ -203,7 +195,6 @@ const WebManagementAdminView = () => {
   });
   const [isSavingContact, setIsSavingContact] = useState(false);
 
-  // Cloudinary Yükleme
   const uploadToCloudinary = async (file, folder = 'ial-web-assets') => {
     const data = new FormData();
     data.append('file', file);
@@ -223,7 +214,6 @@ const WebManagementAdminView = () => {
     }
   };
 
-  // Dinleyiciler
   useEffect(() => {
     const unsubProducts = onSnapshot(
       collection(db, 'store_products'),
@@ -281,7 +271,6 @@ const WebManagementAdminView = () => {
     };
   }, []);
 
-  // --- ÜRÜN İŞLEMLERİ ---
   const openProductModal = (prod = null) => {
     if (prod) {
       setEditingProduct(prod);
@@ -389,7 +378,6 @@ const WebManagementAdminView = () => {
     }
   };
 
-  // --- AYAR KAYITLARI ---
   const handleSaveHero = async (e) => {
     e.preventDefault();
     setIsSavingHero(true);
@@ -527,7 +515,6 @@ const WebManagementAdminView = () => {
     <div className="w-full flex flex-col gap-5 pb-4">
       <Toast open={toast.open} message={toast.message} tone={toast.tone} />
 
-      {/* Üst Başlık & ERP Bar */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-[27px] leading-none font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -554,15 +541,13 @@ const WebManagementAdminView = () => {
         </div>
       </header>
 
-      {/* Segmented Tab Seçici */}
       <div className="overflow-x-auto no-scrollbar">
         <Segmented value={activeTab} onChange={setActiveTab} options={tabOptionsWithCount} />
       </div>
 
-      {/* ------------------------------------------------------------- 1. ÜRÜNLER */}
       {activeTab === 'products' && (
         <Panel>
-          {/* Arama, Kategori & Ekleme Çubuğu */}
+          
           <div className={cx('flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-b', hairline)}>
             <div className="flex flex-1 items-center gap-2.5 w-full sm:w-auto">
               <div className="relative flex-1 min-w-0">
@@ -635,7 +620,7 @@ const WebManagementAdminView = () => {
           ) : (
             <div className="overflow-x-auto panel-scroll">
               <div className="min-w-[840px]">
-                {/* Tablo Başlığı */}
+                
                 <div
                   className={cx(
                     'grid grid-cols-[60px_minmax(0,1.8fr)_130px_110px_110px_100px] gap-4 px-5 py-2.5 border-b bg-slate-50/70 dark:bg-white/[0.02]',
@@ -650,7 +635,6 @@ const WebManagementAdminView = () => {
                   <span className={cx(eyebrow, 'text-right')}>İşlem</span>
                 </div>
 
-                {/* Ürün Satırları */}
                 <div className={cx('divide-y', divider)}>
                   {filteredProducts.map((p) => {
                     const stock = STOCK_STATUSES[p.stockStatus] || STOCK_STATUSES.in_stock;
@@ -661,7 +645,7 @@ const WebManagementAdminView = () => {
                         key={p.id}
                         className="grid grid-cols-[60px_minmax(0,1.8fr)_130px_110px_110px_100px] gap-4 px-5 py-3 items-center hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
                       >
-                        {/* Küçük Thumbnail */}
+                        
                         <div
                           className={cx(
                             'w-11 h-11 rounded-lg overflow-hidden shrink-0 flex items-center justify-center bg-slate-100 dark:bg-white/[0.04] border',
@@ -675,7 +659,6 @@ const WebManagementAdminView = () => {
                           )}
                         </div>
 
-                        {/* Başlık & Detay */}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-[13.5px] font-semibold text-slate-900 dark:text-white truncate" title={p.title}>
@@ -692,17 +675,14 @@ const WebManagementAdminView = () => {
                           </div>
                         </div>
 
-                        {/* Kategori */}
                         <div className="text-[12.5px] text-slate-600 dark:text-slate-300 truncate">
                           {catLabel}
                         </div>
 
-                        {/* Stok Durumu */}
                         <div>
                           <Badge tone={stock.tone}>{stock.label}</Badge>
                         </div>
 
-                        {/* Fiyat */}
                         <div className="text-right">
                           <div className="text-[13.5px] font-semibold text-slate-900 dark:text-white tnum">
                             {money(p.price)}
@@ -714,7 +694,6 @@ const WebManagementAdminView = () => {
                           )}
                         </div>
 
-                        {/* Aksiyonlar */}
                         <div className="flex items-center justify-end gap-1">
                           <IconButton
                             label={p.isFeatured ? 'Vitrinden çıkar' : 'Vitrine ekle'}
@@ -748,7 +727,6 @@ const WebManagementAdminView = () => {
         </Panel>
       )}
 
-      {/* ------------------------------------------------------------ 2. SİPARİŞLER */}
       {activeTab === 'orders' && (
         <Panel>
           <PanelHeader title="Mağaza Siparişleri" description="Veli ve öğrencilerin verdiği resmi okul ürünleri siparişleri">
@@ -842,7 +820,6 @@ const WebManagementAdminView = () => {
         </Panel>
       )}
 
-      {/* -------------------------------------------------------- 3. HERO & BANNER */}
       {activeTab === 'hero' && (
         <form onSubmit={handleSaveHero}>
           <Panel>
@@ -923,7 +900,6 @@ const WebManagementAdminView = () => {
         </form>
       )}
 
-      {/* --------------------------------------------------- 4. EĞİTİM KADEMELERİ */}
       {activeTab === 'education' && (
         <form onSubmit={handleSaveEducation}>
           <Panel>
@@ -973,7 +949,6 @@ const WebManagementAdminView = () => {
         </form>
       )}
 
-      {/* -------------------------------------------------------- 5. İSTATİSTİKLER */}
       {activeTab === 'stats' && (
         <form onSubmit={handleSaveStats}>
           <Panel>
@@ -1087,7 +1062,6 @@ const WebManagementAdminView = () => {
         </form>
       )}
 
-      {/* ------------------------------------------------------ 6. SSS (FAQ) */}
       {activeTab === 'faq' && (
         <Panel>
           <PanelHeader
@@ -1135,7 +1109,6 @@ const WebManagementAdminView = () => {
         </Panel>
       )}
 
-      {/* ------------------------------------------------- 7. İLETİŞİM BİLGİLERİ */}
       {activeTab === 'contact' && (
         <form onSubmit={handleSaveContact}>
           <Panel>
@@ -1216,11 +1189,6 @@ const WebManagementAdminView = () => {
         </form>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODALLER                                                                  */}
-      {/* ========================================================================= */}
-
-      {/* Ürün Ekle / Düzenle Modalı */}
       <Modal
         open={productModalOpen}
         onClose={() => setProductModalOpen(false)}
@@ -1358,7 +1326,6 @@ const WebManagementAdminView = () => {
         </form>
       </Modal>
 
-      {/* SSS Ekleme Modalı */}
       <Modal
         open={newFaqModal}
         onClose={() => setNewFaqModal(false)}
@@ -1402,7 +1369,6 @@ const WebManagementAdminView = () => {
         </form>
       </Modal>
 
-      {/* Silme Onay Modalı */}
       <Modal
         open={Boolean(deleteConfirmId)}
         onClose={() => setDeleteConfirmId(null)}

@@ -2,10 +2,6 @@ import React from 'react';
 import { ChevronsUpDown, X } from 'lucide-react';
 import { cx, card, hairline, divider, control, controlArea } from './tokens';
 
-/**
- * Panel arayüz seti.
- */
-
 export const Panel = ({ className = '', children, ...rest }) => (
   <section className={cx(card, 'flex flex-col min-w-0', className)} {...rest}>
     {children}

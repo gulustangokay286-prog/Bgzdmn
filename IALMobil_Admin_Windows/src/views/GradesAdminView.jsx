@@ -157,7 +157,7 @@ const GradesAdminView = () => {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-start min-h-0">
-        {/* Öğrenci listesi */}
+        
         <Panel className={cx('h-[560px]', studentId && 'hidden lg:flex')}>
           {loading ? (
             <div className="flex-1 flex items-center justify-center text-[12.5px] text-slate-500">
@@ -175,7 +175,6 @@ const GradesAdminView = () => {
           )}
         </Panel>
 
-        {/* Detay */}
         <div className={cx('flex flex-col gap-5 min-w-0 h-full', !studentId && 'hidden lg:flex')}>
           {!studentId ? (
             <Panel className="h-[560px] flex flex-col items-center justify-center">
@@ -214,7 +213,6 @@ const GradesAdminView = () => {
                 />
               </StatStrip>
 
-              {/* Not girişi */}
               <form onSubmit={handleSave}>
                 <Panel>
                   <PanelHeader title="Yeni Not" description="Girilen not öğrencinin karnesine anında işlenir" />
@@ -285,7 +283,6 @@ const GradesAdminView = () => {
                 </Panel>
               </form>
 
-              {/* Geçmiş notlar */}
               <Panel>
                 <PanelHeader title="Geçmiş Notlar" description="Derse göre gruplanmış tüm kayıtlar">
                   <span className="text-[11.5px] text-slate-500 dark:text-slate-400 tnum">

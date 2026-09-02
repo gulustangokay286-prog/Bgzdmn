@@ -44,7 +44,6 @@ const StudentGateAdminView = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     const combined = {};
 
-    // 1. First merge Firestore
     Object.entries(statusFromFirestoreRef.current).forEach(([k, v]) => {
       if (v?.status === 'entry') {
         combined[k] = 'inside';
@@ -53,7 +52,6 @@ const StudentGateAdminView = () => {
       }
     });
 
-    // 2. Overlay RTDB (real-time instant)
     Object.entries(statusFromRtdbRef.current).forEach(([k, v]) => {
       if (v?.status === 'entry') {
         combined[k] = 'inside';
@@ -65,9 +63,6 @@ const StudentGateAdminView = () => {
     setStudentStatusMap(prev => ({ ...prev, ...combined }));
   }, [dateKey]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  1. Canlı Öğrenci Listesi Dinleyicisi (Firestore)                       */
-  /* ---------------------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
 
@@ -112,11 +107,8 @@ const StudentGateAdminView = () => {
     };
   }, []);
 
-  /* ---------------------------------------------------------------------- */
-  /*  2. Canlı Geçiş Durumu Dinleyicileri (Firestore + RTDB Çift Kaynak)     */
-  /* ---------------------------------------------------------------------- */
   useEffect(() => {
-    // A) Firestore gate_status dinle
+    
     const unsubFirestore = onSnapshot(collection(db, 'gate_status'), (snapshot) => {
       const fsMap = {};
       const todayStr = new Date().toISOString().split('T')[0];
@@ -130,7 +122,6 @@ const StudentGateAdminView = () => {
       mergeAndSetStatuses();
     }, (err) => console.warn('Firestore gate_status dinleyici:', err));
 
-    // B) RTDB qr_system/gate_status dinle
     const statusRef = ref(rtdb, 'qr_system/gate_status');
     const unsubRtdb = onValue(statusRef, (snapshot) => {
       const rMap = {};
@@ -153,9 +144,6 @@ const StudentGateAdminView = () => {
     };
   }, [dateKey, mergeAndSetStatuses]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  3. Rehberlik onayı bekleyen geç girişler                                */
-  /* ---------------------------------------------------------------------- */
   useEffect(() => {
     const unsub = subscribeLateApprovals(dateKey, (list) => {
       setLateRequests(prev => {
@@ -163,12 +151,9 @@ const StudentGateAdminView = () => {
         return list;
       });
     });
-    return () => { try { unsub(); } catch { /* ignore */ } };
+    return () => { try { unsub(); } catch {  } };
   }, [dateKey]);
 
-  /* ---------------------------------------------------------------------- */
-  /*  4. Manuel Geçiş Butonu Aksiyonu (Giriş Yap / Çıkış Yap)               */
-  /* ---------------------------------------------------------------------- */
   const handleAction = async (student) => {
     if (processingId) return;
     setProcessingId(student.id);
@@ -177,7 +162,6 @@ const StudentGateAdminView = () => {
     const nextAction = currentStatus === 'inside' ? 'exit' : 'entry';
     const targetStatus = nextAction === 'entry' ? 'inside' : 'outside';
 
-    // 1. Anında İyimser Arayüz Güncellemesi
     setStudentStatusMap(prev => ({ ...prev, [student.id]: targetStatus }));
     statusFromFirestoreRef.current[student.id] = { status: nextAction, date: dateKey };
     statusFromRtdbRef.current[student.id] = { status: nextAction, date: dateKey };
@@ -187,7 +171,6 @@ const StudentGateAdminView = () => {
       const todayStr = new Date().toISOString().split('T')[0];
       const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-      // 2. Doğrudan Firestore gate_status ve RTDB güncelle
       await Promise.all([
         setDoc(doc(db, 'gate_status', student.id), {
           status: nextAction,
@@ -222,7 +205,7 @@ const StudentGateAdminView = () => {
       flash('success', nextAction === 'entry' ? `${student.name} — kuruma giriş yaptı.` : `${student.name} — kurumdan çıkış yaptı.`);
     } catch (err) {
       console.error('Geçiş kaydedilemedi:', err);
-      // Hata durumunda eski duruma dön
+      
       setStudentStatusMap(prev => ({ ...prev, [student.id]: currentStatus }));
       flash('error', 'Geçiş kaydedilemedi: ' + (err?.message || 'Bağlantı hatası'));
     } finally {
@@ -230,7 +213,6 @@ const StudentGateAdminView = () => {
     }
   };
 
-  /** Geç giriş talebini onayla */
   const handleApproveLate = async (request) => {
     if (processingId) return;
     setProcessingId(request.studentId);
@@ -246,7 +228,6 @@ const StudentGateAdminView = () => {
     }
   };
 
-  /** Geç giriş talebini reddet */
   const handleRejectLate = async (request) => {
     if (processingId) return;
     setProcessingId(request.studentId);
@@ -289,7 +270,6 @@ const StudentGateAdminView = () => {
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans pb-2 md:pb-6 overflow-x-hidden">
 
-      {/* Başlık ve İstatistikler */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-6 shrink-0 gap-4 w-full">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-medium text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wider">{currentDate}</span>
@@ -323,7 +303,6 @@ const StudentGateAdminView = () => {
         </div>
       </div>
 
-      {/* Bildirim Toast */}
       {toast && (
         <div className={`mb-4 px-4 py-3 rounded-2xl border text-[13.5px] font-semibold flex items-center gap-2.5 shrink-0 animate-in fade-in slide-in-from-top-2 shadow-sm ${
           toast.kind === 'success' ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-300'
@@ -335,7 +314,6 @@ const StudentGateAdminView = () => {
         </div>
       )}
 
-      {/* REHBERLİK ONAYI BEKLEYENLER */}
       {lateRequests.length > 0 && (
         <div className="mb-5 shrink-0 rounded-2xl border-2 border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/30 overflow-hidden">
           <div className="px-4 md:px-6 py-3.5 flex items-center gap-2.5 border-b border-red-200 dark:border-red-900/50">
@@ -410,7 +388,6 @@ const StudentGateAdminView = () => {
         </div>
       )}
 
-      {/* ÖĞRENCİ LİSTESİ TABLOSU */}
       <div className="w-full flex-1 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col overflow-hidden shadow-sm">
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
           <div className="min-w-[700px] flex flex-col h-full">
@@ -442,7 +419,7 @@ const StudentGateAdminView = () => {
                         hasPendingRequest ? 'bg-red-50/60 dark:bg-red-950/20' : ''
                       }`}
                     >
-                      {/* Öğrenci Bilgisi */}
+                      
                       <div className="flex-1 flex items-center gap-3 min-w-0 pr-2">
                         {student.profileImage ? (
                           <img
@@ -471,19 +448,16 @@ const StudentGateAdminView = () => {
                         )}
                       </div>
 
-                      {/* Sınıf / Şube */}
                       <div className="w-28">
                         <span className="text-[12px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1e293b] px-2 py-0.5 rounded-md border border-slate-200 dark:border-white/10">
                           {student.branch || '—'}
                         </span>
                       </div>
 
-                      {/* Okul No */}
                       <div className="w-28 text-[12.5px] text-slate-600 dark:text-slate-400 font-semibold">
                         {student.schoolNumber || '—'}
                       </div>
 
-                      {/* Mevcut Durum Rozeti */}
                       <div className="w-36 flex items-center shrink-0">
                         {isInside ? (
                           <div className="px-2.5 py-1 rounded-xl text-[11.5px] font-bold flex items-center gap-1.5 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
@@ -498,7 +472,6 @@ const StudentGateAdminView = () => {
                         )}
                       </div>
 
-                      {/* Giriş Yap / Çıkış Yap Butonu */}
                       <div className="w-36 flex justify-end shrink-0">
                         <button
                           onClick={() => handleAction(student)}

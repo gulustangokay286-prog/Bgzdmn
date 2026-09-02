@@ -1,16 +1,4 @@
-/**
- * ============================================================================
- *  YOKLAMA SERVİSİ  (Attendance Service)
- * ============================================================================
- *  Kural motorunu (attendanceRules.js) Firebase'e bağlayan TEK yazma noktası.
- *
- *  Kritik: Daha önce mobil web (QRCodeRedirect) yalnızca Firestore `gate_status`
- *  yazıyordu, Admin paneli ise yalnızca RTDB `qr_system/gate_status` okuyordu.
- *  Bu yüzden karekod okutan öğrenci panelde "Kurum Dışında" görünüyordu.
- *  Artık her geçiş HER İKİ kaynağa birden yazılır -> mobil web ile
- *  IALMobil Admin Windows tam senkron çalışır.
- * ============================================================================
- */
+
 
 import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch,
@@ -41,16 +29,11 @@ import {
 
 export const VDS_ENDPOINT = 'http://213.142.159.36:8080';
 
-/* -------------------------------------------------------------------------- */
-/*  Yapılandırma                                                               */
-/* -------------------------------------------------------------------------- */
-
 let cachedConfig = resolveAttendanceConfig({});
 let cachedConfigAt = 0;
 
 export const getCachedAttendanceConfig = () => cachedConfig;
 
-/** Kurum ayarlarını okur (30 sn önbellekli). */
 export const loadAttendanceConfig = async (force = false) => {
   if (!force && Date.now() - cachedConfigAt < 30_000) return cachedConfig;
   try {
@@ -64,7 +47,6 @@ export const loadAttendanceConfig = async (force = false) => {
   return cachedConfig;
 };
 
-/** Kurum ayarlarını canlı dinler. Aboneliği iptal eden fonksiyon döner. */
 export const subscribeAttendanceConfig = (callback) => {
   return onSnapshot(
     doc(db, 'config', 'institution'),
@@ -80,11 +62,6 @@ export const subscribeAttendanceConfig = (callback) => {
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Zaman bağlamı                                                              */
-/* -------------------------------------------------------------------------- */
-
-/** O anın kurum saatine göre bağlamını üretir. */
 export const buildTimeContext = (config, now = new Date()) => {
   const cfg = config || cachedConfig;
   return {
@@ -97,14 +74,6 @@ export const buildTimeContext = (config, now = new Date()) => {
   };
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Geçiş durumu (gate status) — çift kaynak okuma                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Öğrencinin bugünkü kurum içi/dışı durumunu okur.
- * Önce RTDB (anlık), yoksa Firestore'a düşer.
- */
 export const readGateStatus = async (studentId, dateKey) => {
   try {
     const snap = await get(ref(rtdb, `qr_system/gate_status/${studentId}`));
@@ -112,7 +81,7 @@ export const readGateStatus = async (studentId, dateKey) => {
       const data = snap.val();
       if (data?.date === dateKey) return data.status === 'entry' ? 'entry' : 'exit';
     }
-  } catch { /* RTDB erişilemedi, Firestore'a düş */ }
+  } catch {  }
 
   try {
     const snap = await getDoc(doc(db, 'gate_status', studentId));
@@ -120,33 +89,19 @@ export const readGateStatus = async (studentId, dateKey) => {
       const data = snap.data();
       if (data?.date === dateKey) return data.status === 'entry' ? 'entry' : 'exit';
     }
-  } catch { /* yok say */ }
+  } catch {  }
 
   return 'outside';
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Geçiş kaydı — TEK yazma noktası                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Bir giriş/çıkış hareketini tüm kaynaklara yazar:
- *   • Firestore gate_status/{id}        (mobil web'in okuduğu yer)
- *   • RTDB qr_system/gate_status/{id}   (admin panelinin okuduğu yer)
- *   • Firestore attendance_logs         (rapor geçmişi)
- *   • RTDB qr_system/attendance_logs/{gün}/{id}  (günlük geçiş defteri)
- *   • RTDB qr_system/live_scans/{id}    (canlı akış)
- *   • VDS /api/qr/scan                  (socket.io canlı yayın — best effort)
- *   • WhatsApp veli bildirimi           (best effort)
- */
 export const recordGatePassage = async (options) => {
   const {
     student,
-    action,                    // 'entry' | 'exit'
-    method = 'qr',             // 'qr' | 'manual_admin' | 'auto'
+    action,                    
+    method = 'qr',             
     isManualApproval = false,
     approvedBy = null,
-    autoKind = null,           // 'lunch_exit' | 'school_exit'
+    autoKind = null,           
     session = null,
     isLate = false,
     sessionId = 'web_fallback',
@@ -187,10 +142,6 @@ export const recordGatePassage = async (options) => {
     date: dateKey
   };
 
-  // --- 1+2) RTDB ve Firestore'a PARALEL yazma -------------------------------
-  //
-  // Öğrencinin turnikede beklediği süre bu iki yazmanın toplamı değil, en
-  // yavaşı kadardır. Sıralı bekleme okutma başına ~2,3 sn sürüyordu.
   const rtdbWrite = (async () => {
     const logRef = push(ref(rtdb, `qr_system/attendance_logs/${dateKey}`));
     const logId = logRef.key || `${Date.now()}_${student.id}`;
@@ -211,7 +162,7 @@ export const recordGatePassage = async (options) => {
   })();
 
   const firestoreWrite = (async () => {
-    // Durum ve log da birbirini beklemez.
+    
     await Promise.all([
       setDoc(doc(db, 'gate_status', student.id), {
         status: normalizedAction,
@@ -234,7 +185,6 @@ export const recordGatePassage = async (options) => {
   if (!rtdbOk) console.error('[attendance] RTDB yazma hatası:', rtdbResult.reason?.message);
   if (!firestoreOk) console.error('[attendance] Firestore yazma hatası:', firestoreResult.reason?.message);
 
-  // --- 3) VDS canlı yayın (best effort) -------------------------------------
   if (method !== 'auto') {
     fetch(`${VDS_ENDPOINT}/api/qr/scan`, {
       method: 'POST',
@@ -247,10 +197,9 @@ export const recordGatePassage = async (options) => {
         isManualAdmin: isManualApproval || method === 'manual_admin',
         deviceId: method === 'manual_admin' ? 'admin_panel' : (student.deviceId || 'web')
       })
-    }).catch(() => { /* VDS kapalıysa akış Firebase üzerinden devam eder */ });
+    }).catch(() => {  });
   }
 
-  // --- 4) Veli bildirimi (best effort) --------------------------------------
   if (notifyParent) {
     Promise.resolve()
       .then(() => sendWhatsAppNotification(student.id, student.name, normalizedAction, now))
@@ -260,21 +209,12 @@ export const recordGatePassage = async (options) => {
   return { ok: rtdbOk || firestoreOk, rtdbOk, firestoreOk, log: logData, time: timeStr, dateKey };
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Karekod okutma akışı (mobil web)                                           */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Öğrenci karekod okuttuğunda çağrılır.
- * Kural motoruna danışır; geç kalınmışsa giriş YAZILMAZ, rehberlik talebi açılır.
- */
 export const processStudentScan = async (options) => {
   const { student, requestedAction = 'toggle', sessionId = 'web_fallback', qrType = 'institution', now = new Date() } = options || {};
   const cfg = await loadAttendanceConfig();
   const ctx = buildTimeContext(cfg, now);
   const currentStatus = await readGateStatus(student.id, ctx.dateKey);
 
-  // --- Çıkış istekleri: kural motoru gerektirmez ---------------------------
   const wantsExit = requestedAction === 'exit' || (requestedAction === 'toggle' && currentStatus === 'entry');
 
   if (wantsExit) {
@@ -301,7 +241,6 @@ export const processStudentScan = async (options) => {
     };
   }
 
-  // --- Giriş istekleri: kural motoru karar verir ---------------------------
   const decision = evaluateEntryAttempt({
     minutes: ctx.nowMinutes,
     config: cfg,
@@ -354,10 +293,6 @@ export const processStudentScan = async (options) => {
   };
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Rehberlik onayı bekleyen geç girişler                                      */
-/* -------------------------------------------------------------------------- */
-
 export const createLateApprovalRequest = async ({ student, decision, ctx }) => {
   const id = buildLateApprovalId(ctx.dateKey, student.id, decision.session || 'morning');
   const payload = {
@@ -393,7 +328,6 @@ export const createLateApprovalRequest = async ({ student, decision, ctx }) => {
   return payload;
 };
 
-/** Belirli günün bekleyen geç giriş taleplerini canlı dinler. */
 export const subscribeLateApprovals = (dateKey, callback) => {
   const path = ref(rtdb, `qr_system/late_approvals/${dateKey}`);
   return onValue(
@@ -417,10 +351,6 @@ export const subscribeLateApprovals = (dateKey, callback) => {
   );
 };
 
-/**
- * Tek bir geç giriş talebinin durumunu canlı dinler.
- * Öğrencinin telefonu, görevli öğretmen onay verdiği anda ekranını günceller.
- */
 export const subscribeLateApprovalStatus = (dateKey, requestId, callback) => {
   return onValue(
     ref(rtdb, `qr_system/late_approvals/${dateKey}/${requestId}`),
@@ -429,10 +359,6 @@ export const subscribeLateApprovalStatus = (dateKey, requestId, callback) => {
   );
 };
 
-/**
- * Görevli/nöbetçi öğretmenin geç giriş talebini onaylaması.
- * Onaylanınca giriş kaydı manuel onaylı olarak yazılır.
- */
 export const approveLateEntry = async ({ request, approvedBy = 'Görevli Öğretmen', now = new Date() }) => {
   const cfg = await loadAttendanceConfig();
   const ctx = buildTimeContext(cfg, now);
@@ -467,14 +393,13 @@ export const approveLateEntry = async ({ request, approvedBy = 'Görevli Öğret
   return decision;
 };
 
-/** Talebi kapatır (onaylandı / reddedildi). */
 export const resolveLateApproval = async ({ request, status, resolvedBy, dateKey }) => {
   const key = dateKey || request.date;
   const patch = { status, resolvedBy: resolvedBy || null, resolvedAtMs: Date.now() };
   try {
     await updateDoc(doc(db, 'late_approvals', request.id), { ...patch, resolvedAt: serverTimestamp() });
   } catch {
-    // Döküman yoksa (yalnızca RTDB'ye yazılmışsa) oluşturarak kapat.
+    
     try { await setDoc(doc(db, 'late_approvals', request.id), { ...request, ...patch }, { merge: true }); }
     catch (e) { console.error('[attendance] Talep kapatılamadı (Firestore):', e?.message); }
   }
@@ -485,11 +410,6 @@ export const resolveLateApproval = async ({ request, status, resolvedBy, dateKey
   }
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Günlük geçiş kayıtlarını okuma                                             */
-/* -------------------------------------------------------------------------- */
-
-/** Bir günün RTDB geçiş defterini canlı dinler; öğrenciye göre gruplar. */
 export const subscribeDayScans = (dateKey, config, callback) => {
   return onValue(
     ref(rtdb, `qr_system/attendance_logs/${dateKey}`),
@@ -519,7 +439,6 @@ export const subscribeDayScans = (dateKey, config, callback) => {
   );
 };
 
-/** Bir günün geçişlerini tek seferlik okur (otomasyon için). */
 export const fetchDayScans = async (dateKey, config) => {
   const byStudent = {};
 
@@ -553,12 +472,10 @@ export const fetchDayScans = async (dateKey, config) => {
       byStudent[sid].push({ ...normalized, studentId: sid, source: 'firestore' });
     });
   } catch (err) {
-    // `date` alanı olmayan eski kayıtlar için sessizce geç
+    
     console.warn('[attendance] Firestore geçişleri okunamadı:', err?.message);
   }
 
-  // Her geçiş HEM RTDB'ye HEM Firestore'a yazıldığı için aynı okutma iki kez
-  // gelir. İkisi de aynı `minutes` değerini taşıdığından tekilleştirme kesindir.
   Object.keys(byStudent).forEach(sid => {
     byStudent[sid] = sortAndDedupeScans(byStudent[sid]);
   });
@@ -566,11 +483,6 @@ export const fetchDayScans = async (dateKey, config) => {
   return byStudent;
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Günlük devamsızlık kayıtlarını okuma                                       */
-/* -------------------------------------------------------------------------- */
-
-/** `attendance` koleksiyonundaki bir günün kayıtlarını öğrenciye göre gruplar. */
 export const fetchDayAttendanceRecords = async (dateKey, now = new Date()) => {
   const byStudent = {};
   const seen = new Set();
@@ -584,7 +496,6 @@ export const fetchDayAttendanceRecords = async (dateKey, now = new Date()) => {
     byStudent[sid].push({ ...data, id });
   };
 
-  // 1) String tarihli kayıtlar (otomatik + backend cron)
   try {
     const snap = await getDocs(query(collection(db, 'attendance'), where('date', '==', dateKey)));
     snap.forEach(d => absorb(d.id, d.data()));
@@ -592,7 +503,6 @@ export const fetchDayAttendanceRecords = async (dateKey, now = new Date()) => {
     console.warn('[attendance] Tarihli devamsızlık sorgusu başarısız:', err?.message);
   }
 
-  // 2) Timestamp tarihli manuel kayıtlar (Hızlı İşlem butonları)
   try {
     const start = new Date(now); start.setHours(0, 0, 0, 0);
     const end = new Date(now); end.setHours(23, 59, 59, 999);
@@ -609,23 +519,12 @@ export const fetchDayAttendanceRecords = async (dateKey, now = new Date()) => {
   return byStudent;
 };
 
-/** Bir öğrencinin o gün raporlu/izinli olup olmadığı. */
 export const hasExcuseRecord = (records) =>
   (records || []).some(r => r.status === 'excused' || String(r.courseName || '').includes('Raporlu') || String(r.courseName || '').includes('İzinli'));
 
-/** İdarenin o gün için elle girdiği devamsızlık kaydı var mı? (otomatiği ezer) */
 export const hasManualAbsenceRecord = (records) =>
   (records || []).some(r => r && !r.autoGenerated && r.status === 'absent');
 
-/* -------------------------------------------------------------------------- */
-/*  Otomatik devamsızlık işleyicisi                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Günlük otomatik devamsızlık kaydını yazar/günceller (idempotent).
- * Aynı kimlik kullanıldığı için 12:00'de açılan "Yarım Gün Yok" kaydı, okul
- * çıkışında aynı kayıt üzerinde "Tam Gün Yok"a yükseltilir — mükerrer satır olmaz.
- */
 export const writeAutoAbsence = async (record) => {
   await setDoc(doc(db, 'attendance', record.id), {
     studentId: record.studentId,
@@ -646,37 +545,26 @@ export const writeAutoAbsence = async (record) => {
     timestamp: serverTimestamp()
   }, { merge: true });
 
-  // Eski şemadan (oturum başına ayrı kayıt) kalan satırları temizle.
   await clearLegacyAutoAbsences(record.date, record.studentId);
 };
 
-/** Eski oturum bazlı otomatik kayıtları siler. */
 export const clearLegacyAutoAbsences = async (dateKey, studentId) => {
   await Promise.all(
     buildLegacyAutoAbsenceIds(dateKey, studentId).map(id =>
-      deleteDoc(doc(db, 'attendance', id)).catch(() => { /* yoksa sorun değil */ })
+      deleteDoc(doc(db, 'attendance', id)).catch(() => {  })
     )
   );
 };
 
-/**
- * Öğrenci sonradan geldiyse (ör. öğleden sonra giriş yaptı) hatalı kalan
- * otomatik kaydı siler. Sistem kendi kendini düzeltir.
- */
 export const removeAutoAbsence = async (dateKey, studentId) => {
   await deleteDoc(doc(db, 'attendance', buildAutoAbsenceId(dateKey, studentId)))
-    .catch(() => { /* yoksa sorun değil */ });
+    .catch(() => {  });
   await clearLegacyAutoAbsences(dateKey, studentId);
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Toplu yazma altyapısı (1000+ öğrenci için)                                 */
-/* -------------------------------------------------------------------------- */
-
-const FIRESTORE_BATCH_LIMIT = 450;   // Firestore sınırı 500; pay bırakıldı
+const FIRESTORE_BATCH_LIMIT = 450;   
 const RTDB_PATHS_PER_UPDATE = 500;
 
-/** Firestore işlemlerini 450'lik gruplar hâlinde commit eder. */
 const commitInBatches = async (operations) => {
   let committed = 0;
   for (let i = 0; i < operations.length; i += FIRESTORE_BATCH_LIMIT) {
@@ -691,7 +579,6 @@ const commitInBatches = async (operations) => {
   return committed;
 };
 
-/** RTDB çok yollu güncellemeleri parçalar hâlinde uygular. */
 const updateInChunks = async (updates) => {
   const keys = Object.keys(updates);
   for (let i = 0; i < keys.length; i += RTDB_PATHS_PER_UPDATE) {
@@ -702,14 +589,6 @@ const updateInChunks = async (updates) => {
   return keys.length;
 };
 
-/**
- * Otomatik giriş/çıkışları TOPLU yazar.
- *
- * Tek tek `recordGatePassage` çağırmak 1000 öğrenci için ~5000 ağ turu demek
- * (ölçüldü: 100 öğrenci = 143 sn). Burada tüm hareketler önce bellekte
- * hazırlanır, sonra RTDB'ye çok yollu tek güncelleme ve Firestore'a toplu
- * yazma olarak gönderilir — birkaç ağ turu yeterli olur.
- */
 export const recordGatePassagesBulk = async (passages, config, now = new Date()) => {
   if (!passages.length) return { count: 0 };
 
@@ -783,7 +662,6 @@ export const recordGatePassagesBulk = async (passages, config, now = new Date())
   return { count: passages.length };
 };
 
-/** Otomatik devamsızlık kayıtlarını toplu yazar / kaldırır. */
 export const applyAutoAbsencesBulk = async (writes, removals) => {
   const ops = [];
 
@@ -811,7 +689,7 @@ export const applyAutoAbsencesBulk = async (writes, removals) => {
         timestamp: serverTimestamp()
       }
     });
-    // Eski oturum bazlı şemadan kalan satırları temizle
+    
     for (const legacyId of buildLegacyAutoAbsenceIds(record.date, record.studentId)) {
       ops.push({ kind: 'delete', ref: doc(db, 'attendance', legacyId) });
     }
@@ -828,14 +706,6 @@ export const applyAutoAbsencesBulk = async (writes, removals) => {
   return { writes: writes.length, removals: removals.length };
 };
 
-/**
- * Otomasyonun ana turu. Dakikada bir çağrılması güvenlidir (idempotent).
- *
- *  • 12:10 — sabah okutup çıkış okutmayanlara otomatik çıkış
- *  • 12:00 — sabah gelmeyenlere yarım gün yok
- *  • Okul çıkış saati — gelmeyenlere ikinci yarım gün (toplam tam gün yok)
- *  • Okul çıkış saati — hâlâ içeride görünenlere otomatik çıkış
- */
 export const runAttendanceAutomation = async (options = {}) => {
   const now = options.now || new Date();
   const cfg = options.config || await loadAttendanceConfig(true);
@@ -859,16 +729,13 @@ export const runAttendanceAutomation = async (options = {}) => {
   }
 
   const w = ctx.windows;
-  // İşin en erken tetiklendiği an: öğle otomatik çıkışı veya yarım gün sınırı
+  
   const earliestAction = Math.min(w.halfDayCutoff, w.lunchExitAutoAt);
   if (ctx.nowMinutes < earliestAction) {
     result.skipped = `Henüz işlem saati gelmedi (ilk eşik ${minutesToTime(earliestAction)}).`;
     return result;
   }
 
-  // --- Veriyi topla ---------------------------------------------------------
-  // `onlyStudentIds` verilirse yalnızca o öğrenciler işlenir. Uçtan uca testler
-  // ve tek bir öğrencinin gününü yeniden işlemek için kullanılır.
   const onlyIds = options.onlyStudentIds ? new Set(options.onlyStudentIds) : null;
 
   let students;
@@ -894,12 +761,6 @@ export const runAttendanceAutomation = async (options = {}) => {
   const scansByStudent = await fetchDayScans(ctx.dateKey, cfg);
   const recordsByStudent = await fetchDayAttendanceRecords(ctx.dateKey, now);
 
-  /* ------------------------------------------------------------------------
-   *  FAZ 1 — Değerlendirme (saf, ağ erişimi yok)
-   *
-   *  Tüm öğrenciler bellekte değerlendirilir; hiçbir yazma yapılmaz.
-   *  1000 öğrenci için bu faz milisaniyeler sürer.
-   * ---------------------------------------------------------------------- */
   const plannedPassages = [];
   const plannedWrites = [];
   const plannedRemovals = [];
@@ -916,14 +777,12 @@ export const runAttendanceAutomation = async (options = {}) => {
         isClosedDay: ctx.isClosedDay
       });
 
-      // Otomatik çıkışlar
       if (evaluation.needsAutoLunchExit) {
         plannedPassages.push({ student, action: 'exit', autoKind: 'lunch_exit', session: 'morning' });
       } else if (evaluation.needsAutoSchoolExit) {
         plannedPassages.push({ student, action: 'exit', autoKind: 'school_exit', session: 'afternoon' });
       }
 
-      // Devamsızlık — günde TEK kayıt, gün ilerledikçe güncellenir
       const autoRecord = buildAutoAbsenceRecord({
         config: cfg,
         evaluation,
@@ -955,13 +814,6 @@ export const runAttendanceAutomation = async (options = {}) => {
     }
   }
 
-  /* ------------------------------------------------------------------------
-   *  FAZ 2 — Toplu yazma
-   *
-   *  Tüm hareketler RTDB'ye çok yollu tek güncelleme, Firestore'a 450'lik
-   *  gruplar hâlinde gönderilir. Öğrenci sayısından bağımsız olarak birkaç
-   *  ağ turu yeterlidir.
-   * ---------------------------------------------------------------------- */
   if (plannedPassages.length) {
     try {
       await recordGatePassagesBulk(plannedPassages, cfg, now);
@@ -981,15 +833,11 @@ export const runAttendanceAutomation = async (options = {}) => {
     }
   }
 
-  // Veli bildirimleri: öğle otomatik çıkışlarında, akışı bloklamadan ve
-  // servisi boğmadan gönderilir.
   if (cfg.notifyParentsOnAutoExit !== false) {
     const lunchExits = plannedPassages.filter(p => p.autoKind === 'lunch_exit');
     if (lunchExits.length) notifyParentsThrottled(lunchExits, now);
   }
 
-  // --- Tur kaydı ------------------------------------------------------------
-  // Hedefli (tek öğrencilik) çalıştırmalar günün genel özetini bozmasın.
   if (onlyIds) return result;
 
   try {
@@ -1020,10 +868,6 @@ export const runAttendanceAutomation = async (options = {}) => {
   return result;
 };
 
-/**
- * Veli bildirimlerini kısıtlı eş zamanlılıkla, arka planda gönderir.
- * 1000 öğrencilik otomatik çıkışta bildirim servisi boğulmasın diye.
- */
 const NOTIFY_CONCURRENCY = 5;
 
 const notifyParentsThrottled = (passages, now) => {
@@ -1034,38 +878,30 @@ const notifyParentsThrottled = (passages, now) => {
       try {
         await sendWhatsAppNotification(p.student.id, p.student.name, 'exit', now);
       } catch {
-        // Tek bir bildirim hatası turu bozmasın
+        
       }
     }
   };
-  // Bilinçli olarak await edilmez: yoklama akışını bloklamaz.
+  
   Promise.all(Array.from({ length: NOTIFY_CONCURRENCY }, worker))
-    .catch(() => { /* yok say */ });
+    .catch(() => {  });
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Kiralama (lease) — aynı anda tek panelin işlemesi için                     */
-/* -------------------------------------------------------------------------- */
-
 const LEASE_PATH = 'qr_system/automation_lease';
-const LEASE_TTL_MS = 5 * 60_000; // büyük turlar 90 sn'yi aşabilir
+const LEASE_TTL_MS = 5 * 60_000; 
 
-/**
- * Otomasyon turunu tek bir panelin çalıştırmasını sağlar.
- * (Yazma işlemleri zaten idempotent; bu yalnızca gereksiz yükü azaltır.)
- */
 export const tryAcquireAutomationLease = async (ownerId) => {
   try {
     const res = await runTransaction(ref(rtdb, LEASE_PATH), (current) => {
       const nowMs = Date.now();
       if (current && current.expiresAt > nowMs && current.ownerId !== ownerId) {
-        return; // başkası tutuyor, iptal
+        return; 
       }
       return { ownerId, acquiredAt: nowMs, expiresAt: nowMs + LEASE_TTL_MS };
     });
     return Boolean(res.committed && res.snapshot.val()?.ownerId === ownerId);
   } catch {
-    // Kiralama başarısızsa yine de çalıştır (idempotent olduğu için güvenli)
+    
     return true;
   }
 };

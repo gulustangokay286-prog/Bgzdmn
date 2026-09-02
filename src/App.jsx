@@ -138,7 +138,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         <div className="sidebar-section">
           <div className="sidebar-section-title">ERP & Finans</div>
-          {/* <NavItem to="/ebos" icon={Building} label="Boğaziçi Portal" onClick={onClose} /> */}
+          
           <NavItem to="/appointments" icon={CalendarClock} label="Randevu Yönetimi" onClick={onClose} />
           <NavItem to="/transport" icon={Bus} label="Servis Yönetimi" onClick={onClose} />
           <NavItem to="/cafeteria" icon={Coffee} label="Kafeterya Menüsü" onClick={onClose} />
@@ -151,7 +151,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <NavItem to="/grades" icon={FileEdit} label="Not Yönetimi" onClick={onClose} />
           <NavItem to="/attendance" icon={UserCircle} label="Devamsızlık" onClick={onClose} />
           <NavItem to="/daily-absences" icon={CalendarX2} label="Günlük Devamsızlık Raporu" onClick={onClose} />
-          {/* <NavItem to="/schedule" icon={CalendarClock} label="Ders Programı" onClick={onClose} /> */}
+          
           <NavItem to="/counseling" icon={HeartHandshake} label="Rehberlik & Psikoloji" onClick={onClose} />
           <NavItem to="/announcements" icon={BellRing} label="Duyurular" onClick={onClose} />
         </div>
@@ -176,12 +176,6 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-/**
- * Otomatik Yoklama Motoru.
- * Panel açık olduğu sürece dakikada bir çalışır; 12:10 otomatik çıkışlarını,
- * 12:00 yarım gün ve okul çıkış saatindeki tam gün devamsızlıklarını işler.
- * Görsel çıktısı yoktur, yalnızca arka planda görev yürütür.
- */
 const AttendanceAutomationRunner = () => {
   useAttendanceAutomation(true);
   return null;
@@ -263,7 +257,7 @@ const App = () => {
               <Route path="/live-attendance" element={<RequireLicense requiredPath="/live-attendance"><AttendanceLiveView /></RequireLicense>} />
               <Route path="/teachers" element={<RequireLicense requiredPath="/teachers"><TeacherManagementAdminView /></RequireLicense>} />
               <Route path="/teachers/ai-analysis/:teacherId" element={<RequireLicense requiredPath="/teachers"><TeacherAIAnalysisView /></RequireLicense>} />
-              {/* <Route path="/schedule" element={<RequireLicense requiredPath="/schedule"><ScheduleAdminView /></RequireLicense>} /> */}
+              
               <Route path="/announcements" element={<RequireLicense requiredPath="/announcements"><AnnouncementsAdminView /></RequireLicense>} />
               <Route path="/device-management" element={<RequireLicense requiredPath="/student-gate"><DeviceManagementView /></RequireLicense>} />
 

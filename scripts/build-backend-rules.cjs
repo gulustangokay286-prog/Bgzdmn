@@ -1,13 +1,5 @@
 #!/usr/bin/env node
-/**
- * Kural motorunun (ESM) CommonJS kopyasını üretir.
- *
- *   src/services/attendanceRules.js   ->   ial-backend/attendanceRules.cjs
- *
- * Amaç: mobil web, Admin Windows ve VDS backend'inin BİREBİR aynı kuralları
- * çalıştırdığından emin olmak. Motor elle iki yerde tutulmaz; tek kaynaktan
- * üretilir. `--check` ile üretilen dosyanın güncel olup olmadığı doğrulanır.
- */
+
 const fs = require('fs');
 const path = require('path');
 
@@ -29,7 +21,6 @@ function build() {
     throw new Error('attendanceRules.js `export default` kullanmamalı.');
   }
 
-  // `export const X` / `export function X` -> yerel tanım + dışa aktarım listesi
   const names = [];
   const body = source.replace(/^export\s+(const|let|function)\s+([A-Za-z0-9_$]+)/gm, (_m, kind, name) => {
     names.push(name);

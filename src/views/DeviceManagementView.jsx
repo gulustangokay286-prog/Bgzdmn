@@ -186,8 +186,7 @@ const DeviceManagementView = () => {
 
   return (
     <div className="w-full h-full flex-1 flex flex-col font-sans pb-2 md:pb-6 overflow-x-hidden">
-      
-      {/* Header Bar */}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 shrink-0 gap-4 w-full">
         <div className="flex flex-col">
           <span className="text-[11px] md:text-[12px] font-medium text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wider">{currentDate}</span>

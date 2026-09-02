@@ -72,7 +72,6 @@ const DailyAbsenceReportView = () => {
   const todayKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul'), [config.timeZone]);
   const isToday = selectedDate === todayKey;
 
-  // 1. Canlı Öğrenci Listesi
   useEffect(() => {
     setLoading(true);
     const usersCol = collection(db, 'users');
@@ -125,7 +124,6 @@ const DailyAbsenceReportView = () => {
     return () => unsubUsers();
   }, []);
 
-  // 2. Canlı Gate Status
   useEffect(() => {
     const unsubGate = onSnapshot(collection(db, 'gate_status'), (snap) => {
       const map = {};
@@ -140,7 +138,6 @@ const DailyAbsenceReportView = () => {
     return () => unsubGate();
   }, [selectedDate]);
 
-  // 3. RTDB Günlük Geçiş Logları
   useEffect(() => {
     if (!rtdb) return;
     const dateRef = ref(rtdb, `daily_logs/${selectedDate}`);
@@ -154,7 +151,6 @@ const DailyAbsenceReportView = () => {
     return () => unsubRtdb();
   }, [selectedDate]);
 
-  // 4. Firestore Geçiş Logları
   useEffect(() => {
     const q = query(
       collection(db, 'gate_logs'),
@@ -173,7 +169,6 @@ const DailyAbsenceReportView = () => {
     return () => unsubFs();
   }, [selectedDate]);
 
-  // 5. Manuel / İzin Kayıtları
   useEffect(() => {
     const q = query(
       collection(db, 'attendance'),
@@ -191,7 +186,6 @@ const DailyAbsenceReportView = () => {
     return () => unsubManual();
   }, [selectedDate]);
 
-  // Analiz & Hesaplama
   const analyzedStudents = useMemo(() => {
     const isClosed = isClosedDayFn(selectedDate, config);
 
@@ -255,7 +249,6 @@ const DailyAbsenceReportView = () => {
     });
   }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, gateStatusMap, selectedDate, todayKey, config]);
 
-  // Metrikler
   const totalCount = allStudents.length;
   const presentCount = analyzedStudents.filter((s) => s.status === 'present' || s.status === 'late').length;
   const fullAbsentCount = analyzedStudents.filter((s) => s.status === 'absent_full').length;
@@ -264,7 +257,6 @@ const DailyAbsenceReportView = () => {
   const excusedCount = analyzedStudents.filter((s) => s.status === 'excused').length;
   const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 100;
 
-  // Durum Filtre Butonları
   const statusFilterButtons = useMemo(() => [
     { id: 'all', label: 'Tüm Liste', icon: Users, count: totalCount },
     { id: 'present', label: 'Mevcutlar', icon: UserCheck, count: presentCount },
@@ -272,7 +264,6 @@ const DailyAbsenceReportView = () => {
     { id: 'excused', label: 'İzinli / Raporlu', icon: ShieldCheck, count: excusedCount }
   ], [totalCount, presentCount, totalAbsentCount, excusedCount]);
 
-  // Filtreleme
   const filteredStudents = useMemo(() => {
     return analyzedStudents.filter((student) => {
       if (selectedClassFilter !== 'all' && student.classGrade !== selectedClassFilter) {
@@ -300,7 +291,6 @@ const DailyAbsenceReportView = () => {
     });
   }, [analyzedStudents, selectedClassFilter, selectedStatusFilter, searchText]);
 
-  // Gruplama
   const groupedStudents = useMemo(() => {
     const groups = {};
     filteredStudents.forEach((student) => {
@@ -327,7 +317,6 @@ const DailyAbsenceReportView = () => {
     return result;
   }, [filteredStudents]);
 
-  // PDF / Yazdırma
   const handlePrintPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -450,7 +439,7 @@ const DailyAbsenceReportView = () => {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-2">
-      {/* 1. ÜST BAŞLIK & TARİH SEÇİCİ */}
+      
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -479,7 +468,6 @@ const DailyAbsenceReportView = () => {
         </div>
       </header>
 
-      {/* 2. DURUM KISAYOLLARI / FİLTRE BUTONLARI (UsersView & ApprovalView Standartı) */}
       <div className="flex flex-wrap gap-1.5">
         {statusFilterButtons.map((filter) => {
           const Icon = filter.icon;
@@ -506,7 +494,6 @@ const DailyAbsenceReportView = () => {
         })}
       </div>
 
-      {/* 3. ARAMA VE KADEME SEÇİCİ TOOLBAR PANELİ */}
       <Panel>
         <div className={cx('flex flex-col sm:flex-row gap-2.5 px-5 py-3 border-b', hairline)}>
           <div className="relative flex-1 min-w-0">
@@ -541,7 +528,6 @@ const DailyAbsenceReportView = () => {
           </div>
         </div>
 
-        {/* Sonuç Sayısı ve Bilgi Şeridi */}
         <div className="px-5 py-2.5 flex items-center justify-between text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-white/[0.01]">
           <span>
             Toplam <strong className="text-slate-900 dark:text-white tnum">{filteredStudents.length}</strong> öğrenci listeleniyor
@@ -552,7 +538,6 @@ const DailyAbsenceReportView = () => {
         </div>
       </Panel>
 
-      {/* 4. ŞUBE ŞUBE GRUPLANMIŞ LİSTELER */}
       <div className="flex flex-col gap-5">
         {Object.keys(groupedStudents).length === 0 ? (
           <Panel>
@@ -574,7 +559,7 @@ const DailyAbsenceReportView = () => {
 
             return (
               <Panel key={branchName}>
-                {/* Şube Başlığı */}
+                
                 <PanelHeader
                   title={`${branchName} Şubesi`}
                   description={`Toplam ${studentList.length} öğrenci`}
@@ -585,10 +570,9 @@ const DailyAbsenceReportView = () => {
                   </div>
                 </PanelHeader>
 
-                {/* Şube Tablosu */}
                 <div className="overflow-x-auto panel-scroll">
                   <div className="min-w-[760px]">
-                    {/* Header */}
+                    
                     <div
                       className={cx(
                         'grid grid-cols-[minmax(0,1.8fr)_120px_90px_130px_130px_130px] gap-4 px-5 py-2.5 border-b bg-slate-50/70 dark:bg-white/[0.02]',
@@ -603,14 +587,13 @@ const DailyAbsenceReportView = () => {
                       <span className={cx(eyebrow, 'text-right')}>Günlük Durum</span>
                     </div>
 
-                    {/* Satırlar */}
                     <div className={cx('divide-y', divider)}>
                       {studentList.map((student) => (
                         <div
                           key={student.id}
                           className="grid grid-cols-[minmax(0,1.8fr)_120px_90px_130px_130px_130px] gap-4 px-5 py-3 items-center hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
                         >
-                          {/* Ad Soyad */}
+                          
                           <div className="flex items-center gap-2.5 min-w-0">
                             {student.profileImage ? (
                               <img
@@ -637,27 +620,22 @@ const DailyAbsenceReportView = () => {
                             </span>
                           </div>
 
-                          {/* TC */}
                           <div className="text-[12px] text-slate-500 dark:text-slate-400 tnum truncate font-mono">
                             {student.tc || '—'}
                           </div>
 
-                          {/* Okul No */}
                           <div className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300 tnum truncate">
                             {student.schoolNumber || '—'}
                           </div>
 
-                          {/* Sabah */}
                           <div className="text-[12px] text-slate-600 dark:text-slate-400 truncate">
                             {student.morningStatus}
                           </div>
 
-                          {/* Öğleden Sonra */}
                           <div className="text-[12px] text-slate-600 dark:text-slate-400 truncate">
                             {student.afternoonStatus}
                           </div>
 
-                          {/* Durum Rozeti */}
                           <div className="flex justify-end">
                             <Badge tone={student.statusTone}>
                               {student.statusLabel}

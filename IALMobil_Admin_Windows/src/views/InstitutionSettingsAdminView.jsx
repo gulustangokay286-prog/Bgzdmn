@@ -12,7 +12,6 @@ import {
   minutesToTime
 } from '../services/attendanceRules';
 
-/** Tailwind JIT yalnizca statik sinif adlarini tarar; renkler sabit tanimlanir. */
 const TONE = {
   emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
   orange:  'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400',
@@ -33,7 +32,6 @@ const timeInputStyle = {
   fontVariantNumeric: 'tabular-nums'
 };
 
-/** Etiketli saat / sayı girişi */
 const Field = ({ label, hint, children }) => (
   <div className="flex flex-col gap-2 w-full max-w-[300px]">
     <label className="text-[12px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase">{label}</label>
@@ -42,7 +40,6 @@ const Field = ({ label, hint, children }) => (
   </div>
 );
 
-/** Açma/kapama anahtarı */
 const Toggle = ({ checked, onChange, title, description }) => (
   <button
     type="button"
@@ -89,7 +86,6 @@ const InstitutionSettingsAdminView = () => {
     fetchSettings();
   }, []);
 
-  // Girilen saatlerin motor tarafından nasıl yorumlanacağının canlı önizlemesi
   const preview = useMemo(() => {
     const resolved = resolveAttendanceConfig(settings);
     const w = getAttendanceWindows(resolved);
@@ -135,7 +131,7 @@ const InstitutionSettingsAdminView = () => {
     setSuccessMsg('');
     setErrorMsg('');
     try {
-      // Kaydetmeden önce motordan geçir: hatalı/eksik saatler onarılarak yazılır.
+      
       const normalized = resolveAttendanceConfig(settings);
       await setDoc(doc(db, 'config', 'institution'), normalized, { merge: true });
       setSettings(prev => ({ ...prev, ...normalized }));
@@ -201,9 +197,6 @@ const InstitutionSettingsAdminView = () => {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*  Canlı Günlük Akış Önizlemesi                                       */}
-      {/* ------------------------------------------------------------------ */}
       <div className="mb-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-gradient-to-br from-slate-50 to-white dark:from-[#1e293b] dark:to-[#0f172a] p-6">
         <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
           <Info size={17} className="text-blue-600 dark:text-blue-400" />
@@ -235,9 +228,6 @@ const InstitutionSettingsAdminView = () => {
 
       <div className="bg-white dark:bg-[#0f172a] rounded-2xl shadow-sm border border-slate-200 dark:border-white/10 p-8 space-y-10">
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Sabah oturumu                                                    */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -263,9 +253,6 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Öğle çıkışı                                                      */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -291,9 +278,6 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Öğleden sonra oturumu                                            */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -318,9 +302,6 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Okul çıkış saati + yarım gün sınırı                               */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -359,9 +340,6 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Otomasyon anahtarları                                            */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -403,9 +381,6 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Kapalı günler                                                    */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col md:flex-row items-start">
           <div className="md:w-[300px] shrink-0 md:mr-10 mb-6 md:mb-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -439,9 +414,6 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Resmî tatiller                                                   */}
-        {/* ---------------------------------------------------------------- */}
         <section className="flex flex-col md:flex-row items-start">
           <div className="md:w-[300px] shrink-0 md:mr-10 mb-6 md:mb-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">

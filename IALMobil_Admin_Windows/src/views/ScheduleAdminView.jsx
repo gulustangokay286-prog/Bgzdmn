@@ -168,7 +168,6 @@ const ScheduleAdminView = () => {
         dataToSave.assignmentDetails = formData.assignmentDetails;
       }
 
-      // Mobil ve web tarafı farklı koleksiyonları okuduğu için dördüne birden yazılır.
       await addDoc(collection(db, 'schedule'), dataToSave);
       await addDoc(collection(db, 'schedules'), dataToSave);
       await addDoc(collection(db, 'student_schedules'), dataToSave);
@@ -242,7 +241,6 @@ const ScheduleAdminView = () => {
         </p>
       </header>
 
-      {/* Sınıf seçimi */}
       <div className="flex flex-wrap gap-1.5">
         {CLASSES.map((cls) => {
           const count = schedules.filter((s) => s.classId === cls || s.class_id === cls).length;
@@ -290,7 +288,7 @@ const ScheduleAdminView = () => {
         ) : (
           <div className="overflow-x-auto panel-scroll">
             <div className="min-w-[840px]">
-              {/* Gün başlıkları */}
+              
               <div className={cx('grid grid-cols-[92px_repeat(5,minmax(0,1fr))] border-b bg-slate-50/70 dark:bg-white/[0.02]', hairline)}>
                 <div className={cx('px-3 py-2.5 border-r', hairline)}>
                   <span className={eyebrow}>Saat</span>
@@ -305,7 +303,6 @@ const ScheduleAdminView = () => {
                 ))}
               </div>
 
-              {/* Saat satırları */}
               {LESSON_PERIODS.map((period, pIdx) => (
                 <div
                   key={period.label}
@@ -378,7 +375,6 @@ const ScheduleAdminView = () => {
         )}
       </Panel>
 
-      {/* Ders ekleme */}
       <Modal
         open={isModalOpen}
         onClose={closeModal}
@@ -506,7 +502,6 @@ const ScheduleAdminView = () => {
         </form>
       </Modal>
 
-      {/* Silme onayı */}
       <Modal
         open={Boolean(deleteConfirm)}
         onClose={() => setDeleteConfirm(null)}

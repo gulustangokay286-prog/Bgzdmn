@@ -1,9 +1,4 @@
-/**
- * Panel tasarım belirteçleri.
- *
- * Bileşenlerden ayrı tutulur; böylece panel.jsx yalnızca bileşen dışa aktarır
- * ve Vite fast refresh dosyayı tam olarak yenileyebilir.
- */
+
 
 export const cx = (...parts) => parts.filter(Boolean).join(' ');
 

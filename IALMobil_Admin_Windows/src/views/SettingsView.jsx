@@ -226,23 +226,86 @@ const SettingsView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
-        { }
         <section className="flex flex-col md:flex-row gap-8 md:gap-16">
           <div className="md:w-1/3 shrink-0">
-            <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">Bildirimler</h2>
-            <p className="text-[13px] text-slate-500 leading-relaxed">Kullanıcılara gönderilecek SMS, e-posta ve WhatsApp bildirimlerini yönetin.</p>
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white">NetGSM SMS API</h2>
+              <span className="px-2 py-0.5 text-[10.5px] font-bold rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">Aktif</span>
+            </div>
+            <p className="text-[13px] text-slate-500 leading-relaxed">Toplu bildirimler ve QR kod öğrenci giriş-çıkışlarında velilere gönderilecek SMS altyapısını yapılandırın.</p>
+          </div>
+          <div className="md:w-2/3 flex flex-col gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12.5px] font-semibold text-slate-700 dark:text-slate-300">NetGSM Kullanıcı Kodu (Usercode / Abone No)</label>
+                <input
+                  type="text"
+                  name="netgsmUsercode"
+                  value={settings.netgsmUsercode || ''}
+                  onChange={handleChange}
+                  placeholder="850xxxxxxx veya abone no"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/10 rounded-xl text-[13.5px] text-slate-900 dark:text-white outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12.5px] font-semibold text-slate-700 dark:text-slate-300">NetGSM API Şifresi (Password)</label>
+                <input
+                  type="password"
+                  name="netgsmPassword"
+                  value={settings.netgsmPassword || ''}
+                  onChange={handleChange}
+                  placeholder="API Şifreniz"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/10 rounded-xl text-[13.5px] text-slate-900 dark:text-white outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-700 dark:text-slate-300">SMS Başlığı (Originator / Başlık)</label>
+              <input
+                type="text"
+                name="netgsmHeader"
+                value={settings.netgsmHeader || ''}
+                onChange={e => setSettings(prev => ({ ...prev, netgsmHeader: e.target.value.toUpperCase() }))}
+                placeholder="Örn: BOGAZICI veya IALMOBIL"
+                className="w-full px-4 py-2.5 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/10 rounded-xl text-[13.5px] text-slate-900 dark:text-white outline-none focus:border-blue-500 font-mono"
+              />
+              <span className="text-[11.5px] text-slate-400">NetGSM tarafından onaylanmış resmi gönderici başlığınız.</span>
+            </div>
+
+            <label className="flex items-start justify-between cursor-pointer group p-3.5 rounded-xl bg-slate-50 dark:bg-[#1e293b]/50 border border-slate-200/80 dark:border-white/5">
+              <div className="flex flex-col">
+                <span className="text-[14.5px] font-semibold text-slate-900 dark:text-white">Turnike / QR Giriş-Çıkış Veli SMS'i</span>
+                <span className="text-[12px] text-slate-500 mt-0.5">Öğrenci kapıda QR okuttuğunda velisine anında otomatik SMS iletir</span>
+              </div>
+              <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out mt-1 ${settings.autoGateSms !== false ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                <div className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.autoGateSms !== false ? 'translate-x-4.5' : 'translate-x-1'}`} />
+              </div>
+              <input type="checkbox" name="autoGateSms" checked={settings.autoGateSms !== false} onChange={handleChange} className="hidden" />
+            </label>
+
+          </div>
+        </section>
+
+        <hr className="border-slate-200 dark:border-white/10" />
+
+        <section className="flex flex-col md:flex-row gap-8 md:gap-16">
+          <div className="md:w-1/3 shrink-0">
+            <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">Bildirim Kanalları</h2>
+            <p className="text-[13px] text-slate-500 leading-relaxed">Kullanıcılara gönderilecek SMS, e-posta ve mobil bildirimleri yönetin.</p>
           </div>
           <div className="md:w-2/3 flex flex-col gap-6">
 
             <label className="flex items-start justify-between cursor-pointer group">
               <div className="flex flex-col">
-                <span className="text-[15px] font-medium text-slate-900 dark:text-white">WhatsApp Bildirimleri</span>
-                <span className="text-[13px] text-slate-500 mt-1">Velilere otomatik geçiş bildirimlerini aktif et</span>
+                <span className="text-[15px] font-medium text-slate-900 dark:text-white">NetGSM SMS Bildirimleri</span>
+                <span className="text-[13px] text-slate-500 mt-1">Sistem genelinde veli ve kullanıcılara SMS iletimi</span>
               </div>
-              <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out mt-1 ${settings.whatsappNotifications ? 'bg-slate-900' : 'bg-slate-300'}`}>
-                <div className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-[#0f172a] shadow ring-0 transition duration-200 ease-in-out ${settings.whatsappNotifications ? 'translate-x-4.5' : 'translate-x-1'}`} />
+              <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out mt-1 ${settings.smsNotifications !== false ? 'bg-slate-900 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                <div className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-[#0f172a] shadow ring-0 transition duration-200 ease-in-out ${settings.smsNotifications !== false ? 'translate-x-4.5' : 'translate-x-1'}`} />
               </div>
-              <input type="checkbox" name="whatsappNotifications" checked={settings.whatsappNotifications} onChange={handleChange} className="hidden" />
+              <input type="checkbox" name="smsNotifications" checked={settings.smsNotifications !== false} onChange={handleChange} className="hidden" />
             </label>
 
             <label className="flex items-start justify-between cursor-pointer group">
@@ -250,21 +313,10 @@ const SettingsView = () => {
                 <span className="text-[15px] font-medium text-slate-900 dark:text-white">E-Posta Özetleri</span>
                 <span className="text-[13px] text-slate-500 mt-1">Yönetime günlük sistem raporu gönderimi</span>
               </div>
-              <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out mt-1 ${settings.emailNotifications ? 'bg-slate-900' : 'bg-slate-300'}`}>
+              <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out mt-1 ${settings.emailNotifications ? 'bg-slate-900 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
                 <div className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-[#0f172a] shadow ring-0 transition duration-200 ease-in-out ${settings.emailNotifications ? 'translate-x-4.5' : 'translate-x-1'}`} />
               </div>
               <input type="checkbox" name="emailNotifications" checked={settings.emailNotifications} onChange={handleChange} className="hidden" />
-            </label>
-
-            <label className="flex items-start justify-between cursor-pointer group">
-              <div className="flex flex-col">
-                <span className="text-[15px] font-medium text-slate-900 dark:text-white">SMS Bildirimleri</span>
-                <span className="text-[13px] text-slate-500 mt-1">Acil durumlarda veliye SMS gönderimi onayı</span>
-              </div>
-              <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out mt-1 ${settings.smsNotifications ? 'bg-slate-900' : 'bg-slate-300'}`}>
-                <div className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-[#0f172a] shadow ring-0 transition duration-200 ease-in-out ${settings.smsNotifications ? 'translate-x-4.5' : 'translate-x-1'}`} />
-              </div>
-              <input type="checkbox" name="smsNotifications" checked={settings.smsNotifications} onChange={handleChange} className="hidden" />
             </label>
 
           </div>

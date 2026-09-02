@@ -174,7 +174,6 @@ const UsersView = () => {
         </div>
       </header>
 
-      {/* Rol kısayolları */}
       <div className="flex flex-wrap gap-1.5">
         {ROLE_FILTERS.map((filter) => {
           const Icon = filter.icon;

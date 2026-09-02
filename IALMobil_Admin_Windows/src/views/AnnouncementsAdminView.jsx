@@ -74,13 +74,11 @@ const AnnouncementsAdminView = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Arama ve Filtre Durumu
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterTab, setFilterTab] = useState('all'); // 'all' | 'pinned' | 'with_image'
+  const [filterTab, setFilterTab] = useState('all'); 
 
-  // Yeni Duyuru Modali Durumu
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createTab, setCreateTab] = useState('form'); // 'form' | 'templates'
+  const [createTab, setCreateTab] = useState('form'); 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isPinned, setIsPinned] = useState(false);
@@ -88,17 +86,13 @@ const AnnouncementsAdminView = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // Düzenleme Modali Durumu
   const [editingDoc, setEditingDoc] = useState(null);
 
-  // Silme Onay Modali Durumu
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Etkileşimler Modali Durumu
   const [viewingInteractions, setViewingInteractions] = useState(null);
   const [interactions, setInteractions] = useState({ reactions: [], comments: [], loading: false });
 
-  // Cloudinary Görsel Yükleyici
   const uploadImageToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -118,7 +112,6 @@ const AnnouncementsAdminView = () => {
     }
   };
 
-  // Firestore Gerçek Zamanlı Dinleyici
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'announcements'), (snapshot) => {
       const data = snapshot.docs.map((d) => ({
@@ -127,7 +120,6 @@ const AnnouncementsAdminView = () => {
         createdAtRaw: d.data().createdAt?.toMillis() || d.data().timestamp?.toMillis() || 0
       }));
 
-      // Sabitlenenler her zaman en üstte, sonrasında kronolojik
       data.sort((a, b) => {
         const pinA = a.pinned || a.isPinned ? 1 : 0;
         const pinB = b.pinned || b.isPinned ? 1 : 0;
@@ -142,14 +134,12 @@ const AnnouncementsAdminView = () => {
     return () => unsubscribe();
   }, []);
 
-  // Şablonu Forma Aktar
   const applyTemplate = (template) => {
     setTitle(template.title);
     setContent(template.content);
     setCreateTab('form');
   };
 
-  // Yeni Duyuru Kaydet
   const handleSave = async (e) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
@@ -188,7 +178,6 @@ const AnnouncementsAdminView = () => {
     setIsSaving(false);
   };
 
-  // Duyuru Güncelle
   const handleUpdate = async (e) => {
     e.preventDefault();
     if (!editingDoc?.title.trim() || !editingDoc?.content.trim()) return;
@@ -218,7 +207,6 @@ const AnnouncementsAdminView = () => {
     setIsSaving(false);
   };
 
-  // Listeden Anlık Sabitle / Sabitlemeyi Kaldır
   const handleTogglePin = async (item) => {
     const current = item.pinned ?? item.isPinned ?? false;
     const newPinned = !current;
@@ -232,7 +220,6 @@ const AnnouncementsAdminView = () => {
     }
   };
 
-  // Duyuruyu Kalıcı Sil
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     try {
@@ -243,7 +230,6 @@ const AnnouncementsAdminView = () => {
     setDeleteConfirm(null);
   };
 
-  // Etkileşimleri Yükle
   const openInteractions = async (docId, docTitle) => {
     setViewingInteractions({ id: docId, title: docTitle });
     setInteractions({ reactions: [], comments: [], loading: true });
@@ -263,7 +249,6 @@ const AnnouncementsAdminView = () => {
     }
   };
 
-  // İstatistik Hesaplamaları
   const pinnedCount = useMemo(() => announcements.filter((a) => a.pinned || a.isPinned).length, [announcements]);
   const withImageCount = useMemo(() => announcements.filter((a) => a.imageUrl).length, [announcements]);
   const lastPublished = useMemo(() => {
@@ -276,7 +261,6 @@ const AnnouncementsAdminView = () => {
     });
   }, [announcements]);
 
-  // Filtrelenmiş Duyuru Listesi
   const filteredAnnouncements = useMemo(() => {
     return announcements.filter((item) => {
       const matchSearch =
@@ -292,7 +276,6 @@ const AnnouncementsAdminView = () => {
     });
   }, [announcements, searchTerm, filterTab]);
 
-  // Tepki Özeti
   const reactionSummary = useMemo(() => {
     const counts = {};
     interactions.reactions.forEach((r) => {
@@ -303,7 +286,7 @@ const AnnouncementsAdminView = () => {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-6">
-      {/* 1. Başlık & Yeni Duyuru Aksiyon Alanı */}
+      
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="m-0 text-[26px] font-semibold tracking-[-0.03em] text-slate-900 dark:text-white">
@@ -330,7 +313,6 @@ const AnnouncementsAdminView = () => {
         </div>
       </header>
 
-      {/* 2. Apple ERP İstatistik Şeridi */}
       <StatStrip>
         <Stat
           label="Toplam Duyuru"
@@ -356,15 +338,14 @@ const AnnouncementsAdminView = () => {
         />
       </StatStrip>
 
-      {/* 3. Ana ERP Kayıt Paneli */}
       <Panel>
         <PanelHeader
           title="Duyuru Akışı"
           description="Sistemde yayınlanan tüm bildirim ve duyurular"
         >
-          {/* Header içi Filtre ve Arama Alanı */}
+          
           <div className="flex items-center gap-2.5 mr-[60px]">
-            {/* Sade Filtre Butonları */}
+            
             <div className="flex items-center bg-slate-100 dark:bg-[#1e293b]/70 p-0.5 rounded-full border border-slate-200/60 dark:border-white/5 text-[12.5px] h-8">
               <button
                 type="button"
@@ -404,7 +385,6 @@ const AnnouncementsAdminView = () => {
               </button>
             </div>
 
-            {/* Arama Çubuğu */}
             <div className="relative w-[250px] max-w-full">
               <Search
                 size={14}
@@ -431,7 +411,6 @@ const AnnouncementsAdminView = () => {
           </div>
         </PanelHeader>
 
-        {/* Liste / Yükleme / Boş Durum */}
         {loading ? (
           <div className={cx('divide-y', divider)}>
             {[0, 1, 2, 3].map((n) => (
@@ -479,7 +458,7 @@ const AnnouncementsAdminView = () => {
                       : 'hover:bg-slate-50/80 dark:hover:bg-white/[0.02]'
                   )}
                 >
-                  {/* Görsel / İkon Alanı */}
+                  
                   <div
                     className={cx(
                       'w-14 h-14 rounded-xl shrink-0 overflow-hidden border flex items-center justify-center relative shadow-2xs',
@@ -507,11 +486,10 @@ const AnnouncementsAdminView = () => {
                     )}
                   </div>
 
-                  {/* İçerik Gövdesi */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        {/* Başlık ve Rozetler */}
+                        
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           {pinned && (
                             <Badge tone="warning" className="gap-1 px-1.5 py-0.5 text-[11px]">
@@ -524,13 +502,11 @@ const AnnouncementsAdminView = () => {
                           </h3>
                         </div>
 
-                        {/* İçerik Metni */}
                         <p className="m-0 mt-1.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2 whitespace-pre-wrap font-normal">
                           {item.content}
                         </p>
                       </div>
 
-                      {/* Sağ Aksiyon Butonları */}
                       <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                         <IconButton
                           label={pinned ? 'Sabitlemeyi Kaldır' : 'Başa Sabitle'}
@@ -567,7 +543,6 @@ const AnnouncementsAdminView = () => {
                       </div>
                     </div>
 
-                    {/* Alt Bilgi & Etkileşim Satırı */}
                     <div className="mt-2.5 flex items-center gap-3.5 text-[12px] text-slate-500 dark:text-slate-400 flex-wrap">
                       <span className="flex items-center gap-1.5 font-normal tnum">
                         <Clock size={12.5} className="text-slate-400 dark:text-slate-500" />
@@ -598,9 +573,6 @@ const AnnouncementsAdminView = () => {
         )}
       </Panel>
 
-      {/* ========================================================================= */}
-      {/* 4. YENİ DUYURU MODALİ (Doğrudan Şablon Çipli & Tek Parça Form)            */}
-      {/* ========================================================================= */}
       <Modal
         open={isCreateModalOpen}
         onClose={() => !isSaving && setIsCreateModalOpen(false)}
@@ -637,7 +609,6 @@ const AnnouncementsAdminView = () => {
             </div>
           )}
 
-          {/* Hazır Şablonlar (Tek Tıkla Forma Doldurma Çipleri) */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[11.5px] font-semibold tracking-wide uppercase text-slate-400 dark:text-slate-500">
               Hazır Şablonlar (Hızlı Doldur)
@@ -657,7 +628,6 @@ const AnnouncementsAdminView = () => {
             </div>
           </div>
 
-          {/* Başlık Input */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="create-title" className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300">
               Duyuru Başlığı <span className="text-rose-500">*</span>
@@ -673,7 +643,6 @@ const AnnouncementsAdminView = () => {
             />
           </div>
 
-          {/* İçerik Textarea */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="create-content" className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300">
               Duyuru İçeriği <span className="text-rose-500">*</span>
@@ -689,7 +658,6 @@ const AnnouncementsAdminView = () => {
             />
           </div>
 
-          {/* Görsel Yükleme Kartı */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300">
               Görsel / Banner <span className="text-slate-400 font-normal">(İsteğe bağlı)</span>
@@ -743,7 +711,6 @@ const AnnouncementsAdminView = () => {
             </div>
           </div>
 
-          {/* Sabitleme Kartı */}
           <div
             onClick={() => setIsPinned(!isPinned)}
             className="p-3.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
@@ -780,9 +747,6 @@ const AnnouncementsAdminView = () => {
         </form>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* 5. DÜZENLEME MODALİ                                                      */}
-      {/* ========================================================================= */}
       <Modal
         open={Boolean(editingDoc)}
         onClose={() => !isSaving && setEditingDoc(null)}
@@ -815,7 +779,6 @@ const AnnouncementsAdminView = () => {
               </div>
             )}
 
-            {/* Hazır Şablonlar (Düzenlemede de hızlı değiştirme seçeneği) */}
             <div className="flex flex-col gap-1.5">
               <span className="text-[11.5px] font-semibold tracking-wide uppercase text-slate-400 dark:text-slate-500">
                 Hazır Şablon İle Değiştir
@@ -841,7 +804,6 @@ const AnnouncementsAdminView = () => {
               </div>
             </div>
 
-            {/* Başlık Input */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="edit-title" className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300">
                 Duyuru Başlığı <span className="text-rose-500">*</span>
@@ -856,7 +818,6 @@ const AnnouncementsAdminView = () => {
               />
             </div>
 
-            {/* İçerik Textarea */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="edit-content" className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300">
                 Duyuru İçeriği <span className="text-rose-500">*</span>
@@ -871,7 +832,6 @@ const AnnouncementsAdminView = () => {
               />
             </div>
 
-            {/* Görsel Yükleme Kartı */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[12.5px] font-medium text-slate-700 dark:text-slate-300">
                 Görsel / Banner
@@ -931,7 +891,6 @@ const AnnouncementsAdminView = () => {
               </div>
             </div>
 
-            {/* Sabitleme Kartı */}
             <div
               onClick={() => setEditingDoc({ ...editingDoc, isPinned: !editingDoc.isPinned })}
               className="p-3.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
@@ -969,9 +928,6 @@ const AnnouncementsAdminView = () => {
         )}
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* 6. ETKİLEŞİMLER & YORUMLAR MODALİ                                        */}
-      {/* ========================================================================= */}
       <Modal
         open={Boolean(viewingInteractions)}
         onClose={() => setViewingInteractions(null)}
@@ -992,7 +948,7 @@ const AnnouncementsAdminView = () => {
           </div>
         ) : (
           <div className="p-5 flex flex-col gap-4">
-            {/* Tepki Rozetleri */}
+            
             <div className={cx('p-4 rounded-xl border bg-slate-50/50 dark:bg-white/[0.02]', hairline)}>
               <span className={eyebrow}>Kullanıcı Tepkileri ({interactions.reactions.length})</span>
               {reactionSummary.length === 0 ? (
@@ -1017,7 +973,6 @@ const AnnouncementsAdminView = () => {
               )}
             </div>
 
-            {/* Yorumlar Listesi */}
             <div>
               <div className="mb-2">
                 <span className={eyebrow}>Yorumlar ({interactions.comments.length})</span>
@@ -1060,9 +1015,6 @@ const AnnouncementsAdminView = () => {
         )}
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* 7. SİLME ONAY MODALİ                                                     */}
-      {/* ========================================================================= */}
       <Modal
         open={Boolean(deleteConfirm)}
         onClose={() => setDeleteConfirm(null)}

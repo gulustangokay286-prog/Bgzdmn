@@ -9,7 +9,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    titleBarStyle: 'hidden', // Modern borderless look like macOS
+    titleBarStyle: 'hidden', 
     titleBarOverlay: {
       color: 'rgba(0,0,0,0)',
       symbolColor: '#ffffff'
@@ -21,11 +21,11 @@ function createWindow() {
   });
 
   if (isDev) {
-    // Vite dev server URL
+    
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // Built vite app
+    
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 }

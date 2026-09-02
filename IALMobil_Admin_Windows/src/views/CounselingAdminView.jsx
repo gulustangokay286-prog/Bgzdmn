@@ -95,7 +95,6 @@ const CounselingAdminView = () => {
     setTimeout(() => setToast((t) => ({ ...t, open: false })), 2800);
   };
 
-  /** Devamsızlık ve not ortalamasından basit bir risk profili çıkarır. */
   const riskData = useMemo(() => {
     if (!studentId) return null;
 
@@ -325,7 +324,6 @@ const CounselingAdminView = () => {
                 </div>
               )}
 
-              {/* Yeni kayıt */}
               <form onSubmit={handleSubmit}>
                 <Panel>
                   <PanelHeader title="Yeni Kayıt" description="Kayıtlar öğrencinin rehberlik dosyasına işlenir">
@@ -444,7 +442,6 @@ const CounselingAdminView = () => {
                 </Panel>
               </form>
 
-              {/* Geçmiş */}
               <Panel>
                 <PanelHeader title="Rehberlik Geçmişi" description="En yeni kayıtlar üstte">
                   <span className="text-[11.5px] text-slate-500 dark:text-slate-400 tnum">
@@ -514,7 +511,6 @@ const CounselingAdminView = () => {
         </div>
       </div>
 
-      {/* AI profili */}
       <Modal
         open={isAiOpen}
         onClose={() => setIsAiOpen(false)}
