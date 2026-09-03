@@ -207,12 +207,21 @@ export const recordGatePassage = async (options) => {
     }).catch(() => {  });
   }
 
-  // `autoGateSms` ayari Ayarlar ekraninda vardi ama hicbir yerde okunmuyordu;
-  // artik gecis bildirimini gercekten aciyor/kapatiyor.
-  if (notifyParent && cfg.autoGateSms !== false) {
+  // autoGateSms ayari aciksa giris ve cikis aninda veliye otomatik Netgsm SMS gonderilir
+  if (notifyParent && cfg.autoGateSms !== false && !staff) {
     Promise.resolve()
-      .then(() => sendWhatsAppNotification(student.id, student.name, normalizedAction, now))
-      .catch(err => console.warn('[attendance] WhatsApp bildirimi gönderilemedi:', err?.message));
+      .then(async () => {
+        const { netgsmService } = await import('./netgsmService');
+        await netgsmService.sendParentGateSms({
+          studentId: student.id,
+          studentName: student.name,
+          action: normalizedAction,
+          schoolNumber: student.schoolNumber,
+          tc: student.tc,
+          time: timeStr
+        });
+      })
+      .catch(err => console.warn('[attendance] Otomatik veli SMS gönderilemedi:', err?.message));
   }
 
   return { ok: rtdbOk || firestoreOk, rtdbOk, firestoreOk, log: logData, time: timeStr, dateKey };
@@ -671,6 +680,24 @@ export const recordGatePassagesBulk = async (passages, config, now = new Date())
 
   await updateInChunks(rtdbUpdates);
   await commitInBatches(fsOps);
+
+  if (config.autoGateSms !== false) {
+    Promise.resolve().then(async () => {
+      const { netgsmService } = await import('./netgsmService');
+      for (const p of passages) {
+        if (!p.student?.isStaff) {
+          await netgsmService.sendParentGateSms({
+            studentId: p.student.id,
+            studentName: p.student.name,
+            action: p.action,
+            schoolNumber: p.student.schoolNumber,
+            tc: p.student.tc,
+            time: minutesToTime(p.minutes || getMinutesInTimeZone(now, config.timeZone))
+          }).catch(() => {});
+        }
+      }
+    });
+  }
 
   return { count: passages.length };
 };

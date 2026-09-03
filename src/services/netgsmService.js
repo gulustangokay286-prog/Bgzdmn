@@ -311,5 +311,49 @@ export const netgsmService = {
     }
 
     return unique;
+  },
+
+  async sendParentGateSms({ studentId, studentName, action, schoolNumber, tc, time }) {
+    try {
+      let parentPhone = null;
+      if (studentId) {
+        const studentDoc = await getDoc(doc(db, 'users', studentId));
+        if (studentDoc.exists()) {
+          const sData = studentDoc.data();
+          parentPhone = sData.parent_phone || sData.parentPhone || sData.veli_telefon || sData.veliTelefon || null;
+          if (!schoolNumber) schoolNumber = sData.school_number || sData.schoolNumber || '';
+        }
+      }
+
+      if (!parentPhone && schoolNumber) {
+        const parentSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['parent', 'veli']), where('child_school_number', '==', String(schoolNumber))));
+        if (!parentSnap.empty) {
+          const pData = parentSnap.docs[0].data();
+          parentPhone = pData.phone || pData.phoneNumber;
+        }
+      }
+
+      if (!parentPhone && studentId) {
+        const parentSnap2 = await getDocs(query(collection(db, 'users'), where('role', 'in', ['parent', 'veli']), where('linked_student_ids', 'array-contains', studentId)));
+        if (!parentSnap2.empty) {
+          const pData = parentSnap2.docs[0].data();
+          parentPhone = pData.phone || pData.phoneNumber;
+        }
+      }
+
+      if (!parentPhone) return { success: false, reason: 'no_parent_phone' };
+
+      const timeStr = time || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const actionText = action === 'entry' ? 'kurum girişini yapmıştır.' : 'kurum çıkışını yapmıştır.';
+      const msg = `Sayın Velimiz,\n\n${studentName} saat ${timeStr} itibarıyla ${actionText}\n\nBoğaziçi Koleji`;
+
+      return await this.sendSms({
+        to: parentPhone,
+        message: msg
+      });
+    } catch (e) {
+      console.warn('[netgsmService] sendParentGateSms error:', e);
+      return { success: false, error: e?.message };
+    }
   }
 };
