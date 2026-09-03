@@ -23,7 +23,7 @@ export const POOL = {
 };
 
 const TEACHER_ROLES = ['teacher', 'öğretmen', 'ogretmen'];
-const ADMIN_ROLES = ['admin', 'yönetici', 'yonetici', 'superadmin', 'patron', 'personnel', 'personel', 'staff'];
+const ADMIN_ROLES = ['admin', 'yönetici', 'yonetici', 'superadmin', 'personnel', 'personel', 'staff'];
 const PARENT_ROLES = ['parent', 'veli'];
 const STUDENT_ROLES = ['student', 'öğrenci', 'ogrenci'];
 
@@ -53,8 +53,8 @@ export const nameOf = (u) => {
 const str = (u, k) => u?.fields?.[k]?.stringValue || '';
 const phoneOf = (u) => String(str(u, 'phone') || str(u, 'telefon') || '').replace(/\D/g, '').slice(-10);
 
-/** Kurumdan ayrilanlar: kayit dursa da listelerde gorunmez. */
-const DEPARTED = ['kantemir'];
+/** Kurumdan ayrilanlar ve gizli hesaplar: listelerde ve sayimlarda asla gorunmez. */
+const DEPARTED = ['kantemir', 'patron', 'bogazici yonetim'];
 
 /**
  * Kadroda olup Firestore'da ogretmen olarak kayitli olmayanlar.
