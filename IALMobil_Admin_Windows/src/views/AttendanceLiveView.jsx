@@ -16,7 +16,7 @@ import {
 import { soundManager } from '../services/soundManager';
 import { ref, query as rtdbQuery, limitToLast, onValue } from 'firebase/database';
 import { rtdb, db } from '../services/firebaseConfig';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { firebaseService } from '../services/firebase';
 import { io } from 'socket.io-client';
 import {
