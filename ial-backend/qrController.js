@@ -129,29 +129,24 @@ const handleQrScan = async (req, res) => {
         let inCooldown = false;
 
         if (action === 'entry') {
-            if (currentStatus === 'entry') {
-                finalMessage = "Zaten giriş yapıldı.";
-                newStatus = "entry";
-                inCooldown = true;
-            } else {
-                finalMessage = "Kurum girişi yapıldı.";
-                newStatus = "entry";
-            }
+            finalMessage = 'Kurum girişi yapıldı.';
+            newStatus = 'entry';
+            inCooldown = false;
         } else if (action === 'exit') {
-            if (currentStatus === 'outside') {
-                finalMessage = "Önce kuruma giriş yapmalısınız.";
-                newStatus = "outside";
-                inCooldown = true;
-            } else if (currentStatus === 'exit') {
-                finalMessage = "Zaten çıkış yapıldı.";
-                newStatus = "exit";
-                inCooldown = true;
+            finalMessage = 'Kurumdan çıkıldı.';
+            newStatus = 'exit';
+            inCooldown = false;
+        } else {
+            if (currentStatus === 'entry' || currentStatus === 'inside') {
+                finalMessage = 'Kurumdan çıkıldı.';
+                newStatus = 'exit';
             } else {
-                finalMessage = "Kurumdan çıkıldı.";
-                newStatus = "exit";
+                finalMessage = 'Kurum girişi yapıldı.';
+                newStatus = 'entry';
             }
+            inCooldown = false;
         }
-
+        
         if (!inCooldown) {
             await setDoc(doc(db, 'gate_status', foundUser.id), {
                 status: newStatus,
