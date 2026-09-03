@@ -519,6 +519,7 @@ const QRCodeRedirect = () => {
 
   const [showFallback, setShowFallback] = useState(false);
   const [geoStatus, setGeoStatus] = useState('idle');
+  const [roleMode, setRoleMode] = useState('student');
   const [tcInput, setTcInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [student, setStudent] = useState(null);
@@ -899,140 +900,152 @@ const QRCodeRedirect = () => {
     }
   };
 
-  const handleTcChange = async (e) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-    setTcInput(val);
+  const normalizeTr = (s = '') => String(s || '')
+    .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+    .replace(/Ç/g, 'c').replace(/ç/g, 'c')
+    .replace(/Ğ/g, 'g').replace(/ğ/g, 'g')
+    .replace(/Ö/g, 'o').replace(/ö/g, 'o')
+    .replace(/Ş/g, 's').replace(/ş/g, 's')
+    .replace(/Ü/g, 'u').replace(/ü/g, 'u')
+    .toLowerCase().trim();
 
-    if (val.length === 4) {
-      const rateCheck = checkRateLimit();
-      if (rateCheck.blocked) {
-        alert(`Çok fazla deneme yaptınız. ${rateCheck.remaining} saniye bekleyin.`);
-        setTcInput('');
-        return;
-      }
-
-      setIsVerifying(true);
-      
-      try {
-        let foundStudent = null;
-
-        const matches = [];
-
-        for (const data of cachedStudents) {
-          const tcRaw = data.tc_kimlik || data.tc || data.tcNo || data.tcKimlik || data.identityNumber || data.idNumber || "";
-          const tcString = String(tcRaw);
-          
-          if (tcString.endsWith(val)) {
-            const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
-            let name = "İsimsiz Kullanıcı";
-            for (let k of nameKeys) {
-              if (data[k]) { name = data[k]; break; }
-            }
-            
-            const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage || 
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
-
-            const role = data.role || 'student';
-            matches.push({ id: data.id, name, photo: photoUrl, tc: tcString, role, isStaff: isStaffRole(role) });
-          }
-        }
-
-        if (matches.length > 1) {
-          setIsVerifying(false);
-          const teacher = matches.find(m => m.isStaff);
-          const student = matches.find(m => !m.isStaff);
-          let chosen = null;
-          if (teacher && student) {
-            const ok = window.confirm(`T.C. Son 4 Haneniz (${val}) Çakıştı:\n\n1) ÖĞRETMEN (${teacher.name})\n2) ÖĞRENCİ (${student.name})\n\nÖĞRETMEN (${teacher.name}) olarak girmek için 'Tamam'a,\nÖĞRENCİ (${student.name}) olarak girmek için 'İptal'e basınız.`);
-            chosen = ok ? teacher : student;
-          } else {
-            const ok = window.confirm(`T.C. Son 4 Haneniz (${val}) Çakıştı:\n\n1) ${matches[0].name}\n2) ${matches[1].name}\n\n"${matches[0].name}" için 'Tamam'a,\n"${matches[1].name}" için 'İptal'e basınız.`);
-            chosen = ok ? matches[0] : matches[1];
-          }
-          if (chosen) {
-            foundStudent = chosen;
-          } else {
-            setTcInput('');
-            return;
-          }
-        } else if (matches.length === 1) {
-          foundStudent = matches[0];
-        }
-
-        // HIZLI YOL: indeksli `tc_last4` alanı varsa tek belge okunur.
-        // Alan, aşağıdaki tam tarama bir kez eşleşince o kişiye yazılır; böylece
-        // toplu migrasyona gerek kalmadan zamanla kendiliğinden dolar ve
-        // yığılmada 55 KB'lık liste indirmesi ortadan kalkar.
-        if (!foundStudent) {
-          try {
-            const fastSnap = await getDocs(query(
-              collection(db, "users"),
-              where("tc_last4", "==", val),
-              limit(5)
-            ));
-            for (const docSnap of fastSnap.docs) {
-              const data = docSnap.data();
-              const role = (data.role || 'student').toLowerCase();
-              // Tum roller gecis yapabilir
-              const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
-              let name = "İsimsiz Kullanıcı";
-              for (const k of nameKeys) { if (data[k]) { name = data[k]; break; } }
-              const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
-              foundStudent = {
-                id: docSnap.id, name, photo: photoUrl,
-                tc: String(data.tc_kimlik || data.tc || ''), role, isStaff: isStaffRole(role)
-              };
-              break;
-            }
-          } catch (fastErr) {
-            console.warn('[QR] Hızlı TC araması yapılamadı:', fastErr?.message);
-          }
-        }
-
-        if (!foundStudent) {
-          const q = query(collection(db, "users"));
-          const querySnapshot = await getDocs(q);
-          
-          for (const docSnap of querySnapshot.docs) {
-            const data = docSnap.data();
-            const tcRaw = data.tc_kimlik || data.tc || data.tcNo || data.tcKimlik || data.identityNumber || data.idNumber || "";
-            const tcString = String(tcRaw);
-            
-            if (tcString.endsWith(val)) {
-              const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
-              let name = "İsimsiz Kullanıcı";
-              for (let k of nameKeys) {
-                if (data[k]) { name = data[k]; break; }
-              }
-              const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage || 
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
-              const role = data.role || 'student';
-              foundStudent = { id: docSnap.id, name, photo: photoUrl, tc: tcString, role, isStaff: isStaffRole(role) };
-              // Bir sonraki okutmada tam tarama gerekmesin diye alanı yaz.
-              if (!data.tc_last4 && tcString.length >= 4) {
-                updateDoc(doc(db, 'users', docSnap.id), { tc_last4: tcString.slice(-4) })
-                  .catch(() => { /* yazma yetkisi yoksa sessizce geç */ });
-              }
-              break;
-            }
-          }
-        }
-
-        if (foundStudent) {
-          await processAttendance(foundStudent);
-        } else {
-          setIsVerifying(false);
-          alert("Bu son 4 haneye sahip kayıtlı bir kullanıcı bulunamadı.");
-          setTcInput('');
-        }
-
-      } catch (error) {
-        console.error("Firebase Hatası:", error);
-        setIsVerifying(false);
-        alert("Veritabanı bağlantı hatası.");
-      }
+  const handlePassSubmit = async (rawInput) => {
+    const raw = String(rawInput !== undefined ? rawInput : tcInput).trim();
+    if (!raw) {
+      alert('Lütfen okul numaranızı veya soyadınızı giriniz.');
+      return;
     }
+
+    const rateCheck = checkRateLimit();
+    if (rateCheck.blocked) {
+      alert(`Çok fazla deneme yaptınız. ${rateCheck.remaining} saniye bekleyin.`);
+      setTcInput('');
+      return;
+    }
+
+    const isDigits = /^\d+$/.test(raw);
+    let effectiveMode = roleMode;
+    if (isDigits && raw.length <= 5) {
+      effectiveMode = 'student';
+    }
+
+    setIsVerifying(true);
+
+    try {
+      let foundStudent = null;
+      let allUsers = cachedStudents || [];
+      if (allUsers.length === 0) {
+        const snap = await getDocs(collection(db, 'users'));
+        allUsers = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      }
+
+      if (effectiveMode === 'student' || isDigits) {
+        // 1. ÖĞRENCİ OKUL NUMARASI İLE EŞLEŞTİRME
+        let matches = [];
+        for (const u of allUsers) {
+          const role = String(u.role || 'student').toLowerCase();
+          const isStaff = isStaffRole(role) || u.isStaff;
+          if (!isStaff) {
+            const sNo = String(u.school_number || u.schoolNumber || u.okulNo || u.no || '').trim();
+            if (sNo && sNo === raw) {
+              matches.push(u);
+            }
+          }
+        }
+
+        // Yedek: son 4 hane TC
+        if (matches.length === 0 && raw.length >= 4) {
+          for (const u of allUsers) {
+            const tc = String(u.tc_kimlik || u.tc || '').trim();
+            if (tc.endsWith(raw)) {
+              matches.push(u);
+            }
+          }
+        }
+
+        if (matches.length === 1) {
+          foundStudent = matches[0];
+        } else if (matches.length > 1) {
+          const listStr = matches.map((m, i) => `${i + 1}) ${m.full_name || m.name}`).join('\n');
+          const ok = window.confirm(`Birden fazla öğrenci bulundu:\n\n${listStr}\n\n1. öğrenci için 'Tamam', 2. öğrenci için 'İptal'e basınız.`);
+          foundStudent = ok ? matches[0] : matches[1];
+        }
+      } else {
+        // 2. ÖĞRETMEN / PERSONEL SOYADI İLE EŞLEŞTİRME
+        const targetNorm = normalizeTr(raw);
+        let matches = [];
+        for (const u of allUsers) {
+          const role = String(u.role || '').toLowerCase();
+          const isStaff = isStaffRole(role) || u.isStaff;
+          if (isStaff) {
+            const fullName = u.full_name || u.fullName || u.name || '';
+            const parts = fullName.trim().split(/\s+/);
+            const surname = normalizeTr(parts[parts.length - 1] || '');
+            const allSurnames = parts.slice(1).map(p => normalizeTr(p));
+            const fullNorm = normalizeTr(fullName);
+
+            if (surname === targetNorm || allSurnames.includes(targetNorm) || fullNorm.includes(targetNorm)) {
+              matches.push({ ...u, isStaff: true });
+            }
+          }
+        }
+
+        // Yedek: TC ile eşleşme
+        if (matches.length === 0 && raw.length >= 4) {
+          for (const u of allUsers) {
+            const tc = String(u.tc_kimlik || u.tc || '').trim();
+            if (tc.endsWith(raw)) {
+              matches.push({ ...u, isStaff: true });
+            }
+          }
+        }
+
+        if (matches.length === 1) {
+          foundStudent = matches[0];
+        } else if (matches.length > 1) {
+          const listStr = matches.map((m, i) => `${i + 1}) ${m.full_name || m.name}`).join('\n');
+          const ok = window.confirm(`Birden fazla öğretmen/personel bulundu:\n\n${listStr}\n\n1. kişi için 'Tamam', 2. kişi için 'İptal'e basınız.`);
+          foundStudent = ok ? matches[0] : matches[1];
+        }
+      }
+
+      if (foundStudent) {
+        const nameKeys = ['full_name', 'fullName', 'name', 'displayName', 'display_name'];
+        let uName = 'İsimsiz Kullanıcı';
+        for (const k of nameKeys) if (foundStudent[k]) { uName = foundStudent[k]; break; }
+        const photo = foundStudent.profile_image || foundStudent.profileImageUrl || foundStudent.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(uName)}&background=9f1239&color=fff&size=200&bold=true`;
+        const _r = String(foundStudent.role || '').toLowerCase();
+        const _s = isStaffRole(_r) || Boolean(foundStudent.isStaff);
+
+        const payload = {
+          id: foundStudent.id || foundStudent.uid,
+          name: uName,
+          photo: photo,
+          tc: foundStudent.tc_kimlik || foundStudent.tc || '',
+          schoolNumber: foundStudent.school_number || foundStudent.schoolNumber || '',
+          role: foundStudent.role || (effectiveMode === 'teacher' ? 'teacher' : 'student'),
+          isStaff: _s
+        };
+
+        await processVerification(payload);
+      } else {
+        setIsVerifying(false);
+        if (effectiveMode === 'student' || isDigits) {
+          alert(`Girdiğiniz okul numarasına (${raw}) ait öğrenci bulunamadı. Lütfen kontrol ediniz.`);
+        } else {
+          alert(`Girdiğiniz soyada ("${raw}") ait öğretmen veya personel bulunamadı. Lütfen kontrol ediniz.`);
+        }
+        setTcInput('');
+      }
+    } catch (err) {
+      setIsVerifying(false);
+      console.error('Geçiş sorgu hatası:', err);
+      alert('Geçiş sorgulanırken bir hata oluştu: ' + err.message);
+    }
+  };
+
+  const handleTcChange = (e) => {
+    setTcInput(e.target.value);
   };
 
   // Veli telefonu istenirken başka hiçbir ekran gösterilmez; sayaç duruyor.
@@ -1424,60 +1437,78 @@ const QRCodeRedirect = () => {
                       </button>
                     </div>
                   ) : (
-                    <>
-                      <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', margin: '0 0 24px', fontWeight: '500', lineHeight: '1.5' }}>TC Kimlik Numaranızın <strong style={{color: 'white'}}>son 4 hanesini</strong> giriniz</p>
-                      
-                      <div 
-                        style={{ position: 'relative', display: 'flex', gap: '12px', marginBottom: '8px', cursor: 'text', WebkitTapHighlightColor: 'transparent' }}
-                      >
-                        {[0, 1, 2, 3].map((i) => (
-                          <div key={i} style={{
-                            width: '52px',
-                            height: '64px',
-                            borderRadius: '14px',
-                            backgroundColor: tcInput[i] ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
-                            border: tcInput[i] ? '1.5px solid rgba(255,255,255,0.3)' : '1.5px solid rgba(255,255,255,0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                    <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ display: 'flex', width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', padding: '4px', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => { setRoleMode('student'); setTcInput(''); }}
+                          style={{
+                            flex: 1, padding: '14px 10px', borderRadius: '12px', border: 'none',
+                            backgroundColor: roleMode === 'student' ? '#2563eb' : 'transparent',
+                            color: '#ffffff', fontWeight: '800', fontSize: '15px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                             transition: 'all 0.2s ease'
-                          }}>
-                            {tcInput[i] ? (
-                              <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#ffffff' }}></div>
-                            ) : (
-                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)' }}></div>
-                            )}
-                          </div>
-                        ))}
+                          }}
+                        >
+                          🎒 Öğrenci Girişi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setRoleMode('teacher'); setTcInput(''); }}
+                          style={{
+                            flex: 1, padding: '14px 10px', borderRadius: '12px', border: 'none',
+                            backgroundColor: roleMode === 'teacher' ? '#059669' : 'transparent',
+                            color: '#ffffff', fontWeight: '800', fontSize: '15px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          🎓 Öğretmen & İdare
+                        </button>
                       </div>
-                      
-                      <input
-                        ref={inputRef}
-                        type="tel"
-                        inputMode="numeric"
-                        maxLength={4}
-                        autoComplete="off"
-                        value={tcInput}
-                        onChange={handleTcChange}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '100%',
-                          opacity: 0,
-                          zIndex: 10,
-                          cursor: 'text',
-                          color: 'transparent',
-                          background: 'transparent',
-                          caretColor: 'transparent',
-                          border: 'none',
-                          outline: 'none'
-                        }}
-                      />
-                    </>
+
+                      <div style={{ textAlign: 'center', margin: '4px 0' }}>
+                        <h3 style={{ color: '#ffffff', fontSize: '20px', fontWeight: '800', margin: '0 0 6px' }}>
+                          {roleMode === 'teacher' ? 'Öğretmen / Personel Soyadınız' : 'Öğrenci Okul Numaranız'}
+                        </h3>
+                        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13.5px', margin: 0 }}>
+                          {roleMode === 'teacher' ? 'Lütfen sisteme kayıtlı soyadınızı yazınız' : 'Lütfen 3-4 haneli okul numaranızı yazınız'}
+                        </p>
+                      </div>
+
+                      <form
+                        onSubmit={(e) => { e.preventDefault(); handlePassSubmit(); }}
+                        style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}
+                      >
+                        <input
+                          type={roleMode === 'teacher' ? 'text' : 'tel'}
+                          inputMode={roleMode === 'teacher' ? 'text' : 'numeric'}
+                          value={tcInput}
+                          onChange={handleTcChange}
+                          placeholder={roleMode === 'teacher' ? 'Soyadınız (Örn: Çelik, Kaya)' : 'Okul No (Örn: 406)'}
+                          autoFocus
+                          style={{
+                            width: '100%', boxSizing: 'border-box', padding: '16px 20px', borderRadius: '16px',
+                            border: '2px solid rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.12)',
+                            color: '#ffffff', fontSize: '22px', fontWeight: '800', textAlign: 'center', outline: 'none',
+                            letterSpacing: roleMode === 'teacher' ? '0.5px' : '2px'
+                          }}
+                        />
+
+                        <button
+                          type="submit"
+                          style={{
+                            width: '100%', padding: '17px', borderRadius: '16px', border: 'none',
+                            backgroundColor: roleMode === 'teacher' ? '#059669' : '#2563eb',
+                            color: '#ffffff', fontSize: '17px', fontWeight: '800', cursor: 'pointer',
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', gap: '8px', letterSpacing: '-0.2px'
+                          }}
+                        >
+                          {roleMode === 'teacher' ? '🚀 Öğretmen Girişini Tamamla' : '🚀 Öğrenci Girişini Tamamla'}
+                        </button>
+                      </form>
+                    </div>
                   )}
                 </div>
               )}
