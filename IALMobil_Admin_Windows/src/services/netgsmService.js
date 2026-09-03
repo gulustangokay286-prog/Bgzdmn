@@ -344,8 +344,31 @@ export const netgsmService = {
       if (!parentPhone) return { success: false, reason: 'no_parent_phone' };
 
       const timeStr = time || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-      const actionText = action === 'entry' ? 'kurum girişini yapmıştır.' : 'kurum çıkışını yapmıştır.';
-      const msg = `Sayın Velimiz,\n\n${studentName} saat ${timeStr} itibarıyla ${actionText}\n\nBoğaziçi Koleji`;
+      const isEntry = action === 'entry';
+      const actionVerb = isEntry ? 'okulumuza giriş yapmıştır.' : 'okulumuzdan çıkış yapmıştır.';
+      const pluralActionVerb = isEntry ? 'okulumuza giriş yapmışlardır.' : 'okulumuzdan çıkış yapmışlardır.';
+
+      const getFirstName = (fullName = '') => {
+        const parts = String(fullName).trim().split(/\s+/);
+        if (parts.length <= 1) return parts[0] || '';
+        const words = parts.slice(0, -1);
+        return words.map(w => {
+          if (!w) return '';
+          const first = w[0].replace('i', 'İ').replace('ı', 'I').toUpperCase();
+          const rest = w.slice(1).replace('I', 'ı').replace('İ', 'i').toLowerCase();
+          return first + rest;
+        }).join(' ');
+      };
+
+      let msg = '';
+      if (Array.isArray(studentName) && studentName.length > 1) {
+        const firstNames = studentName.map(n => getFirstName(n)).filter(Boolean);
+        msg = `Sayın Velimiz,\n\nÖğrencilerimiz ${firstNames.join(' ve ')} saat ${timeStr} itibariyle ${pluralActionVerb}\n\nBoğaziçi Koleji`;
+      } else {
+        const raw = Array.isArray(studentName) ? studentName[0] : studentName;
+        const firstName = getFirstName(raw);
+        msg = `Sayın Velimiz,\n\nÖğrencimiz ${firstName} saat ${timeStr} itibariyle ${actionVerb}\n\nBoğaziçi Koleji`;
+      }
 
       return await this.sendSms({
         to: parentPhone,
