@@ -6,11 +6,8 @@ import {
   UserCheck,
   UserX,
   ShieldCheck,
-  School,
   X,
   FileText,
-  RefreshCw,
-  Clock,
   CheckCircle2
 } from 'lucide-react';
 import { db, rtdb } from '../services/firebaseConfig';
@@ -18,22 +15,23 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
 import useAttendanceConfig from '../hooks/useAttendanceConfig';
 import {
-  evaluateStudentDay,
+  evaluatePersonDay,
   normalizeScanRecord,
   sortAndDedupeScans,
   getDateKeyInTimeZone,
+  getMinutesInTimeZone,
   isClosedDay as isClosedDayFn,
+  isStaffRole,
   sumAbsenceWeight
 } from '../services/attendanceRules';
 import {
   Panel,
   PanelHeader,
   Button,
-  IconButton,
   Input,
   Select,
   Badge,
-  Dot,
+  Segmented,
   EmptyState
 } from '../components/ui/panel';
 import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
@@ -46,6 +44,12 @@ const STATUS_BADGE_MAP = {
   excused: { label: 'İzinli / Raporlu', tone: 'neutral' },
   closed: { label: 'Kurum Kapalı', tone: 'neutral' }
 };
+
+const ROLE_FILTERS = [
+  { id: 'student', label: 'Öğrenci' },
+  { id: 'teacher', label: 'Öğretmen' },
+  { id: 'personnel', label: 'Personel' }
+];
 
 const CLASS_OPTIONS = [
   { id: 'all', label: 'Tüm Kademeler' },
@@ -66,6 +70,7 @@ const DailyAbsenceReportView = () => {
   const [manualAttendance, setManualAttendance] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [roleFilter, setRoleFilter] = useState('student');
   const [selectedClassFilter, setSelectedClassFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
 
@@ -82,34 +87,55 @@ const DailyAbsenceReportView = () => {
         snap.forEach((d) => {
           const data = d.data();
           const role = (data.role || '').toLowerCase();
-          if (role === 'student' || role === 'öğrenci') {
-            const name = data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Öğrenci';
-            const profileImage = data.profile_image || data.profileImageUrl || null;
-            const tc = data.tc_kimlik || data.tcKimlik || data.tc || '';
-            const schoolNumber = data.school_number || data.schoolNumber || data.no || '—';
+          const isStudent = role === 'student' || role === 'öğrenci';
+          const staff = isStaffRole(role);
+          if (!isStudent && !staff) return;
 
-            let branch = data.branch || '';
-            let classGrade = '12';
-            if (!branch && data.class_id) {
-              branch = `${data.class_id}/${data.section || 'A'}`;
-            }
-            if (branch) {
-              const match = branch.match(/\d+/);
-              if (match) classGrade = match[0];
-            } else {
-              branch = '12/A';
-            }
+          const profileImage = data.profile_image || data.profileImageUrl || null;
+          const tc = data.tc_kimlik || data.tcKimlik || data.tc || '';
 
+          if (staff) {
+            // Personelde sinif/sube yok; grup basligi bransa veya departmana gore.
+            const isTeacher = role === 'teacher' || role === 'öğretmen';
             studentList.push({
               id: d.id,
-              name,
+              role,
+              isStaff: true,
+              roleKind: isTeacher ? 'teacher' : 'personnel',
+              name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Personel',
               tc,
-              schoolNumber,
-              classGrade,
-              branch: branch.toUpperCase(),
+              schoolNumber: '—',
+              classGrade: '—',
+              branch: (data.branch || data.department || (isTeacher ? 'Branş belirtilmemiş' : 'Departman belirtilmemiş')).toUpperCase(),
               profileImage
             });
+            return;
           }
+
+          let branch = data.branch || '';
+          let classGrade = '12';
+          if (!branch && data.class_id) {
+            branch = `${data.class_id}/${data.section || 'A'}`;
+          }
+          if (branch) {
+            const match = branch.match(/\d+/);
+            if (match) classGrade = match[0];
+          } else {
+            branch = '12/A';
+          }
+
+          studentList.push({
+            id: d.id,
+            role: role || 'student',
+            isStaff: false,
+            roleKind: 'student',
+            name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Öğrenci',
+            tc,
+            schoolNumber: data.school_number || data.schoolNumber || data.no || '—',
+            classGrade,
+            branch: branch.toUpperCase(),
+            profileImage
+          });
         });
         studentList.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
         setAllStudents(studentList);
@@ -188,6 +214,10 @@ const DailyAbsenceReportView = () => {
 
   const analyzedStudents = useMemo(() => {
     const isClosed = isClosedDayFn(selectedDate, config);
+    const isPastDay = selectedDate < todayKey;
+    const nowMinutes = isPastDay
+      ? 1440
+      : getMinutesInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul');
 
     return allStudents.map((student) => {
       const rawScans = [
@@ -198,7 +228,15 @@ const DailyAbsenceReportView = () => {
       const excuse = manualAttendance[student.id];
       const gateStatus = gateStatusMap[student.id];
 
-      const evaluation = evaluateStudentDay(student.id, scans, selectedDate, config, excuse);
+      // Motor tek bir secenek nesnesi alir; onceki konumsal cagri sessizce
+      // bos degerlendirme uretiyordu. Personel icin ayri motor calisir.
+      const evaluation = evaluatePersonDay({
+        scans,
+        nowMinutes,
+        config,
+        isClosedDay: isClosed,
+        isStaff: student.isStaff
+      });
       const isTurnstileIn = gateStatus?.status === 'in' || scans.some((s) => s.direction === 'in');
       const manualWeight = excuse?.type ? sumAbsenceWeight(excuse.type) : 0;
 
@@ -232,16 +270,20 @@ const DailyAbsenceReportView = () => {
         }
       }
 
-      const morningEntry = evaluation.morning?.entryTime || (isTurnstileIn ? '08:45' : '—');
-      const afternoonEntry = evaluation.afternoon?.entryTime || (isTurnstileIn ? '13:00' : '—');
+      const morningEntry = evaluation.morning?.entryTime || '—';
+      const afternoonEntry = evaluation.afternoon?.entryTime || '—';
 
       return {
         ...student,
         status,
         statusLabel: statusInfo.label,
         statusTone: statusInfo.tone,
-        morningStatus: isTurnstileIn ? `Giriş: ${morningEntry}` : 'Giriş Yok',
-        afternoonStatus: isTurnstileIn ? `Giriş: ${afternoonEntry}` : 'Giriş Yok',
+        morningStatus: student.isStaff
+          ? (evaluation.day?.entryTime ? `Giriş: ${evaluation.day.entryTime}` : 'Giriş Yok')
+          : (morningEntry !== '—' ? `Giriş: ${morningEntry}` : 'Giriş Yok'),
+        afternoonStatus: student.isStaff
+          ? '—'
+          : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : 'Giriş Yok'),
         detailNote: excuse?.courseName || (scans.length > 0 ? `${scans.length} Geçiş Kaydı` : 'Düzenli'),
         isLate: evaluation.isLate,
         isPresent: isTurnstileIn || status === 'present'
@@ -249,12 +291,24 @@ const DailyAbsenceReportView = () => {
     });
   }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, gateStatusMap, selectedDate, todayKey, config]);
 
-  const totalCount = allStudents.length;
-  const presentCount = analyzedStudents.filter((s) => s.status === 'present' || s.status === 'late').length;
-  const fullAbsentCount = analyzedStudents.filter((s) => s.status === 'absent_full').length;
-  const halfAbsentCount = analyzedStudents.filter((s) => s.status === 'absent_half').length;
+  // Sayaclar yalnizca secili rolu kapsar; ogrenci ile personel karismaz.
+  const scopedPeople = useMemo(
+    () => analyzedStudents.filter((s) => s.roleKind === roleFilter),
+    [analyzedStudents, roleFilter]
+  );
+
+  const roleCounts = useMemo(() => ({
+    student: analyzedStudents.filter((s) => s.roleKind === 'student').length,
+    teacher: analyzedStudents.filter((s) => s.roleKind === 'teacher').length,
+    personnel: analyzedStudents.filter((s) => s.roleKind === 'personnel').length
+  }), [analyzedStudents]);
+
+  const totalCount = scopedPeople.length;
+  const presentCount = scopedPeople.filter((s) => s.status === 'present' || s.status === 'late').length;
+  const fullAbsentCount = scopedPeople.filter((s) => s.status === 'absent_full').length;
+  const halfAbsentCount = scopedPeople.filter((s) => s.status === 'absent_half').length;
   const totalAbsentCount = fullAbsentCount + halfAbsentCount;
-  const excusedCount = analyzedStudents.filter((s) => s.status === 'excused').length;
+  const excusedCount = scopedPeople.filter((s) => s.status === 'excused').length;
   const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 100;
 
   const statusFilterButtons = useMemo(() => [
@@ -266,7 +320,8 @@ const DailyAbsenceReportView = () => {
 
   const filteredStudents = useMemo(() => {
     return analyzedStudents.filter((student) => {
-      if (selectedClassFilter !== 'all' && student.classGrade !== selectedClassFilter) {
+      if (student.roleKind !== roleFilter) return false;
+      if (roleFilter === 'student' && selectedClassFilter !== 'all' && student.classGrade !== selectedClassFilter) {
         return false;
       }
       if (selectedStatusFilter === 'absent' && !(student.status === 'absent_full' || student.status === 'absent_half')) {
@@ -289,7 +344,7 @@ const DailyAbsenceReportView = () => {
       }
       return true;
     });
-  }, [analyzedStudents, selectedClassFilter, selectedStatusFilter, searchText]);
+  }, [analyzedStudents, roleFilter, selectedClassFilter, selectedStatusFilter, searchText]);
 
   const groupedStudents = useMemo(() => {
     const groups = {};
@@ -453,6 +508,14 @@ const DailyAbsenceReportView = () => {
           <p className="m-0 mt-2 text-[12.5px] text-slate-500 dark:text-slate-400">
             {new Date(selectedDate).toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · Turnike, karekod ve izinlerin anlık çizelgesi
           </p>
+
+          <div className="mt-3">
+            <Segmented
+              value={roleFilter}
+              onChange={setRoleFilter}
+              options={ROLE_FILTERS.map((r) => ({ ...r, count: roleCounts[r.id] }))}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -500,7 +563,7 @@ const DailyAbsenceReportView = () => {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <Input
               type="text"
-              placeholder="Öğrenci adı soyadı, şube (12/A), okul no veya TC kimlik ara..."
+              placeholder={roleFilter === 'student' ? 'Ad soyad, şube (12/A), okul no veya TC ara' : 'Ad soyad, branş/departman veya TC ara'}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="pl-9 pr-9"
@@ -517,20 +580,23 @@ const DailyAbsenceReportView = () => {
             )}
           </div>
 
-          <div className="sm:w-48 shrink-0">
-            <Select value={selectedClassFilter} onChange={(e) => setSelectedClassFilter(e.target.value)}>
-              {CLASS_OPTIONS.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {roleFilter === 'student' && (
+            <div className="sm:w-48 shrink-0">
+              <Select value={selectedClassFilter} onChange={(e) => setSelectedClassFilter(e.target.value)}>
+                {CLASS_OPTIONS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
 
         <div className="px-5 py-2.5 flex items-center justify-between text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-white/[0.01]">
           <span>
-            Toplam <strong className="text-slate-900 dark:text-white tnum">{filteredStudents.length}</strong> öğrenci listeleniyor
+            Toplam <strong className="text-slate-900 dark:text-white tnum">{filteredStudents.length}</strong>{' '}
+            {roleFilter === 'student' ? 'öğrenci' : roleFilter === 'teacher' ? 'öğretmen' : 'personel'} listeleniyor
           </span>
           <span className="text-[11.5px]">
             Katılım: <strong className="text-emerald-600 dark:text-emerald-400 tnum">%{attendanceRate}</strong>

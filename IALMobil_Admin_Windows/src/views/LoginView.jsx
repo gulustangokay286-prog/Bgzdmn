@@ -7,23 +7,28 @@ import { app } from '../services/firebaseConfig';
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const LoginView = () => {
-  const [rememberMe, setRememberMe] = useState(() => {
-    try {
-      return localStorage.getItem('bgz_admin_remember') === 'true';
-    } catch {
-      return false;
-    }
-  });
+const REMEMBER_KEY = 'bgz_admin_remember';
+const EMAIL_KEY = 'bgz_admin_saved_email';
 
-  const [email, setEmail] = useState(() => {
-    try {
-      const isRemembered = localStorage.getItem('bgz_admin_remember') === 'true';
-      return isRemembered ? (localStorage.getItem('bgz_admin_saved_email') || '') : '';
-    } catch {
-      return '';
-    }
-  });
+/** localStorage kapali olabilir (gizli sekme, kisitli profil); sessizce gecilir. */
+const store = {
+  get(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* depolama kapali */ }
+  },
+  remove(key) {
+    try { localStorage.removeItem(key); } catch { /* depolama kapali */ }
+  }
+};
+
+const LoginView = () => {
+  const [rememberMe, setRememberMe] = useState(() => store.get(REMEMBER_KEY) === 'true');
+
+  const [email, setEmail] = useState(
+    () => (store.get(REMEMBER_KEY) === 'true' ? store.get(EMAIL_KEY) || '' : '')
+  );
 
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,16 +39,22 @@ const LoginView = () => {
   const handleRememberToggle = () => {
     const next = !rememberMe;
     setRememberMe(next);
-    try {
-      localStorage.setItem('bgz_admin_remember', String(next));
-      if (!next) {
-        localStorage.removeItem('bgz_admin_saved_email');
-      } else if (email) {
-        localStorage.setItem('bgz_admin_saved_email', email);
-      }
-    } catch (e) {
-      console.warn('Storage error', e);
+    store.set(REMEMBER_KEY, String(next));
+    if (next) {
+      if (email) store.set(EMAIL_KEY, email);
+    } else {
+      store.remove(EMAIL_KEY);
     }
+  };
+
+  /**
+   * Anahtar acikken e-posta her tus vurusunda saklanir. Onceden yalnizca
+   * girise basildiginda kaydediliyordu; kullanici e-postayi yazip pencereyi
+   * kapatinca hatirlanmiyordu.
+   */
+  const handleEmailChange = (value) => {
+    setEmail(value);
+    if (rememberMe) store.set(EMAIL_KEY, value);
   };
 
   const handleLogin = async (e) => {
@@ -52,21 +63,20 @@ const LoginView = () => {
     setLoading(true);
 
     if (rememberMe && email) {
-      try {
-        localStorage.setItem('bgz_admin_remember', 'true');
-        localStorage.setItem('bgz_admin_saved_email', email);
-      } catch (e) {}
+      store.set(REMEMBER_KEY, 'true');
+      store.set(EMAIL_KEY, email);
     } else {
-      try {
-        localStorage.removeItem('bgz_admin_remember');
-        localStorage.removeItem('bgz_admin_saved_email');
-      } catch (e) {}
+      store.remove(REMEMBER_KEY);
+      store.remove(EMAIL_KEY);
     }
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      // Kalicilik ayarlanamazsa (ortam desteklemiyorsa) giris yine de denenir.
+      try {
+        await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      } catch (persistErr) {
+        console.warn('Oturum kalıcılığı ayarlanamadı:', persistErr?.message);
+      }
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -246,7 +256,7 @@ const LoginView = () => {
                   type="email"
                   className="w-full !h-11 !pl-10 !pr-4 !bg-slate-800/80 hover:!bg-slate-800 focus:!bg-slate-800 border border-slate-700/80 focus:!border-blue-500 rounded-xl !text-white text-xs font-medium placeholder:text-slate-400 outline-none transition-all box-border !m-0 shadow-sm"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => handleEmailChange(e.target.value)}
                   required
                   autoFocus
                   placeholder="E-posta Adresi"
@@ -331,7 +341,7 @@ const LoginView = () => {
                   type="email"
                   className="w-full !h-11 !pl-10 !pr-4 !bg-slate-800/80 hover:!bg-slate-800 focus:!bg-slate-800 border border-slate-700/80 focus:!border-blue-500 rounded-xl !text-white text-xs font-medium placeholder:text-slate-400 outline-none transition-all box-border !m-0 shadow-sm"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => handleEmailChange(e.target.value)}
                   required
                   autoFocus
                   placeholder="E-posta Adresi"

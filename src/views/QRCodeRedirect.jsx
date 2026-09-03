@@ -1,9 +1,10 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc, updateDoc, limit } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { processStudentScan, subscribeLateApprovalStatus, loadAttendanceConfig } from '../services/attendanceService';
-import { getDateKeyInTimeZone, buildLateApprovalId } from '../services/attendanceRules';
+import { resolveParentPhone, normalizeParentPhone } from '../services/whatsappService';
+import { getDateKeyInTimeZone, buildLateApprovalId, ATTENDANCE_ROLES, isStaffRole } from '../services/attendanceRules';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 import { detectIncognito as detectIncognitoLib } from 'detectincognitojs';
 
@@ -236,27 +237,124 @@ const getExactDeviceModel = async () => {
   return detectedHardware;
 };
 
-const detectIncognito = async (hardwareId) => {
-  let score = 100;
-  const flags = [];
+/**
+ * Gizli sekme tespiti.
+ *
+ * Tek bir kutuphane verdiktine guvenilmez: `detectincognitojs`, karekod
+ * kameradan okutuldugunda acilan uygulama ici tarayicilarda (Instagram,
+ * WhatsApp, bazi Android WebView'lari) ve depolamasi dolu iOS Safari'de
+ * duzenli olarak yanlis pozitif verir. Bu yuzden engelleme icin birbirinden
+ * bagimsiz en az iki kanit aranir; ayrica tarayicida daha once veri
+ * biraktigimizi gorursek profil kalicidir ve asla engellenmez.
+ */
+// Kalabalik gecislerde yanlis pozitif kimseyi kapida birakmasin diye esik
+// yukseltildi: uc bagimsiz kanitin UCU birden gerekmedikce engellenmez.
+const INCOGNITO_SIGNALS_REQUIRED = 3;
+const VISIT_MARKER_KEY = '__bgz_visit_marker';
 
+/** Chrome/Edge gizli sekmede depolama kotasini sert sekilde kisar. */
+const probeStorageQuota = async () => {
+  try {
+    if (!navigator.storage?.estimate) return null;
+    const { quota } = await navigator.storage.estimate();
+    if (!Number.isFinite(quota) || quota <= 0) return null;
+    return quota < 300 * 1024 * 1024;
+  } catch {
+    return null;
+  }
+};
+
+/** Bazi ozel modlar kaliciya yazmayi tamamen reddeder. */
+const probeStorageWritable = () => {
+  try {
+    const k = '__bgz_probe';
+    localStorage.setItem(k, '1');
+    const ok = localStorage.getItem(k) === '1';
+    localStorage.removeItem(k);
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
+/** Bu tarayicida daha once iz biraktik mi? Biraktiysak taze gizli oturum degil. */
+const hasPersistedHistory = async (hardwareId) => {
+  try {
+    const marker = localStorage.getItem(VISIT_MARKER_KEY);
+    if (marker && (!hardwareId || marker === hardwareId)) return true;
+    if (localStorage.getItem('__bgz_auto_login')) return true;
+  } catch { /* depolama kapali */ }
+
+  try {
+    if (await idbGet('visit_marker')) return true;
+    if (await idbGet('auto_login')) return true;
+  } catch { /* idb kapali */ }
+
+  return false;
+};
+
+const rememberVisit = async (hardwareId) => {
+  try { localStorage.setItem(VISIT_MARKER_KEY, hardwareId || '1'); } catch { /* yok say */ }
+  try { await idbSet('visit_marker', hardwareId || '1'); } catch { /* yok say */ }
+};
+
+const detectIncognito = async (hardwareId) => {
+  const flags = [];
+  let signals = 0;
+
+  // Guclu olumsuz kanit: onceki ziyaretimizin izi duruyorsa profil kalicidir.
+  if (await hasPersistedHistory(hardwareId)) {
+    flags.push('prior_visit');
+    await rememberVisit(hardwareId);
+    return { score: 100, flags, isIncognito: false };
+  }
+
+  // 1) Kutuphane verdikti
   try {
     const result = await detectIncognitoLib();
     if (result.isPrivate) {
-      score = 0;
+      signals += 1;
       flags.push(`lib_detected_${result.browserName}`);
-      return { score: 0, flags, isIncognito: true };
     } else {
       flags.push(`lib_cleared_${result.browserName}`);
     }
-  } catch (e) {
+  } catch {
     flags.push('lib_error');
   }
 
-  return { score: Math.max(0, score), flags, isIncognito: score <= 50 };
+  // 2) Depolama kotasi
+  const quotaSuspicious = await probeStorageQuota();
+  if (quotaSuspicious === true) {
+    signals += 1;
+    flags.push('quota_low');
+  } else if (quotaSuspicious === false) {
+    flags.push('quota_ok');
+  } else {
+    flags.push('quota_unknown');
+  }
+
+  // 3) Kaliciya yazma
+  if (!probeStorageWritable()) {
+    signals += 1;
+    flags.push('storage_not_writable');
+  } else {
+    flags.push('storage_writable');
+  }
+
+  const isIncognito = signals >= INCOGNITO_SIGNALS_REQUIRED;
+  flags.push(`signals_${signals}`);
+
+  // Normal tarayicida iz birak ki sonraki okutmada hic sorgulanmasin.
+  if (!isIncognito) await rememberVisit(hardwareId);
+
+  return { score: isIncognito ? 0 : 100, flags, isIncognito };
 };
 
 const IDB_NAME = '__bgz_vault';
+// Okutulan karekodun kabul edilecegi azami yas. Nonce listesi (~3,5 dk) ile
+// birlikte calisir: eski bir ekran fotografi bu esigi gecemez.
+const QR_MAX_AGE_SECONDS = 180;
+
 const IDB_STORE = 'auth';
 
 const idbOpen = () => {
@@ -300,6 +398,8 @@ const saveAutoLogin = async (studentData, hardwareId) => {
     name: studentData.name,
     photo: studentData.photo,
     tc: studentData.tc,
+    role: studentData.role || 'student',
+    isStaff: Boolean(studentData.isStaff),
     hardwareId,
     savedAt: Date.now()
   };
@@ -395,7 +495,16 @@ const QRCodeRedirect = () => {
   const [osName, setOsName] = useState('');
 
   const [isExpired, setIsExpired] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(180);
+  // Veli telefonu isteniyorken geri sayim durur; ogrenci form doldururken
+  // karekod suresi dolup islem yarida kalmasin.
+  const timerPausedRef = useRef(false);
+
+  // Veli telefonu sorma akisi
+  const [parentPhonePrompt, setParentPhonePrompt] = useState(null);
+  const [parentPhoneInput, setParentPhoneInput] = useState('');
+  const [savingParentPhone, setSavingParentPhone] = useState(false);
+  const [parentPhoneError, setParentPhoneError] = useState('');
   const [pageError, setPageError] = useState("");
   const [isLinkValidated, setIsLinkValidated] = useState(false);
 
@@ -485,28 +594,37 @@ const QRCodeRedirect = () => {
       const urlSessionId = urlParamsForClaim.get('sessionId');
       
       if (urlSessionId && urlSessionId !== 'web_fallback') {
+        // Yavaş bağlantıda öğrenciler sabırsızlanıp sayfayı yeniliyor. Karekodun
+        // tazeliği ve dönen nonce zaten koruma sağladığı için yenileme tek
+        // başına engel sayılmaz; yalnızca kayda geçer.
         const navEntries = performance.getEntriesByType("navigation");
         if (navEntries.length > 0 && navEntries[0].type === "reload") {
-           setPageError("Güvenlik Kuralı: Sayfa yenilendiği için bu bağlantı güvenlik gereği iptal edilmiştir. Lütfen karekodu tekrar okutun.");
-           return;
+          console.info('[QR] Sayfa yenilendi, doğrulama sürüyor.');
         }
 
         try {
-          const urlClaimRef = doc(db, 'url_claims', urlSessionId);
+          /*
+           * Kilit CIHAZ BASINA tutulur.
+           *
+           * Onceden kilit yalnizca sessionId ile tutuluyordu; ayni karekodu
+           * okutan herkes ayni sessionId'yi tasidigi icin ilk kisiden sonraki
+           * herkes "URL paylasimi" diye engelleniyordu. Toplu gecisde bu
+           * neredeyse herkesi kapida birakir. Paylasima karsi asil koruma
+           * donen nonce ve URL tazeligidir.
+           */
+          const claimId = `${urlSessionId}_${composite.hardwareId}`;
+          const urlClaimRef = doc(db, 'url_claims', claimId);
           const urlClaimSnap = await getDoc(urlClaimRef);
-          
+
           if (urlClaimSnap.exists()) {
             const claimData = urlClaimSnap.data();
-            if (claimData.hardwareId !== composite.hardwareId) {
-              setPageError("Güvenlik İhlali: Bu bağlantı halihazırda başka bir cihaz tarafından kullanıma açılmış. URL paylaşımı yasaktır.");
-              return;
-            }
-            if (claimData.localClaimedAt && (Date.now() - claimData.localClaimedAt > 5000)) {
-              setPageError("Güvenlik İhlali: Bu bağlantı daha önce kullanılmıştır. Lütfen karekodu yeniden okutun.");
+            if (claimData.localClaimedAt && (Date.now() - claimData.localClaimedAt > 120000)) {
+              setPageError("Bu bağlantı daha önce kullanılmıştır. Lütfen karekodu yeniden okutun.");
               return;
             }
           } else {
             await setDoc(urlClaimRef, {
+              sessionId: urlSessionId,
               hardwareId: composite.hardwareId,
               claimedAt: serverTimestamp(),
               localClaimedAt: Date.now(),
@@ -526,21 +644,39 @@ const QRCodeRedirect = () => {
     
     if (qrType && sessionId && sessionId !== 'web_fallback') {
       const checkAndClaimLink = async () => {
+         /*
+          * Iki asamali dogrulama:
+          *   1. Tazelik  — URL'in tasidigi uretim zamani. Ag gerektirmez,
+          *      her zaman uygulanir. Eski bir ekran fotografi burada elenir.
+          *   2. Nonce    — sunucudaki gecerli kod listesi. Ag gerektirir;
+          *      200 kisilik yigilmada okuma yavaslayabilecegi icin hata
+          *      durumunda gecis engellenmez, yalnizca kayda gecer.
+          */
+         const urlTimestamp = Number(urlParams.get('timestamp'));
+         const ageSeconds = Number.isFinite(urlTimestamp) && urlTimestamp > 0
+           ? Math.abs(Date.now() / 1000 - urlTimestamp)
+           : 0;
+
+         if (ageSeconds > QR_MAX_AGE_SECONDS) {
+           setPageError('Bu karekodun süresi dolmuş veya başkası tarafından çekilmiş bir fotoğraf. Lütfen güncel karekodu okutun.');
+           return;
+         }
+
          try {
-           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
            const qrAction = urlParams.get('action') || 'entry';
            const nonceKey = qrAction === 'exit' ? 'current_exit' : 'current_entry';
            const activeSnap = await Promise.race([getDoc(doc(db, 'active_qr_nonce', nonceKey)), timeoutPromise]);
-           
+
            const data = activeSnap.exists() ? activeSnap.data() : null;
            const isValidNonce = data && (data.nonce === sessionId || (data.validNonces && data.validNonces.includes(sessionId)));
 
            if (!isValidNonce) {
-              setPageError(`Bu karekodun süresi dolmuş veya başkası tarafından çekilmiş bir fotoğraf. Lütfen güncel karekodu okutun.`);
+              setPageError('Bu karekodun süresi dolmuş veya başkası tarafından çekilmiş bir fotoğraf. Lütfen güncel karekodu okutun.');
               return;
            }
          } catch (error) {
-           setPageError(`Güvenlik doğrulaması yapılamadı. Hata: ${error.message}`);
+           console.warn('[QR] Nonce doğrulaması yapılamadı, tazelik kontrolüyle devam ediliyor:', error?.message);
          }
       };
       checkAndClaimLink();
@@ -548,9 +684,10 @@ const QRCodeRedirect = () => {
 
     const prefetchStudents = async () => {
       try {
-        const q = query(collection(db, "users"), where("role", "in", ["student", "öğrenci"]));
+        // Ogrenci, ogretmen, yonetici ve personel; hepsi ayni karekodu okutabilir.
+        const q = query(collection(db, "users"), where("role", "in", ATTENDANCE_ROLES));
         const snap = await getDocs(q);
-        const students = [];
+        const people = [];
         snap.forEach(docSnap => {
           const data = docSnap.data();
           const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
@@ -560,12 +697,13 @@ const QRCodeRedirect = () => {
           }
           const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage || 
             `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1e3a8a&color=fff&size=200&bold=true`;
-          
-          students.push({ id: docSnap.id, ...data, name, photo: photoUrl });
+
+          const role = data.role || 'student';
+          people.push({ id: docSnap.id, ...data, name, photo: photoUrl, role, isStaff: isStaffRole(role) });
         });
-        setCachedStudents(students);
+        setCachedStudents(people);
       } catch (err) {
-        console.error("Öğrenciler önbelleğe alınamadı:", err);
+        console.error("Kullanıcılar önbelleğe alınamadı:", err);
       }
     };
     prefetchStudents();
@@ -580,6 +718,7 @@ const QRCodeRedirect = () => {
     }
 
     const timer = setInterval(() => {
+      if (timerPausedRef.current) return;
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
@@ -613,7 +752,73 @@ const QRCodeRedirect = () => {
     }
   };
 
-  const processAttendance = async (foundStudent) => {
+  const pauseTimer = (paused) => {
+    timerPausedRef.current = paused;
+  };
+
+  /**
+   * Geçişten önce veli telefonu kontrolü.
+   *
+   * Öğrencinin velisine giriş/çıkış ve devamsızlık bildirimi gidebilmesi için
+   * bir numara şart. Yoksa geçiş işlenmeden önce sorulur; sayaç bu sırada
+   * durur ki öğrenci form doldururken karekod süresi dolmasın.
+   * Personelde bu kontrol yapılmaz.
+   */
+  const ensureParentPhone = async (foundStudent) => {
+    if (foundStudent.isStaff) return true;
+    try {
+      const { phone } = await resolveParentPhone(foundStudent.id);
+      if (phone) return true;
+    } catch (err) {
+      // Sorgu başarısızsa geçişi engelleme; bildirim atlanır ama kapı açılır.
+      console.warn('Veli telefonu sorgulanamadı:', err?.message);
+      return true;
+    }
+
+    pauseTimer(true);
+    setParentPhoneInput('');
+    setParentPhoneError('');
+    setParentPhonePrompt(foundStudent);
+    setIsVerifying(false);
+    return false;
+  };
+
+  const handleSaveParentPhone = async (e) => {
+    e?.preventDefault?.();
+    const normalized = normalizeParentPhone(parentPhoneInput);
+    if (!normalized) {
+      setParentPhoneError('Geçerli bir cep telefonu giriniz (05XXXXXXXXX).');
+      return;
+    }
+
+    setSavingParentPhone(true);
+    setParentPhoneError('');
+    const target = parentPhonePrompt;
+
+    try {
+      await updateDoc(doc(db, 'users', target.id), {
+        parent_phone: normalized,
+        parentPhoneUpdatedAt: serverTimestamp(),
+        parentPhoneSource: 'qr_gate'
+      });
+
+      setParentPhonePrompt(null);
+      pauseTimer(false);
+      setIsVerifying(true);
+      await processAttendance(target, { skipParentCheck: true });
+    } catch (err) {
+      console.error('Veli telefonu kaydedilemedi:', err);
+      setParentPhoneError(`Kaydedilemedi: ${err?.message || 'bağlantı hatası'}`);
+    }
+    setSavingParentPhone(false);
+  };
+
+  const processAttendance = async (foundStudent, options = {}) => {
+    if (!options.skipParentCheck) {
+      const ok = await ensureParentPhone(foundStudent);
+      if (!ok) return;
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const qrType = urlParams.get('type') || 'institution';
     const sessionId = urlParams.get('sessionId') || 'web_fallback';
@@ -630,6 +835,8 @@ const QRCodeRedirect = () => {
       await addDoc(collection(db, "attendance_logs"), {
         studentId: foundStudent.id,
         studentName: foundStudent.name,
+        userRole: foundStudent.role || 'student',
+        isStaff: Boolean(foundStudent.isStaff),
         type: qrType,
         status: "present",
         sessionId: sessionId,
@@ -644,7 +851,9 @@ const QRCodeRedirect = () => {
           id: foundStudent.id,
           name: foundStudent.name,
           tc: foundStudent.tc,
-          photo: foundStudent.photo
+          photo: foundStudent.photo,
+          role: foundStudent.role || 'student',
+          isStaff: Boolean(foundStudent.isStaff)
         },
         requestedAction: qrAction,
         sessionId,
@@ -712,7 +921,7 @@ const QRCodeRedirect = () => {
           
           if (tcString.endsWith(val)) {
             const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
-            let name = "İsimsiz Öğrenci";
+            let name = "İsimsiz Kullanıcı";
             for (let k of nameKeys) {
               if (data[k]) { name = data[k]; break; }
             }
@@ -720,13 +929,45 @@ const QRCodeRedirect = () => {
             const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage || 
               `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
 
-            foundStudent = { id: data.id, name, photo: photoUrl, tc: tcString };
+            const role = data.role || 'student';
+            foundStudent = { id: data.id, name, photo: photoUrl, tc: tcString, role, isStaff: isStaffRole(role) };
             break;
           }
         }
 
+        // HIZLI YOL: indeksli `tc_last4` alanı varsa tek belge okunur.
+        // Alan, aşağıdaki tam tarama bir kez eşleşince o kişiye yazılır; böylece
+        // toplu migrasyona gerek kalmadan zamanla kendiliğinden dolar ve
+        // yığılmada 55 KB'lık liste indirmesi ortadan kalkar.
         if (!foundStudent) {
-          const q = query(collection(db, "users"), where("role", "in", ["student", "öğrenci"]));
+          try {
+            const fastSnap = await getDocs(query(
+              collection(db, "users"),
+              where("tc_last4", "==", val),
+              limit(5)
+            ));
+            for (const docSnap of fastSnap.docs) {
+              const data = docSnap.data();
+              const role = (data.role || 'student').toLowerCase();
+              if (!ATTENDANCE_ROLES.includes(role)) continue;
+              const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
+              let name = "İsimsiz Kullanıcı";
+              for (const k of nameKeys) { if (data[k]) { name = data[k]; break; } }
+              const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
+              foundStudent = {
+                id: docSnap.id, name, photo: photoUrl,
+                tc: String(data.tc_kimlik || data.tc || ''), role, isStaff: isStaffRole(role)
+              };
+              break;
+            }
+          } catch (fastErr) {
+            console.warn('[QR] Hızlı TC araması yapılamadı:', fastErr?.message);
+          }
+        }
+
+        if (!foundStudent) {
+          const q = query(collection(db, "users"), where("role", "in", ATTENDANCE_ROLES));
           const querySnapshot = await getDocs(q);
           
           for (const docSnap of querySnapshot.docs) {
@@ -736,13 +977,19 @@ const QRCodeRedirect = () => {
             
             if (tcString.endsWith(val)) {
               const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
-              let name = "İsimsiz Öğrenci";
+              let name = "İsimsiz Kullanıcı";
               for (let k of nameKeys) {
                 if (data[k]) { name = data[k]; break; }
               }
               const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage || 
                 `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
-              foundStudent = { id: docSnap.id, name, photo: photoUrl, tc: tcString };
+              const role = data.role || 'student';
+              foundStudent = { id: docSnap.id, name, photo: photoUrl, tc: tcString, role, isStaff: isStaffRole(role) };
+              // Bir sonraki okutmada tam tarama gerekmesin diye alanı yaz.
+              if (!data.tc_last4 && tcString.length >= 4) {
+                updateDoc(doc(db, 'users', docSnap.id), { tc_last4: tcString.slice(-4) })
+                  .catch(() => { /* yazma yetkisi yoksa sessizce geç */ });
+              }
               break;
             }
           }
@@ -752,7 +999,7 @@ const QRCodeRedirect = () => {
           await processAttendance(foundStudent);
         } else {
           setIsVerifying(false);
-          alert("Hata: Bu son 4 haneye sahip bir öğrenci bulunamadı.");
+          alert("Bu son 4 haneye sahip kayıtlı bir kullanıcı bulunamadı.");
           setTcInput('');
         }
 
@@ -763,6 +1010,59 @@ const QRCodeRedirect = () => {
       }
     }
   };
+
+  // Veli telefonu istenirken başka hiçbir ekran gösterilmez; sayaç duruyor.
+  if (parentPhonePrompt) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0b1120', fontFamily: 'Inter, sans-serif', color: 'white', padding: '24px' }}>
+        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: '58px', height: '58px', margin: '0 auto 14px', borderRadius: '18px', backgroundColor: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+            </div>
+            <h2 style={{ margin: '0 0 6px', fontSize: '20px', fontWeight: 700 }}>Velinizin Telefon Numarası</h2>
+            <p style={{ margin: 0, fontSize: '13.5px', lineHeight: 1.55, color: 'rgba(255,255,255,0.6)' }}>
+              <strong style={{ color: '#fff' }}>{parentPhonePrompt.name}</strong> için kayıtlı veli numarası yok.
+              Giriş, çıkış ve devamsızlık bildirimlerinin gönderilebilmesi için bir kez giriniz.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveParentPhone} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <input
+              type="tel"
+              inputMode="numeric"
+              autoFocus
+              value={parentPhoneInput}
+              onChange={(e) => setParentPhoneInput(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              placeholder="05XXXXXXXXX"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.14)', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '19px', letterSpacing: '1px', textAlign: 'center', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
+            />
+
+            {parentPhoneError && (
+              <div style={{ padding: '10px 12px', borderRadius: '12px', backgroundColor: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.3)', color: '#fda4af', fontSize: '12.5px', textAlign: 'center' }}>
+                {parentPhoneError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={savingParentPhone}
+              style={{ width: '100%', padding: '15px', borderRadius: '14px', border: 'none', backgroundColor: '#991b1b', color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer', opacity: savingParentPhone ? 0.6 : 1 }}
+            >
+              {savingParentPhone ? 'Kaydediliyor…' : 'Kaydet ve Devam Et'}
+            </button>
+          </form>
+
+          <p style={{ margin: 0, fontSize: '11.5px', textAlign: 'center', color: 'rgba(255,255,255,0.38)', lineHeight: 1.5 }}>
+            Numara kaydedilene kadar karekod süresi durdurulmuştur.<br />
+            Bu bilgi yalnızca bir kez istenir.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isExpired) {
     return (
@@ -991,7 +1291,7 @@ const QRCodeRedirect = () => {
         
         <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(159,18,57,0.1)', color: '#9f1239', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', animation: timeLeft <= 10 ? 'pulseGlow 1.5s infinite' : 'none' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
+          {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
         </div>
 
         <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '0 20px' }}>

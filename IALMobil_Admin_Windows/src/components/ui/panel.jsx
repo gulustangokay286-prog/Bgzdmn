@@ -268,13 +268,51 @@ export const EmptyState = ({ icon: Icon, title, description, action, className =
   </div>
 );
 
+/**
+ * Bildirim seridi.
+ *
+ * Kapandiktan sonra da bir sure DOM'da kalir ki cikis animasyonu oynayabilsin.
+ * Renk yalnizca hata durumunda kullanilir; basarili islemde metnin kendisi
+ * zaten yeterlidir, ayrica bir gosterge noktasina gerek yoktur.
+ */
 export const Toast = ({ open, message, tone = 'success' }) => {
-  if (!open) return null;
+  const [mounted, setMounted] = React.useState(open);
+  const [text, setText] = React.useState(message);
+
+  React.useEffect(() => {
+    if (open) {
+      setText(message);
+      setMounted(true);
+      return undefined;
+    }
+    const t = setTimeout(() => setMounted(false), 220);
+    return () => clearTimeout(t);
+  }, [open, message]);
+
+  if (!mounted) return null;
+
+  const isError = tone === 'error' || tone === 'danger';
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
-      <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 text-[13px] font-medium shadow-lg backdrop-blur-sm">
-        <Dot tone={tone === 'success' ? 'success' : 'danger'} />
-        <span>{message}</span>
+    <div className="fixed bottom-7 left-1/2 z-[9999] pointer-events-none -translate-x-1/2">
+      <div
+        className={cx(
+          'panel-toast flex items-center gap-2 pl-3.5 pr-4 h-10 rounded-full',
+          'text-[13px] font-medium tracking-[-0.005em] whitespace-nowrap',
+          'shadow-[0_8px_28px_-6px_rgba(15,23,42,0.35)] ring-1',
+          open ? 'panel-toast-in' : 'panel-toast-out',
+          isError
+            ? 'bg-[#7f1d1d] text-rose-50 ring-white/10'
+            : 'bg-slate-900 text-slate-50 ring-white/10 dark:bg-white dark:text-slate-900 dark:ring-black/10'
+        )}
+      >
+        {isError && (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className="shrink-0 opacity-90">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v5M12 16.5v.01" />
+          </svg>
+        )}
+        <span>{text}</span>
       </div>
     </div>
   );

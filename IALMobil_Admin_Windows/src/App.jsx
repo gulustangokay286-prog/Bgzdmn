@@ -5,14 +5,10 @@ import { app } from './services/firebaseConfig';
 import LoginView from './views/LoginView';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import {
-  CalendarX2,
-  Users, UserCheck, ShieldAlert, FileText,
-  BookOpen, Video, FileEdit, Coffee,
-  BarChart3, QrCode, RadioReceiver, DoorOpen,
-  CalendarClock, Bus, CircleDollarSign, MessageSquare,
-  Settings, Shield, BellRing, UserCircle, HeartHandshake,
-  BrainCircuit, Key, LogOut, ShieldBan, Building, ChevronDown, Moon, Sun, Wallet, Landmark, ClipboardList, PieChart,
-  Menu, X, Smartphone, Globe, ShoppingBag, Inbox
+  LayoutDashboard, BrainCircuit, QrCode, RadioTower, DoorOpen, CalendarX2, ClipboardList,
+  UserSquare, FileEdit, HeartHandshake, Users, UserCheck, Megaphone, BellRing, MessageSquare,
+  CalendarClock, Bus, Coffee, Globe, Inbox, ShieldAlert, Smartphone, HeartPulse,
+  Settings, Building, Key, LogOut, ChevronDown, Moon, Sun, Menu, X
 } from 'lucide-react';
 import logo from './assets/logo.png';
 
@@ -49,6 +45,7 @@ import StudentGateAdminView from './views/StudentGateAdminView';
 import ProfileView from './views/ProfileView';
 import CheatLogsAdminView from './views/CheatLogsAdminView';
 import DeviceManagementView from './views/DeviceManagementView';
+import HealthAndSafetyAdminView from './views/HealthAndSafetyAdminView';
 import useAttendanceAutomation from './hooks/useAttendanceAutomation';
 
 const NavItem = ({ to, icon: Icon, label, onClick }) => (
@@ -61,6 +58,79 @@ const NavItem = ({ to, icon: Icon, label, onClick }) => (
     <span>{label}</span>
   </NavLink>
 );
+
+/**
+ * Sidebar navigasyonu.
+ *
+ * Gruplar ise gore dizilir: once gunluk kullanilan ozet, sonra gun icinde en
+ * cok dokunulan gecis/yoklama akisi, ardindan akademik, kisiler, iletisim,
+ * kampus hizmetleri, web ve en altta idari guvenlik.
+ */
+const NAV_GROUPS = [
+  {
+    title: 'Genel',
+    items: [
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/nova-ai', icon: BrainCircuit, label: 'Yapay Zeka Merkezi' }
+    ]
+  },
+  {
+    title: 'Geçiş & Yoklama',
+    items: [
+      { to: '/qr', icon: QrCode, label: 'QR Geçiş Sistemi' },
+      { to: '/live-attendance', icon: RadioTower, label: 'Canlı Geçiş Takibi' },
+      { to: '/student-gate', icon: DoorOpen, label: 'Manuel Geçiş' },
+      { to: '/health-safety', icon: HeartPulse, label: 'Revir & Güvenlik Masası' },
+      { to: '/attendance', icon: CalendarX2, label: 'Devamsızlık' },
+      { to: '/daily-absences', icon: ClipboardList, label: 'Günlük Rapor' }
+    ]
+  },
+  {
+    title: 'Akademik',
+    items: [
+      { to: '/teachers', icon: UserSquare, label: 'Öğretmenler' },
+      { to: '/grades', icon: FileEdit, label: 'Not Yönetimi' },
+      { to: '/counseling', icon: HeartHandshake, label: 'Rehberlik & Psikoloji' }
+    ]
+  },
+  {
+    title: 'Kişiler',
+    items: [
+      { to: '/users', icon: Users, label: 'Kullanıcılar' },
+      { to: '/approvals', icon: UserCheck, label: 'Onay Bekleyenler' }
+    ]
+  },
+  {
+    title: 'İletişim',
+    items: [
+      { to: '/announcements', icon: Megaphone, label: 'Duyurular' },
+      { to: '/push', icon: BellRing, label: 'Bildirim Merkezi' },
+      { to: '/chat', icon: MessageSquare, label: 'Yönetici Chat' }
+    ]
+  },
+  {
+    title: 'Kampüs Hizmetleri',
+    items: [
+      { to: '/appointments', icon: CalendarClock, label: 'Randevu Yönetimi' },
+      { to: '/transport', icon: Bus, label: 'Servis Yönetimi' },
+      { to: '/cafeteria', icon: Coffee, label: 'Kafeterya Menüsü' }
+    ]
+  },
+  {
+    title: 'Web & Başvurular',
+    items: [
+      { to: '/web-management', icon: Globe, label: 'Okul Web Yönetimi' },
+      { to: '/web-applications', icon: Inbox, label: 'Başvurular & Mesajlar' }
+    ]
+  },
+  {
+    title: 'Güvenlik',
+    items: [
+      { to: '/cheats', icon: ShieldAlert, label: 'İhlal Tespitleri' },
+      { to: '/device-management', icon: Smartphone, label: 'Cihaz Yönetimi' }
+    ]
+  }
+];
 
 const Sidebar = ({ isOpen, onClose }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -90,84 +160,49 @@ const Sidebar = ({ isOpen, onClose }) => {
         </button>
         <div className="drag-region-top hidden md:block" />
       <div 
-        className="sidebar-header relative flex flex-col items-center justify-center pt-12 pb-6 px-4 gap-3 select-none"
+        className="sidebar-header relative flex items-center gap-2.5 pt-10 pb-4 px-4 select-none"
       >
-        <img src="/logo-4327.png" alt="Logo" className="h-12 w-auto object-contain drop-shadow-md rounded-lg mb-1" />
-        
-        <div className="flex flex-col items-center text-center">
-          <span className="text-[20px] font-black text-slate-900 dark:text-white leading-tight tracking-wide">Boğaziçi Koleji</span>
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-[0.2em] uppercase mt-1">Yönetim Sistemi</span>
+        <img src="/logo-4327.png" alt="" className="h-8 w-8 object-contain rounded-md shrink-0" />
+
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[14px] font-semibold text-slate-900 dark:text-white leading-tight tracking-[-0.01em] truncate">Boğaziçi Koleji</span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight truncate">Yönetim Sistemi</span>
         </div>
 
-        <div 
-          className="flex items-center gap-1.5 mt-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 cursor-pointer transition-colors group border border-slate-200 dark:border-transparent dark:bg-white/5 dark:hover:bg-white/10"
+        <button
+          aria-label="Hızlı ayarlar"
+          className="w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
           onClick={() => setDropdownOpen(!dropdownOpen)}
         >
-          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Hızlı Ayarlar</span>
-          <ChevronDown size={14} className={`text-slate-500 dark:text-slate-300 transition-transform duration-300 ${dropdownOpen ? 'rotate-180 text-slate-800 dark:text-white' : ''}`} />
-        </div>
+          <ChevronDown size={15} className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
         
         {dropdownOpen && (
-          <div className="absolute top-[95%] left-4 right-4 mt-2 bg-white dark:bg-[#1e293b] rounded-2xl p-2 z-[100] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-slate-200 dark:border-slate-700/50 flex flex-col gap-1 origin-top animate-in fade-in zoom-in-95 duration-200">
-            <button onClick={(e) => { e.stopPropagation(); document.documentElement.classList.toggle('dark'); const isDark = document.documentElement.classList.contains('dark'); document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); localStorage.setItem('app-theme', isDark ? 'dark' : 'light'); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white hover:text-slate-900 dark:hover:text-[#0f172a] text-left w-full"><Sun size={16} className="hidden dark:block" /><Moon size={16} className="block dark:hidden" /> Tema Değiştir</button>
-            <NavLink to="/settings" className={({isActive}) => `no-underline flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${isActive ? 'bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white shadow-sm dark:shadow-inner border border-slate-200 dark:border-white/5' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white hover:text-slate-900 dark:hover:text-[#0f172a]'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><Settings size={16} /> Ayarlar</NavLink>
-            <NavLink to="/institution-settings" className={({isActive}) => `no-underline flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${isActive ? 'bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white shadow-sm dark:shadow-inner border border-slate-200 dark:border-white/5' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white hover:text-slate-900 dark:hover:text-[#0f172a]'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><Building size={16} /> Kurum Kuralları</NavLink>
-            <NavLink to="/security" className={({isActive}) => `no-underline flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${isActive ? 'bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white shadow-sm dark:shadow-inner border border-slate-200 dark:border-white/5' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white hover:text-slate-900 dark:hover:text-[#0f172a]'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><ShieldAlert size={16} /> Sistem Logları</NavLink>
-            <NavLink to="/profile" className={({isActive}) => `no-underline flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${isActive ? 'bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white shadow-sm dark:shadow-inner border border-slate-200 dark:border-white/5' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white hover:text-slate-900 dark:hover:text-[#0f172a]'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><Key size={16} /> Yönetici Profili</NavLink>
+          <div className="absolute top-[92%] left-3 right-3 mt-1 bg-white dark:bg-[#0f172a] rounded-xl p-1 z-[100] shadow-lg border border-slate-200 dark:border-white/10 flex flex-col gap-0.5 origin-top animate-in fade-in zoom-in-95 duration-150">
+            <button onClick={(e) => { e.stopPropagation(); document.documentElement.classList.toggle('dark'); const isDark = document.documentElement.classList.contains('dark'); document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light'); localStorage.setItem('app-theme', isDark ? 'dark' : 'light'); }} className="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] font-medium transition-colors text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white text-left w-full cursor-pointer"><Sun size={16} className="hidden dark:block" /><Moon size={16} className="block dark:hidden" /> Tema Değiştir</button>
+            <NavLink to="/settings" className={({isActive}) => `no-underline flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${isActive ? 'bg-slate-100 dark:bg-white/[0.08] text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><Settings size={16} /> Ayarlar</NavLink>
+            <NavLink to="/institution-settings" className={({isActive}) => `no-underline flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${isActive ? 'bg-slate-100 dark:bg-white/[0.08] text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><Building size={16} /> Kurum Kuralları</NavLink>
+            <NavLink to="/security" className={({isActive}) => `no-underline flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${isActive ? 'bg-slate-100 dark:bg-white/[0.08] text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><ShieldAlert size={16} /> Sistem Logları</NavLink>
+            <NavLink to="/profile" className={({isActive}) => `no-underline flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${isActive ? 'bg-slate-100 dark:bg-white/[0.08] text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'}`} onClick={(e) => { e.stopPropagation(); onClose(); }}><Key size={16} /> Yönetici Profili</NavLink>
           </div>
         )}
       </div>
-      <div className="sidebar-content pt-2">
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Sistem Yönetimi</div>
-          <NavItem to="/dashboard" icon={BarChart3} label="Dashboard" onClick={onClose} />
-          <NavItem to="/nova-ai" icon={BrainCircuit} label="Yapay Zeka Merkezi" onClick={onClose} />
-          <NavItem to="/qr" icon={QrCode} label="QR Geçiş Sistemi" onClick={onClose} />
-          <NavItem to="/cheats" icon={ShieldBan} label="İhlal Tespitleri" onClick={onClose} />
-          <NavItem to="/live-attendance" icon={RadioReceiver} label="Canlı Geçiş Takibi" onClick={onClose} />
-          <NavItem to="/student-gate" icon={DoorOpen} label="Öğrenci Geçiş" onClick={onClose} />
-          <NavItem to="/device-management" icon={Smartphone} label="Cihaz Yönetimi" onClick={onClose} />
-          <NavItem to="/push" icon={BellRing} label="Bildirim Merkezi" onClick={onClose} />
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Web & Başvurular</div>
-          <NavItem to="/web-applications" icon={Inbox} label="Başvurular & Mesajlar" onClick={onClose} />
-          <NavItem to="/web-management" icon={Globe} label="Okul Web Yönetimi" onClick={onClose} />
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">ERP & Finans</div>
-          
-          <NavItem to="/appointments" icon={CalendarClock} label="Randevu Yönetimi" onClick={onClose} />
-          <NavItem to="/transport" icon={Bus} label="Servis Yönetimi" onClick={onClose} />
-          <NavItem to="/cafeteria" icon={Coffee} label="Kafeterya Menüsü" onClick={onClose} />
-          <NavItem to="/chat" icon={MessageSquare} label="Yönetici Chat" onClick={onClose} />
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Akademik Yönetim</div>
-          <NavItem to="/teachers" icon={ShieldAlert} label="Öğretmenler" onClick={onClose} />
-          <NavItem to="/grades" icon={FileEdit} label="Not Yönetimi" onClick={onClose} />
-          <NavItem to="/attendance" icon={UserCircle} label="Devamsızlık" onClick={onClose} />
-          <NavItem to="/daily-absences" icon={CalendarX2} label="Günlük Devamsızlık Raporu" onClick={onClose} />
-          
-          <NavItem to="/counseling" icon={HeartHandshake} label="Rehberlik & Psikoloji" onClick={onClose} />
-          <NavItem to="/announcements" icon={BellRing} label="Duyurular" onClick={onClose} />
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Öğrenci & Kullanıcı</div>
-          <NavItem to="/approvals" icon={UserCheck} label="Onay Bekleyenler" onClick={onClose} />
-          <NavItem to="/users" icon={UserCircle} label="Kullanıcılar" onClick={onClose} />
-        </div>
+      <div className="sidebar-content">
+        {NAV_GROUPS.map(group => (
+          <div className="sidebar-section" key={group.title}>
+            <div className="sidebar-section-title">{group.title}</div>
+            {group.items.map(item => (
+              <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} onClick={onClose} />
+            ))}
+          </div>
+        ))}
       </div>
-      <div className="p-5 border-t border-white/5">
-        <button 
+      <div className="sidebar-footer">
+        <button
           onClick={() => getAuth().signOut()}
-          className="w-full flex items-center justify-center gap-2 p-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 rounded-xl cursor-pointer font-bold transition-all"
+          className="w-full h-9 px-2.5 flex items-center gap-2.5 rounded-lg text-[13px] font-medium text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
         >
-          <LogOut size={18} />
+          <LogOut size={16} className="shrink-0" />
           <span>Çıkış Yap</span>
         </button>
       </div>
@@ -273,6 +308,7 @@ const App = () => {
               <Route path="/security" element={<RequireLicense requiredPath="/security"><SecurityLogsView /></RequireLicense>} />
               <Route path="/push" element={<RequireLicense requiredPath="/push"><PushNotificationAdminView /></RequireLicense>} />
               <Route path="/student-gate" element={<RequireLicense requiredPath="/student-gate"><StudentGateAdminView /></RequireLicense>} />
+              <Route path="/health-safety" element={<RequireLicense requiredPath="/student-gate"><HealthAndSafetyAdminView /></RequireLicense>} />
               <Route path="/profile" element={<RequireLicense requiredPath="/profile"><ProfileView /></RequireLicense>} />
               <Route path="/cheats" element={<RequireLicense requiredPath="/cheats"><CheatLogsAdminView /></RequireLicense>} />
               <Route path="*" element={

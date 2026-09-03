@@ -25,6 +25,10 @@ const QRGeneratorAdminView = () => {
   const isRefreshingRef = useRef(false);
 
   const CYCLE_DURATION = 3500;
+  // Karekod 3,5 saniyede bir doner ama okutulan kod, telefon tarayiciyi acip
+  // sayfayi yukleyene kadar gecerli kalmali. Son N nonce kabul edilir:
+  // 60 x 3,5sn = ~3,5 dakikalik kabul penceresi.
+  const NONCE_HISTORY = 60;
   const isDark = qrTheme === 'dark';
 
   useEffect(() => { isRefreshingRef.current = isRefreshing; }, [isRefreshing]);
@@ -107,7 +111,7 @@ const QRGeneratorAdminView = () => {
     setQrDataEntry(`https://bgz-mobil.web.app/qr?type=${selectedType}&action=entry&sessionId=${currentSessionId}&timestamp=${timestamp}`);
     setQrDataExit(`https://bgz-mobil.web.app/qr?type=${selectedType}&action=exit&sessionId=${currentSessionId}&timestamp=${timestamp}`);
 
-    recentNoncesRef.current = [currentSessionId, ...recentNoncesRef.current].slice(0, 5);
+    recentNoncesRef.current = [currentSessionId, ...recentNoncesRef.current].slice(0, NONCE_HISTORY);
 
     setDoc(doc(db, 'active_qr_nonce', 'current_entry'), {
       nonce: currentSessionId,

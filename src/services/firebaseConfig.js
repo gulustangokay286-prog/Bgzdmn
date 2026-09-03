@@ -1,6 +1,11 @@
 import { initializeApp } from "firebase/app";
 import { initializeFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, getDoc } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import {
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence
+} from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getDatabase } from "firebase/database";
 
@@ -19,7 +24,24 @@ const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   useFetchStreams: false
 });
-const auth = getAuth(app);
+/**
+ * Oturum kaliciligi.
+ *
+ * Electron'da pencere `nodeIntegration: true` ile acildigi icin Firebase ortami
+ * tarayici olarak taniyamayip bellek kaliciligina dusebiliyor; o durumda
+ * uygulama her kapanista oturumu unutuyor ("Beni hatirla" calismiyor gorunur).
+ * Kalicilik bu yuzden acikca IndexedDB -> localStorage sirasiyla verilir.
+ */
+const auth = (() => {
+  try {
+    return initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+    });
+  } catch {
+    // Auth zaten baslatildiysa (HMR / cift import) mevcut ornek dondurulur.
+    return getAuth(app);
+  }
+})();
 const storage = getStorage(app);
 const rtdb = getDatabase(app);
 
@@ -65,4 +87,4 @@ export const unwrapRestPayload = (fieldsObj) => {
   return data;
 };
 
-export { db, app, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, getDoc, storage, rtdb };
+export { db, app, auth, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, getDoc, storage, rtdb };

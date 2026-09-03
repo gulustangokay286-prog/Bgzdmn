@@ -23,7 +23,7 @@ import useUnsavedChanges from '../hooks/useUnsavedChanges';
 import UnsavedBanner from '../components/UnsavedBanner';
 import useAttendanceConfig from '../hooks/useAttendanceConfig';
 import {
-  evaluateStudentDay,
+  evaluatePersonDay,
   normalizeScanRecord,
   getDateKeyInTimeZone,
   getMinutesInTimeZone,
@@ -64,18 +64,25 @@ const recordBadge = (record) => {
 
 const SessionCell = ({ label, session, last }) => {
   const tone = session.present ? 'success' : session.finalized ? 'danger' : 'neutral';
-  const text = session.present
+  const badge = session.present ? 'Var' : session.finalized ? 'Yok' : 'Bekliyor';
+
+  // Rozet durumu zaten söylüyor; yan metin yalnızca rozetin anlatamadığı
+  // ayrıntıyı taşır (giriş saati / kaç gün yazıldığı). Aksi hâlde "Bekliyor"
+  // iki kez üst üste görünüyordu.
+  const detail = session.present
     ? `${session.entryTime}${session.isLate ? ' · geç' : ''}`
     : session.finalized
-    ? 'Yok (0,5 gün)'
-    : 'Bekleniyor';
+    ? '0,5 gün'
+    : null;
 
   return (
     <div className={cx('flex-1 min-w-0 px-5 py-3.5', !last && 'sm:border-r', !last && hairline)}>
       <div className="text-[11.5px] text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="mt-1.5 flex items-center gap-2">
-        <Badge tone={tone}>{session.present ? 'Var' : session.finalized ? 'Yok' : 'Bekliyor'}</Badge>
-        <span className="text-[12.5px] text-slate-600 dark:text-slate-300 tnum truncate">{text}</span>
+      <div className="mt-1.5 flex items-center gap-2 min-w-0">
+        <Badge tone={tone}>{badge}</Badge>
+        {detail && (
+          <span className="text-[12.5px] text-slate-600 dark:text-slate-300 tnum truncate">{detail}</span>
+        )}
       </div>
     </div>
   );
@@ -275,13 +282,14 @@ const AttendanceAdminView = () => {
       .map((l) => normalizeScanRecord(l, config))
       .filter(Boolean);
 
-    return evaluateStudentDay({
+    return evaluatePersonDay({
       scans: todayScans,
       nowMinutes: getMinutesInTimeZone(now, config.timeZone),
       config,
-      isClosedDay: isClosedDayFn(now, config)
+      isClosedDay: isClosedDayFn(now, config),
+      isStaff: viewMode !== 'student'
     });
-  }, [studentId, qrLogs, config]);
+  }, [studentId, qrLogs, config, viewMode]);
 
   const handleSaveAttendance = async (typeLabel, isHalfDay, isExcused) => {
     if (!studentId) return;
@@ -377,9 +385,9 @@ const AttendanceAdminView = () => {
         <Segmented value={viewMode} onChange={setViewMode} options={ROLE_OPTIONS} />
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-stretch">
         
-        <Panel className={cx('h-[600px]', studentId && 'hidden lg:flex')}>
+        <Panel className={cx('h-full min-h-[560px]', studentId && 'hidden lg:flex')}>
           {loading ? (
             <div className="flex-1 flex items-center justify-center text-[12.5px] text-slate-500">Yükleniyor…</div>
           ) : (
@@ -403,7 +411,7 @@ const AttendanceAdminView = () => {
 
         <div className={cx('flex flex-col gap-5 min-w-0 h-full', !studentId && 'hidden lg:flex')}>
           {!studentId ? (
-            <Panel className="h-[600px] flex flex-col items-center justify-center">
+            <Panel className="h-full min-h-[560px] flex flex-col items-center justify-center">
               <EmptyState
                 icon={CalendarX2}
                 title={`${roleLabel} seçin`}
@@ -448,29 +456,49 @@ const AttendanceAdminView = () => {
                 <Stat label="Otomatik kayıt" value={attendanceSummary.autoCount} last />
               </StatStrip>
 
-              {viewMode === 'student' && todayEvaluation && (
+              {todayEvaluation && (
                 <Panel>
                   <PanelHeader
                     title="Bugünkü Durum"
-                    description={`Sabah ${config.morningEntryHour} (+${config.morningGraceMinutes}dk) · Öğleden sonra ${config.afternoonEntryHour} (+${config.afternoonGraceMinutes}dk) · Çıkış ${config.schoolExitHour}`}
+                    description={
+                      todayEvaluation.mode === 'staff'
+                        ? `Esnek mesai · gün içinde okutulmazsa ${config.staffAbsenceCutoffHour} itibarıyla devamsızlık yazılır`
+                        : `Sabah ${config.morningEntryHour} (+${config.morningGraceMinutes}dk) · Öğleden sonra ${config.afternoonEntryHour} (+${config.afternoonGraceMinutes}dk) · Çıkış ${config.schoolExitHour}`
+                    }
                   />
 
                   <div className={cx('flex flex-col sm:flex-row divide-y sm:divide-y-0', divider)}>
-                    <SessionCell label="Sabah oturumu" session={todayEvaluation.morning} />
-                    <SessionCell label="Öğleden sonra" session={todayEvaluation.afternoon} />
+                    {todayEvaluation.mode === 'staff' ? (
+                      <SessionCell label="Gün içi giriş" session={todayEvaluation.morning} />
+                    ) : (
+                      <>
+                        <SessionCell label="Sabah oturumu" session={todayEvaluation.morning} />
+                        <SessionCell label="Öğleden sonra" session={todayEvaluation.afternoon} />
+                      </>
+                    )}
                     <div className={cx('flex-1 min-w-0 px-5 py-3.5 sm:border-r', hairline)}>
                       <div className="text-[11.5px] text-slate-500 dark:text-slate-400">Günün sonucu</div>
-                      <div className="mt-1.5 text-[13.5px] font-medium text-slate-900 dark:text-white truncate">
-                        {todayEvaluation.statusLabel}
+                      <div
+                        className="mt-1.5 text-[13px] font-medium text-slate-900 dark:text-white leading-snug"
+                        title={todayEvaluation.statusLabel}
+                      >
+                        {/* Uzun etiket ("… sonrası kesinleşir") tek satıra sığmıyordu;
+                            parantezli açıklama alt satıra alınır. */}
+                        {todayEvaluation.statusLabel.replace(/\s*\(.*\)\s*$/, '')}
+                        {/\(.*\)/.test(todayEvaluation.statusLabel) && (
+                          <span className="block mt-0.5 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                            {todayEvaluation.statusLabel.match(/\(([^)]*)\)/)?.[1]}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 px-5 py-3.5">
                       <div className="text-[11.5px] text-slate-500 dark:text-slate-400">Konum</div>
-                      <div className="mt-1.5 flex items-center gap-1.5 text-[13.5px] font-medium text-slate-900 dark:text-white">
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-slate-900 dark:text-white whitespace-nowrap">
                         {todayEvaluation.isInside ? (
-                          <DoorClosed size={14} className="text-emerald-500" />
+                          <DoorClosed size={14} className="shrink-0 text-emerald-500" />
                         ) : (
-                          <DoorOpen size={14} className="text-amber-500" />
+                          <DoorOpen size={14} className="shrink-0 text-amber-500" />
                         )}
                         {todayEvaluation.isInside ? 'Kurum içinde' : 'Kurum dışında'}
                       </div>

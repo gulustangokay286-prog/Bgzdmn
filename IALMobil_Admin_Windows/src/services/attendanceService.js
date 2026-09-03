@@ -8,7 +8,7 @@ import {
   ref, push, update, get, onValue, serverTimestamp as rtdbServerTimestamp, runTransaction
 } from 'firebase/database';
 import { db, rtdb } from './firebaseConfig';
-import { sendWhatsAppNotification } from './whatsappService';
+import { sendWhatsAppNotification, resolveParentPhone } from './whatsappService';
 import {
   resolveAttendanceConfig,
   getAttendanceWindows,
@@ -16,7 +16,9 @@ import {
   getDateKeyInTimeZone,
   isClosedDay,
   evaluateEntryAttempt,
-  evaluateStudentDay,
+  evaluatePersonDay,
+  isStaffRole,
+  ATTENDANCE_ROLES,
   normalizeScanRecord,
   sortAndDedupeScans,
   buildAutoAbsenceRecord,
@@ -119,9 +121,14 @@ export const recordGatePassage = async (options) => {
   const timeStr = minutesToTime(minutes);
   const normalizedAction = action === 'exit' ? 'exit' : 'entry';
 
+  const personRole = student.role || (student.isStaff ? 'personnel' : 'student');
+  const staff = student.isStaff !== undefined ? Boolean(student.isStaff) : isStaffRole(personRole);
+
   const logData = {
     studentId: student.id,
     userId: student.id,
+    userRole: personRole,
+    isStaff: staff,
     studentName: student.name || 'İsimsiz Öğrenci',
     userName: student.name || 'İsimsiz Öğrenci',
     studentTc: student.tc || '',
@@ -200,7 +207,9 @@ export const recordGatePassage = async (options) => {
     }).catch(() => {  });
   }
 
-  if (notifyParent) {
+  // `autoGateSms` ayari Ayarlar ekraninda vardi ama hicbir yerde okunmuyordu;
+  // artik gecis bildirimini gercekten aciyor/kapatiyor.
+  if (notifyParent && cfg.autoGateSms !== false) {
     Promise.resolve()
       .then(() => sendWhatsAppNotification(student.id, student.name, normalizedAction, now))
       .catch(err => console.warn('[attendance] WhatsApp bildirimi gönderilemedi:', err?.message));
@@ -241,11 +250,15 @@ export const processStudentScan = async (options) => {
     };
   }
 
+  const scanRole = student.role || (student.isStaff ? 'personnel' : 'student');
+
   const decision = evaluateEntryAttempt({
     minutes: ctx.nowMinutes,
     config: cfg,
     currentStatus,
-    isClosedDay: ctx.isClosedDay
+    isClosedDay: ctx.isClosedDay,
+    role: scanRole,
+    isStaff: student.isStaff !== undefined ? Boolean(student.isStaff) : isStaffRole(scanRole)
   });
 
   if (decision.requiresCounselor) {
@@ -719,6 +732,9 @@ export const runAttendanceAutomation = async (options = {}) => {
     autoExits: 0,
     absencesWritten: 0,
     absencesRemoved: 0,
+    absenceSmsSent: 0,
+    absenceSmsSkipped: 0,
+    absenceSmsFailed: 0,
     studentsProcessed: 0,
     errors: []
   };
@@ -740,7 +756,7 @@ export const runAttendanceAutomation = async (options = {}) => {
 
   let students;
   try {
-    const snap = await getDocs(query(collection(db, 'users'), where('role', 'in', ['student', 'öğrenci'])));
+    const snap = await getDocs(query(collection(db, 'users'), where('role', 'in', ATTENDANCE_ROLES)));
     students = snap.docs.filter(d => !onlyIds || onlyIds.has(d.id)).map(d => {
       const data = d.data();
       return {
@@ -770,11 +786,13 @@ export const runAttendanceAutomation = async (options = {}) => {
       const scans = scansByStudent[student.id] || [];
       const records = recordsByStudent[student.id] || [];
 
-      const evaluation = evaluateStudentDay({
+      const evaluation = evaluatePersonDay({
         scans,
         nowMinutes: ctx.nowMinutes,
         config: cfg,
-        isClosedDay: ctx.isClosedDay
+        isClosedDay: ctx.isClosedDay,
+        role: student.role,
+        isStaff: student.isStaff
       });
 
       if (evaluation.needsAutoLunchExit) {
@@ -828,6 +846,13 @@ export const runAttendanceAutomation = async (options = {}) => {
       await applyAutoAbsencesBulk(plannedWrites, plannedRemovals);
       result.absencesWritten = plannedWrites.length;
       result.absencesRemoved = plannedRemovals.length;
+
+      if (cfg.notifyParentsOnAbsence !== false && plannedWrites.length) {
+        const stat = await notifyParentsOnAbsence(plannedWrites, cfg);
+        result.absenceSmsSent = stat.sent;
+        result.absenceSmsSkipped = stat.skipped;
+        result.absenceSmsFailed = stat.failed;
+      }
     } catch (err) {
       result.errors.push(`Toplu devamsızlık yazılamadı: ${err?.message}`);
     }
@@ -866,6 +891,50 @@ export const runAttendanceAutomation = async (options = {}) => {
   }
 
   return result;
+};
+
+/**
+ * Devamsızlık yazıldığında veliye NetGSM üzerinden SMS gönderir.
+ *
+ * Yalnızca `plannedWrites` içindeki kayıtlar için çalışır; o liste sadece
+ * yeni ya da ağırlığı değişen kayıtları taşıdığı için aynı devamsızlık için
+ * ikinci kez mesaj gitmez (yarım gün → tam güne çıkarsa yeniden bilgilendirir).
+ */
+const notifyParentsOnAbsence = async (records, cfg) => {
+  if (!records.length) return { sent: 0, skipped: 0, failed: 0 };
+
+  const { netgsmService } = await import('./netgsmService');
+  const stat = { sent: 0, skipped: 0, failed: 0 };
+
+  const worker = async (queue) => {
+    while (queue.length) {
+      const rec = queue.shift();
+      try {
+        const { phone } = await resolveParentPhone(rec.studentId);
+        if (!phone) { stat.skipped++; continue; }
+
+        const isFull = Number(rec.absenceWeight) >= 1;
+        const who = rec.isStaff ? 'personelimiz' : 'öğrencimiz';
+        const what = isFull
+          ? 'bugün kuruma giriş yapmamıştır ve tam gün devamsız olarak işlenmiştir'
+          : 'bugün yarım gün devamsız olarak işlenmiştir';
+
+        await netgsmService.sendSms({
+          phones: [phone],
+          title: 'Devamsızlık Bildirimi',
+          message: `Sayin Velimiz, ${who} ${rec.studentName} ${what}. Bilgilerinize sunariz.`
+        });
+        stat.sent++;
+      } catch (err) {
+        stat.failed++;
+        console.warn(`[DEVAMSIZLIK SMS] ${rec.studentName}: ${err?.message}`);
+      }
+    }
+  };
+
+  const queue = [...records];
+  await Promise.all(Array.from({ length: Math.min(NOTIFY_CONCURRENCY, queue.length) }, () => worker(queue)));
+  return stat;
 };
 
 const NOTIFY_CONCURRENCY = 5;

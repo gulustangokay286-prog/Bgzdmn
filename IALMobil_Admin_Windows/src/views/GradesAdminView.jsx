@@ -156,9 +156,9 @@ const GradesAdminView = () => {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-start min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-stretch min-h-0">
         
-        <Panel className={cx('h-[560px]', studentId && 'hidden lg:flex')}>
+        <Panel className={cx('h-full min-h-[560px]', studentId && 'hidden lg:flex')}>
           {loading ? (
             <div className="flex-1 flex items-center justify-center text-[12.5px] text-slate-500">
               Yükleniyor…
@@ -177,7 +177,7 @@ const GradesAdminView = () => {
 
         <div className={cx('flex flex-col gap-5 min-w-0 h-full', !studentId && 'hidden lg:flex')}>
           {!studentId ? (
-            <Panel className="h-[560px] flex flex-col items-center justify-center">
+            <Panel className="h-full min-h-[560px] flex flex-col items-center justify-center">
               <EmptyState
                 icon={FileText}
                 title="Öğrenci seçin"

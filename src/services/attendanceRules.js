@@ -23,6 +23,16 @@ export const DEFAULT_ATTENDANCE_CONFIG = {
   autoSchoolExitEnabled: true,      
   lateRequiresCounselorApproval: true, 
 
+  // Personel yoklamasi (ogretmen / yonetici / personel)
+  staffAttendanceEnabled: true,
+  staffFlexibleHours: true,          // istedigi saatte girebilir, gec sayilmaz
+  staffAbsenceCutoffHour: '17:00',   // bu saate kadar okutmayana devamsizlik
+  staffAbsenceWeight: 1,             // 1 = tam gun, 0.5 = yarim gun
+
+  // Veli bildirimleri
+  autoGateSms: true,                 // turnike giris/cikisinda veliye mesaj
+  notifyParentsOnAbsence: true,      // devamsizlik yazilinca veliye SMS
+
   closedDays: ['Pazar'],            
   holidays: [],                     
 
@@ -183,6 +193,16 @@ export const resolveAttendanceConfig = (raw) => {
     autoSchoolExitEnabled: coerceBool(src.autoSchoolExitEnabled, d.autoSchoolExitEnabled),
     lateRequiresCounselorApproval: coerceBool(src.lateRequiresCounselorApproval, d.lateRequiresCounselorApproval),
 
+    staffAttendanceEnabled: coerceBool(src.staffAttendanceEnabled, d.staffAttendanceEnabled),
+    staffFlexibleHours: coerceBool(src.staffFlexibleHours, d.staffFlexibleHours),
+    staffAbsenceCutoffHour: minutesToTime(Math.max(
+      coerceTime(src.staffAbsenceCutoffHour, d.staffAbsenceCutoffHour), schoolExit
+    )),
+    staffAbsenceWeight: Number(src.staffAbsenceWeight) === 0.5 ? 0.5 : d.staffAbsenceWeight,
+
+    autoGateSms: coerceBool(src.autoGateSms, d.autoGateSms),
+    notifyParentsOnAbsence: coerceBool(src.notifyParentsOnAbsence, d.notifyParentsOnAbsence),
+
     closedDays,
     holidays,
 
@@ -331,7 +351,17 @@ export const ENTRY_DECISION = {
   LATE_AFTERNOON: 'LATE_AFTERNOON',
   OUT_OF_HOURS: 'OUT_OF_HOURS',
   CLOSED_DAY: 'CLOSED_DAY',
-  ALREADY_INSIDE: 'ALREADY_INSIDE'
+  ALREADY_INSIDE: 'ALREADY_INSIDE',
+  COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE'
+};
+
+export const EXIT_DECISION = {
+  OK: 'OK',
+  OK_MANUAL: 'OK_MANUAL',
+  LOCKED_CLASS_HOUR: 'LOCKED_CLASS_HOUR',
+  ALREADY_OUTSIDE: 'ALREADY_OUTSIDE',
+  COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE',
+  NO_LUNCH_PRIVILEGE: 'NO_LUNCH_PRIVILEGE'
 };
 
 export const COUNSELOR_TITLE = 'Rehber Öğretmeninizle Görüşün';
@@ -345,6 +375,10 @@ export const evaluateEntryAttempt = (options) => {
   const minutes = Number.isFinite(opts.minutes) ? opts.minutes : null;
   const currentStatus = opts.currentStatus || 'outside';
   const isManualApproval = Boolean(opts.isManualApproval);
+  // Personel icin saat kisiti uygulanmaz; yalnizca o gun okutmasi beklenir.
+  const isStaff = opts.isStaff !== undefined ? Boolean(opts.isStaff) : isStaffRole(opts.role);
+  const lastScanSeconds = Number(opts.lastScanSeconds) || 0;
+  const nowSeconds = Number(opts.nowSeconds) || Math.floor(Date.now() / 1000);
 
   const base = {
     session: null,
@@ -363,6 +397,19 @@ export const evaluateEntryAttempt = (options) => {
 
   if (minutes === null) {
     return { ...base, message: 'Geçiş saati okunamadı. Lütfen görevli öğretmene başvurun.' };
+  }
+
+  // Anti-Ping-Pong & Rate Limit: 3 dakika içinde mükerrer okutma koruması
+  const COOLDOWN_SECONDS = 180;
+  if (!isManualApproval && lastScanSeconds > 0 && (nowSeconds - lastScanSeconds) < COOLDOWN_SECONDS) {
+    const remainingSec = Math.max(1, COOLDOWN_SECONDS - (nowSeconds - lastScanSeconds));
+    return {
+      ...base,
+      code: ENTRY_DECISION.COOLDOWN_ACTIVE,
+      title: 'Lütfen Bekleyin',
+      message: `Yeni bir geçiş için ${remainingSec} saniye beklemeniz gerekmektedir.`,
+      detail: 'Mükerrer ve ardışık okutma koruması devrede.'
+    };
   }
 
   if (!isManualApproval && opts.isClosedDay) {
@@ -402,6 +449,21 @@ export const evaluateEntryAttempt = (options) => {
       title: 'Bir Saniye!',
       message: 'Zaten giriş yapıldı.',
       detail: 'Bu işlem zaten kayıt altına alınmış. Çift geçiş yapmanıza gerek yoktur.'
+    };
+  }
+
+  if (isStaff && cfg.staffFlexibleHours) {
+    return {
+      ...base,
+      session: classification.session || (minutes < w.halfDayCutoff ? SESSION_MORNING : SESSION_AFTERNOON),
+      isLate: false,
+      lateByMinutes: 0,
+      recordEntry: true,
+      allowed: true,
+      code: ENTRY_DECISION.OK,
+      title: 'Hoş geldiniz',
+      message: 'Kurum girişi yapıldı.',
+      detail: `Personel girişi · ${minutesToTime(minutes)}`
     };
   }
 
@@ -454,6 +516,118 @@ export const evaluateEntryAttempt = (options) => {
     title: 'Hoş geldiniz',
     message: 'Kurum girişi yapıldı.',
     detail: classification.session === SESSION_MORNING ? 'Sabah yoklaması alındı.' : 'Öğleden sonra yoklaması alındı.'
+  };
+};
+
+export const evaluateExitAttempt = (options) => {
+  const opts = options || {};
+  const cfg = opts.config && opts.config.morningEntryHour
+    ? opts.config
+    : resolveAttendanceConfig(opts.config);
+  const w = getAttendanceWindows(cfg);
+  const minutes = Number.isFinite(opts.minutes) ? opts.minutes : null;
+  const currentStatus = opts.currentStatus || 'outside';
+  const isManualApproval = Boolean(opts.isManualApproval || opts.allowEarlyExit);
+  const lastScanSeconds = Number(opts.lastScanSeconds) || 0;
+  const nowSeconds = Number(opts.nowSeconds) || Math.floor(Date.now() / 1000);
+  const student = opts.student || {};
+
+  const base = {
+    minutes,
+    time: minutes === null ? '--:--' : minutesToTime(minutes),
+    allowed: false,
+    recordExit: false,
+    code: EXIT_DECISION.LOCKED_CLASS_HOUR,
+    title: 'Çıkış Yapılamadı',
+    message: 'Çıkış izni verilmedi.',
+    detail: ''
+  };
+
+  if (minutes === null) {
+    return { ...base, message: 'Geçiş saati okunamadı. Görevli öğretmene başvurun.' };
+  }
+
+  // 1. Zaten dışarıda mı? (Anti-Passback)
+  if (currentStatus === 'exit' || currentStatus === 'outside') {
+    return {
+      ...base,
+      code: EXIT_DECISION.ALREADY_OUTSIDE,
+      title: 'Zaten Dışarıdasınız!',
+      message: 'Aktif bir giriş kaydınız bulunmamaktadır.',
+      detail: 'Mükerrer çıkış yapılamaz.'
+    };
+  }
+
+  // 2. Anti-Ping-Pong / Rate Limit: 3 dakika bekleme süresi
+  const COOLDOWN_SECONDS = 180;
+  if (!isManualApproval && lastScanSeconds > 0 && (nowSeconds - lastScanSeconds) < COOLDOWN_SECONDS) {
+    const remainingSec = Math.max(1, COOLDOWN_SECONDS - (nowSeconds - lastScanSeconds));
+    return {
+      ...base,
+      code: EXIT_DECISION.COOLDOWN_ACTIVE,
+      title: 'Lütfen Bekleyin',
+      message: `Yeni bir geçiş için ${remainingSec} saniye beklemeniz gerekmektedir.`,
+      detail: 'Mükerrer ve ardışık okutma koruması devrede.'
+    };
+  }
+
+  // 3. İdare / Güvenlik / Veli Teslim onayı varsa her zaman serbest
+  if (isManualApproval) {
+    return {
+      ...base,
+      allowed: true,
+      recordExit: true,
+      code: EXIT_DECISION.OK_MANUAL,
+      title: 'İzinli Çıkış Onaylandı',
+      message: 'İdare / Görevli onayıyla çıkış yapıldı.',
+      detail: opts.reason || 'Manuel onaylı güvenli çıkış'
+    };
+  }
+
+  // 4. Normal Okul Çıkış Saati mi? (16:00 ve sonrası)
+  if (minutes >= w.schoolExit) {
+    return {
+      ...base,
+      allowed: true,
+      recordExit: true,
+      code: EXIT_DECISION.OK,
+      title: 'İyi Günler',
+      message: 'Kurum çıkışınız kaydedildi.',
+      detail: 'Ders bitimi normal çıkış'
+    };
+  }
+
+  // 5. Öğle Arası Çıkış Saati mi? (12:00 - 13:10)
+  const isLunchWindow = (minutes >= w.lunchExitStart && minutes <= (w.afternoonStart + cfg.afternoonGraceMinutes));
+  if (isLunchWindow) {
+    if (student.hasLunchPrivilege === false || student.lunchExitAllowed === false) {
+      return {
+        ...base,
+        code: EXIT_DECISION.NO_LUNCH_PRIVILEGE,
+        title: 'Öğle Çıkış İzniniz Yok',
+        message: 'Öğle arasında dışarı çıkış yetkiniz bulunmamaktadır.',
+        detail: 'Sadece veli izin belgeli öğrenciler çıkabilir.'
+      };
+    }
+
+    return {
+      ...base,
+      allowed: true,
+      recordExit: true,
+      code: EXIT_DECISION.OK,
+      title: 'Öğle Arası Çıkışı',
+      message: 'Öğle arası çıkışınız yapıldı.',
+      detail: `Öğleden sonra ders başlangıcı: ${cfg.afternoonEntryHour}`
+    };
+  }
+
+  // 6. Ders saatinde izinsiz çıkış engeli (Kaçış Kilidi)
+  return {
+    ...base,
+    code: EXIT_DECISION.LOCKED_CLASS_HOUR,
+    title: 'Ders Saatinde Çıkış Yasaktır!',
+    message: `Saat ${minutesToTime(minutes)} — Ders saatinde izinsiz çıkış yapılamaz.`,
+    detail: 'Çıkış için İdareden veya Güvenlikten “İzinli Erken Çıkış” onayı almalısınız.'
   };
 };
 
@@ -636,13 +810,42 @@ export const buildAutoAbsenceRecord = (options) => {
     } catch (e) {}
   }
 
-  const evaluation = opts.evaluation || evaluateStudentDay(opts);
+  const isStaff = opts.isStaff !== undefined ? Boolean(opts.isStaff) : isStaffRole(opts.role);
+  if (isStaff && !cfg.staffAttendanceEnabled) return null;
+
+  const evaluation = opts.evaluation || (isStaff ? evaluateStaffDay(opts) : evaluateStudentDay(opts));
   const dateKey = opts.dateKey;
   const studentId = opts.studentId;
   if (!dateKey || !studentId) return null;
 
   const missing = evaluation.missingSessions || [];
   if (!missing.length) return null;
+
+  if (isStaff) {
+    // Personelde sabah/öğleden sonra ayrımı yok: gün içinde hiç okutma yoksa
+    // tek bir kayıt yazılır.
+    const weight = evaluation.absenceWeight >= 1 ? 1 : 0.5;
+    return {
+      id: buildAutoAbsenceId(dateKey, studentId),
+      studentId,
+      studentName: opts.studentName || 'Bilinmeyen Personel',
+      role: opts.role || 'personnel',
+      isStaff: true,
+      className: opts.className || '',
+      schoolNumber: opts.schoolNumber || '',
+      missingSessions: ['day'],
+      session: 'day',
+      sessionLabel: 'Gün İçi',
+      courseName: weight >= 1 ? 'Tam Gün Yok (Personel)' : 'Yarım Gün Yok (Personel)',
+      periodIndex: weight >= 1 ? -1 : -0.5,
+      absenceWeight: weight,
+      status: 'absent',
+      autoGenerated: true,
+      recordedBy: 'Otomatik Yoklama Sistemi',
+      reason: `Saat ${cfg.staffAbsenceCutoffHour} itibarıyla gün içinde hiç karekod okutulmadı.`,
+      date: dateKey
+    };
+  }
 
   const isFullDay = missing.length >= 2;
   const sessionLabel = describeMissingSessions(missing);
@@ -657,6 +860,8 @@ export const buildAutoAbsenceRecord = (options) => {
     id: buildAutoAbsenceId(dateKey, studentId),
     studentId,
     studentName: opts.studentName || 'Bilinmeyen Öğrenci',
+    role: opts.role || 'student',
+    isStaff: false,
     className: opts.className || '',
     schoolNumber: opts.schoolNumber || '',
     missingSessions: missing,
@@ -701,3 +906,116 @@ export const formatDayCount = (value) => {
   const n = Number(value) || 0;
   return (Math.round(n * 2) / 2).toFixed(1).replace('.0', '').replace('.', ',');
 };
+
+/** Yoklamasi tutulan ogrenci rolleri. */
+export const STUDENT_ROLES = ['student', 'öğrenci'];
+
+/** Yoklamasi tutulan personel rolleri. */
+export const STAFF_ROLES = ['teacher', 'öğretmen', 'personnel', 'personel', 'admin', 'yönetici'];
+
+/**
+ * Firestore `where(role, 'in', ...)` icin duz liste.
+ * En fazla 10 deger kabul edilir; bu liste 8.
+ */
+export const ATTENDANCE_ROLES = [...STUDENT_ROLES, ...STAFF_ROLES];
+
+export const isStaffRole = (role) => {
+  const r = String(role || '').toLowerCase();
+  return ['teacher', 'öğretmen', 'ogretmen', 'personnel', 'personel', 'staff', 'admin', 'yönetici', 'yonetici'].includes(r);
+};
+
+/**
+ * Personel gunu (ogretmen / yonetici / personel).
+ *
+ * Ogrenciden tek farki: gun sabah/ogleden sonra diye bolunmez ve gec kalma
+ * yoktur. Beklenen tek sey personelin o gun icinde en az bir kez okutmasidir;
+ * `staffAbsenceCutoffHour` gectigi hâlde hic okutma yoksa devamsizlik yazilir.
+ */
+export const evaluateStaffDay = (options) => {
+  const opts = options || {};
+  const cfg = opts.config && opts.config.morningEntryHour
+    ? opts.config
+    : resolveAttendanceConfig(opts.config);
+  const w = getAttendanceWindows(cfg);
+  const nowMinutes = Number.isFinite(opts.nowMinutes) ? opts.nowMinutes : 0;
+  const closed = Boolean(opts.isClosedDay);
+
+  const scans = sortAndDedupeScans(
+    (opts.scans || []).map(s => (s && Number.isFinite(s.minutes) ? s : normalizeScanRecord(s, cfg))).filter(Boolean)
+  );
+
+  const entries = scans.filter(s => s.action === 'entry');
+  const present = entries.length > 0;
+  const firstEntry = present ? entries[0] : null;
+
+  const lastScan = scans.length ? scans[scans.length - 1] : null;
+  const isInside = Boolean(lastScan && lastScan.action === 'entry');
+
+  const cutoff = timeToMinutes(cfg.staffAbsenceCutoffHour);
+  const finalized = !closed && nowMinutes >= cutoff;
+
+  const dayWeight = Number(cfg.staffAbsenceWeight) === 0.5 ? 0.5 : 1;
+  const absenceWeight = finalized && !present ? dayWeight : 0;
+
+  const hasAutoSchoolExit = scans.some(s => s.action === 'exit' && s.autoKind === 'school_exit');
+  const needsAutoSchoolExit = Boolean(
+    cfg.autoSchoolExitEnabled && !closed && nowMinutes >= cutoff && isInside && !hasAutoSchoolExit
+  );
+
+  let status;
+  let statusLabel;
+  if (closed) {
+    status = ABSENCE_STATUS.PENDING;
+    statusLabel = 'Kurum Kapalı (Devamsızlık İşlenmez)';
+  } else if (absenceWeight >= 1) {
+    status = ABSENCE_STATUS.FULL_DAY;
+    statusLabel = 'Tam Gün Devamsız (1.0)';
+  } else if (absenceWeight === 0.5) {
+    status = ABSENCE_STATUS.HALF_DAY;
+    statusLabel = 'Yarım Gün Devamsız (0.5)';
+  } else if (present) {
+    status = ABSENCE_STATUS.PRESENT;
+    statusLabel = 'Mevcut';
+  } else {
+    status = ABSENCE_STATUS.PENDING;
+    statusLabel = `Giriş Bekleniyor (${cfg.staffAbsenceCutoffHour} sonrası kesinleşir)`;
+  }
+
+  const sessionShape = {
+    present,
+    finalized,
+    entryTime: firstEntry ? firstEntry.time : null,
+    entryMinutes: firstEntry ? firstEntry.minutes : null,
+    isLate: false
+  };
+
+  return {
+    mode: 'staff',
+    scans,
+    day: { ...sessionShape, cutoffTime: cfg.staffAbsenceCutoffHour },
+    morning: sessionShape,
+    afternoon: sessionShape,
+    missingSessions: absenceWeight > 0 ? ['day'] : [],
+    absenceWeight,
+    projectedWeight: present ? 0 : dayWeight,
+    status,
+    statusLabel,
+    detailNote: present
+      ? `Gün içi giriş: ${firstEntry.time}`
+      : finalized ? 'Gün boyunca karekod okutulmadı' : 'Henüz geçiş kaydı yok',
+    isLate: false,
+    isInside,
+    isPresentToday: present,
+    needsAutoLunchExit: false,
+    needsAutoSchoolExit,
+    windows: w
+  };
+};
+
+/** Role gore dogru motoru calistirir. */
+export const evaluatePersonDay = (options) => {
+  const opts = options || {};
+  const staff = opts.isStaff !== undefined ? Boolean(opts.isStaff) : isStaffRole(opts.role);
+  return staff ? evaluateStaffDay(opts) : evaluateStudentDay(opts);
+};
+

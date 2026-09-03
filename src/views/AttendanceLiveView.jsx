@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { soundManager } from '../services/soundManager';
 import { ref, query as rtdbQuery, limitToLast, onValue } from 'firebase/database';
-import { rtdb } from '../services/firebaseConfig';
+import { rtdb, db } from '../services/firebaseConfig';
+import { collection, getDocs } from 'firebase/firestore';
 import { firebaseService } from '../services/firebase';
 import { io } from 'socket.io-client';
 import {
@@ -94,29 +95,39 @@ const AttendanceLiveView = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const users = await firebaseService.fetchAllUsers();
+        const snap = await getDocs(collection(db, 'users'));
         const map = {};
-        users.forEach((u) => {
-          const id = u.name ? u.name.split('/').pop() : u.id;
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const id = docSnap.id;
+          const tc = String(data.tc_kimlik || data.tc || data.tcNo || data.identityNumber || '').trim();
+          const schoolNo = String(data.school_number || data.schoolNumber || '').trim();
           const fullName =
-            u.fields?.name?.stringValue ||
-            u.fields?.fullName?.stringValue ||
-            u.fields?.full_name?.stringValue ||
+            data.full_name ||
+            data.fullName ||
+            data.name ||
+            data.displayName ||
             'Bilinmeyen Kişi';
           const profileImg =
-            u.fields?.profile_image?.stringValue ||
-            u.fields?.profileImageUrl?.stringValue ||
-            u.fields?.profileImage?.stringValue ||
+            data.profile_image ||
+            data.profileImageUrl ||
+            data.profileImage ||
             null;
 
-          let role = u.fields?.role?.stringValue || 'student';
-          if (role === 'admin' && u.fields?.sub_role?.stringValue === 'personnel') {
-            role = 'personnel';
-          } else if (role === 'personel') {
+          const rawRole = String(data.role || data.user_type || data.type || 'student').toLowerCase().trim();
+          let role = 'student';
+          if (['teacher', 'öğretmen', 'ogretmen'].includes(rawRole)) {
+            role = 'teacher';
+          } else if (['admin', 'yönetici', 'yonetici', 'manager'].includes(rawRole)) {
+            role = 'admin';
+          } else if (['personnel', 'personel', 'staff', 'security', 'güvenlik', 'gorevli', 'hizmetli', 'officer'].includes(rawRole)) {
             role = 'personnel';
           }
 
-          map[id] = { name: fullName, profileImage: profileImg, role: role };
+          const userObj = { id, name: fullName, profileImage: profileImg, role, tc, schoolNo };
+          map[id] = userObj;
+          if (tc) map[tc] = userObj;
+          if (schoolNo) map[schoolNo] = userObj;
         });
         setUsersMap(map);
       } catch (error) {
@@ -180,8 +191,12 @@ const AttendanceLiveView = () => {
 
   const isPersonnelRecord = useCallback((record) => {
     const studentId = record.studentId || record.userId || 'unknown';
-    const rawRole = (record.userRole || usersMap[studentId]?.role || 'student').toLowerCase();
-    return ['personnel', 'personel', 'teacher', 'öğretmen', 'admin', 'yönetici'].includes(rawRole);
+    const tc = record.studentTc || record.tc || '';
+    const user = usersMap[studentId] || usersMap[tc];
+    const rawRole = String(record.userRole || record.role || user?.role || 'student').toLowerCase();
+    const type = String(record.type || '').toLowerCase();
+    if (type.includes('personnel') || type.includes('teacher') || type.includes('personel') || type.includes('öğretmen')) return true;
+    return ['personnel', 'personel', 'teacher', 'öğretmen', 'ogretmen', 'admin', 'yönetici', 'yonetici', 'staff', 'security'].includes(rawRole);
   }, [usersMap]);
 
   const filteredRecords = useMemo(() => {
@@ -287,13 +302,15 @@ const AttendanceLiveView = () => {
               <div className={cx('divide-y', divider)}>
                 {filteredRecords.map((record, index) => {
                   const studentId = record.studentId || record.userId || 'unknown';
+                  const tc = record.studentTc || record.tc || '';
+                  const user = usersMap[studentId] || usersMap[tc];
                   const studentName =
                     record.studentName ||
                     record.userName ||
-                    usersMap[studentId]?.name ||
+                    user?.name ||
                     'İsimsiz Kişi';
                   let profileImageUrl =
-                    record.profileImageUrl || usersMap[studentId]?.profileImage || null;
+                    record.profileImageUrl || user?.profileImage || null;
                   if (
                     !profileImageUrl ||
                     profileImageUrl === 'null' ||
@@ -302,17 +319,17 @@ const AttendanceLiveView = () => {
                     profileImageUrl = null;
                   }
 
-                  const rawRole = (record.userRole || usersMap[studentId]?.role || 'student').toLowerCase();
+                  const rawRole = String(record.userRole || record.role || user?.role || 'student').toLowerCase();
                   let displayRole = 'Öğrenci';
                   let roleTone = 'neutral';
 
-                  if (rawRole === 'teacher' || rawRole === 'öğretmen') {
+                  if (['teacher', 'öğretmen', 'ogretmen'].includes(rawRole)) {
                     displayRole = 'Öğretmen';
                     roleTone = 'warning';
-                  } else if (rawRole === 'admin' || rawRole === 'yönetici') {
+                  } else if (['admin', 'yönetici', 'yonetici'].includes(rawRole)) {
                     displayRole = 'Yönetici';
                     roleTone = 'accent';
-                  } else if (rawRole === 'personnel' || rawRole === 'personel') {
+                  } else if (['personnel', 'personel', 'staff', 'security', 'güvenlik'].includes(rawRole)) {
                     displayRole = 'Personel';
                     roleTone = 'accent';
                   }

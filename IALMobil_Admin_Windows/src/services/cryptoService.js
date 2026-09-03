@@ -11,7 +11,9 @@ export const cryptoService = {
       keyMaterial,
       { name: 'AES-CBC' },
       false,
-      ['encrypt']
+      // Ayni anahtar hem istegi sifrelemek hem de sunucunun sifreli yanitini
+      // cozmek icin kullanilir; 'decrypt' olmadan subtle.decrypt InvalidAccessError verir.
+      ['encrypt', 'decrypt']
     );
   },
 

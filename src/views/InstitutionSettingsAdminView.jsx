@@ -381,6 +381,66 @@ const InstitutionSettingsAdminView = () => {
 
         <hr className="border-slate-200 dark:border-white/10" />
 
+        <section className="flex flex-col gap-6">
+          <div>
+            <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <ShieldCheck size={18} className="text-slate-600 dark:text-slate-400" />
+              Personel Yoklaması (Öğretmen · Yönetici · Personel)
+            </h2>
+            <p className="text-[13px] text-slate-500 leading-relaxed">
+              Personel, öğrencilerle <strong>aynı karekodu ve aynı akışı</strong> kullanır. Tek fark saat kısıtıdır:
+              esnek mesai açıkken personel gün içinde <strong>istediği saatte</strong> okutabilir ve geç sayılmaz.
+              Ancak o gün <strong>hiç okutmazsa</strong>, aşağıdaki saat geldiğinde devamsızlık yazılır.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Toggle
+              checked={Boolean(settings.staffAttendanceEnabled)}
+              onChange={setFlag('staffAttendanceEnabled')}
+              title="Personel Devamsızlığı Tutulsun"
+              description="Kapatılırsa personel karekod okutmaya devam eder ama devamsızlık yazılmaz."
+            />
+            <Toggle
+              checked={Boolean(settings.staffFlexibleHours)}
+              onChange={setFlag('staffFlexibleHours')}
+              title="Esnek Mesai"
+              description="Açıkken personel için giriş saati kısıtı ve geç kalma uygulanmaz; kapatılırsa öğrenciyle aynı saat kurallarına tabi olur."
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-8">
+            <Field
+              label="Personel Devamsızlık Saati"
+              hint={`${settings.staffAbsenceCutoffHour || '--:--'} itibarıyla gün içinde hiç okutmayan personele devamsızlık yazılır.`}
+            >
+              <input
+                type="time"
+                name="staffAbsenceCutoffHour"
+                value={settings.staffAbsenceCutoffHour || ''}
+                onChange={handleChange}
+                style={timeInputStyle}
+              />
+            </Field>
+            <Field
+              label="Devamsızlık Ağırlığı"
+              hint="Okutmayan personelin gününe kaç gün devamsızlık işleneceği."
+            >
+              <select
+                name="staffAbsenceWeight"
+                value={String(settings.staffAbsenceWeight ?? 1)}
+                onChange={handleChange}
+                style={timeInputStyle}
+              >
+                <option value="1">Tam gün (1,0)</option>
+                <option value="0.5">Yarım gün (0,5)</option>
+              </select>
+            </Field>
+          </div>
+        </section>
+
+        <hr className="border-slate-200 dark:border-white/10" />
+
         <section className="flex flex-col md:flex-row items-start">
           <div className="md:w-[300px] shrink-0 md:mr-10 mb-6 md:mb-0">
             <h2 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
