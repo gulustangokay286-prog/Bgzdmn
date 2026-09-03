@@ -152,7 +152,7 @@ const AttendanceLiveView = () => {
 
     const seenRef = { current: new Set() };
     let firstRtdbBatch = true;
-    const liveRef = rtdbQuery(ref(rtdb, 'qr_system/live_scans'), limitToLast(50));
+    const liveRef = ref(rtdb, 'qr_system/live_scans');
     const unsubRtdb = onValue(
       liveRef,
       (snapshot) => {
@@ -162,7 +162,7 @@ const AttendanceLiveView = () => {
         const incoming = [];
         snapshot.forEach((child) => {
           const data = child.val();
-          if (!data) return;
+          if (!data || data.autoKind) return;
           incoming.push({ ...data, id: child.key, source: 'firebase' });
         });
 
@@ -177,7 +177,7 @@ const AttendanceLiveView = () => {
     );
 
     const todayKey = new Date().toISOString().split('T')[0];
-    const todayLogsRef = rtdbQuery(ref(rtdb, `qr_system/attendance_logs/${todayKey}`), limitToLast(50));
+    const todayLogsRef = ref(rtdb, `qr_system/attendance_logs/${todayKey}`);
     const unsubTodayLogs = onValue(todayLogsRef, (snapshot) => {
       setLoading(false);
       if (!snapshot.exists()) return;
@@ -191,6 +191,22 @@ const AttendanceLiveView = () => {
       mergeRecords(incoming);
     });
 
+    const qFs = query(
+      collection(db, 'attendance_logs'),
+      where('date', '==', todayKey)
+    );
+    const unsubFs = onSnapshot(qFs, (snap) => {
+      setLoading(false);
+      const incoming = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data && !data.autoKind) {
+          incoming.push({ ...data, id: d.id, source: 'firestore' });
+        }
+      });
+      mergeRecords(incoming);
+    });
+
     const guard = setTimeout(() => setLoading(false), 2500);
 
     return () => {
@@ -198,6 +214,7 @@ const AttendanceLiveView = () => {
       try {
         unsubRtdb();
         unsubTodayLogs();
+        unsubFs();
       } catch {
         
       }
