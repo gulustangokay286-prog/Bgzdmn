@@ -399,28 +399,8 @@ export const evaluateEntryAttempt = (options) => {
     return { ...base, message: 'Geçiş saati okunamadı. Lütfen görevli öğretmene başvurun.' };
   }
 
-  // Anti-Ping-Pong & Rate Limit: 3 dakika içinde mükerrer okutma koruması
-  const COOLDOWN_SECONDS = 180;
-  if (!isManualApproval && lastScanSeconds > 0 && (nowSeconds - lastScanSeconds) < COOLDOWN_SECONDS) {
-    const remainingSec = Math.max(1, COOLDOWN_SECONDS - (nowSeconds - lastScanSeconds));
-    return {
-      ...base,
-      code: ENTRY_DECISION.COOLDOWN_ACTIVE,
-      title: 'Lütfen Bekleyin',
-      message: `Yeni bir geçiş için ${remainingSec} saniye beklemeniz gerekmektedir.`,
-      detail: 'Mükerrer ve ardışık okutma koruması devrede.'
-    };
-  }
-
-  if (!isManualApproval && opts.isClosedDay) {
-    return {
-      ...base,
-      code: ENTRY_DECISION.CLOSED_DAY,
-      title: 'Kurum Bugün Kapalı',
-      message: 'Bugün kurum takvimine göre kapalıdır, yoklama alınmamaktadır.',
-      detail: 'Kapalı günlerde otomatik devamsızlık da işlenmez.'
-    };
-  }
+  // Anti-Ping-Pong & Rate Limit: Güvenlik duvarları kullanıcı talebiyle tamamen kapatıldı
+  const COOLDOWN_SECONDS = 0;
 
   const classification = classifyScanMinutes(minutes, cfg);
 
@@ -441,74 +421,9 @@ export const evaluateEntryAttempt = (options) => {
     };
   }
 
-  if (currentStatus === 'entry' || currentStatus === 'inside') {
-    return {
-      ...base,
-      session: classification.session,
-      code: ENTRY_DECISION.ALREADY_INSIDE,
-      title: 'Bir Saniye!',
-      message: 'Zaten giriş yapıldı.',
-      detail: 'Bu işlem zaten kayıt altına alınmış. Çift geçiş yapmanıza gerek yoktur.'
-    };
-  }
-
-  const isParentOrVisitor = isParentOrVisitorRole(opts.role);
-  if ((isStaff || isParentOrVisitor) && cfg.staffFlexibleHours) {
-    return {
-      ...base,
-      session: classification.session || (minutes < w.halfDayCutoff ? SESSION_MORNING : SESSION_AFTERNOON),
-      isLate: false,
-      lateByMinutes: 0,
-      recordEntry: true,
-      allowed: true,
-      code: ENTRY_DECISION.OK,
-      title: isParentOrVisitor ? 'Hoş Geldiniz' : 'Hoş geldiniz',
-      message: 'Kurum girişi yapıldı.',
-      detail: `${isParentOrVisitor ? 'Veli / Ziyaretçi' : 'Personel'} girişi · ${minutesToTime(minutes)}`
-    };
-  }
-
-  if (classification.phase === 'before_school') {
-    return {
-      ...base,
-      code: ENTRY_DECISION.OUT_OF_HOURS,
-      title: 'Henüz Erken',
-      message: `Kurum girişleri saat ${cfg.dayStartHour} itibarıyla başlamaktadır.`,
-      detail: `Sabah yoklaması ${cfg.morningEntryHour} - ${minutesToTime(w.morningGraceEnd)} arasında alınır.`
-    };
-  }
-
-  if (classification.phase === 'after_school') {
-    return {
-      ...base,
-      code: ENTRY_DECISION.OUT_OF_HOURS,
-      title: 'Okul Saati Sona Erdi',
-      message: `Okul çıkış saati (${cfg.schoolExitHour}) geçtiği için giriş alınamaz.`,
-      detail: 'Giriş yapmanız gerekiyorsa görevli öğretmene başvurun.'
-    };
-  }
-
-  if (classification.isLate && cfg.lateRequiresCounselorApproval) {
-    const isMorning = classification.session === SESSION_MORNING;
-    const limit = isMorning ? w.morningGraceEnd : w.afternoonGraceEnd;
-    return {
-      ...base,
-      session: classification.session,
-      isLate: true,
-      lateByMinutes: classification.lateByMinutes,
-      requiresCounselor: true,
-      recordEntry: false,
-      allowed: false,
-      code: isMorning ? ENTRY_DECISION.LATE_MORNING : ENTRY_DECISION.LATE_AFTERNOON,
-      title: COUNSELOR_TITLE,
-      message: `Saat ${minutesToTime(minutes)} — ${isMorning ? 'sabah' : 'öğleden sonra'} giriş toleransı (${minutesToTime(limit)}) doldu.`,
-      detail: 'Girişinizin yapılabilmesi için Rehber Öğretmeninizle görüşmeniz, ardından görevli öğretmenin “Öğrenci Geçiş” ekranından manuel olarak giriş yapması gerekmektedir.'
-    };
-  }
-
   return {
     ...base,
-    session: classification.session,
+    session: classification.session || (minutes < w.halfDayCutoff ? SESSION_MORNING : SESSION_AFTERNOON),
     isLate: classification.isLate,
     lateByMinutes: classification.lateByMinutes,
     recordEntry: true,
@@ -548,87 +463,15 @@ export const evaluateExitAttempt = (options) => {
     return { ...base, message: 'Geçiş saati okunamadı. Görevli öğretmene başvurun.' };
   }
 
-  // 1. Zaten dışarıda mı? (Anti-Passback)
-  if (currentStatus === 'exit' || currentStatus === 'outside') {
-    return {
-      ...base,
-      code: EXIT_DECISION.ALREADY_OUTSIDE,
-      title: 'Zaten Dışarıdasınız!',
-      message: 'Aktif bir giriş kaydınız bulunmamaktadır.',
-      detail: 'Mükerrer çıkış yapılamaz.'
-    };
-  }
-
-  // 2. Anti-Ping-Pong / Rate Limit: 3 dakika bekleme süresi
-  const COOLDOWN_SECONDS = 180;
-  if (!isManualApproval && lastScanSeconds > 0 && (nowSeconds - lastScanSeconds) < COOLDOWN_SECONDS) {
-    const remainingSec = Math.max(1, COOLDOWN_SECONDS - (nowSeconds - lastScanSeconds));
-    return {
-      ...base,
-      code: EXIT_DECISION.COOLDOWN_ACTIVE,
-      title: 'Lütfen Bekleyin',
-      message: `Yeni bir geçiş için ${remainingSec} saniye beklemeniz gerekmektedir.`,
-      detail: 'Mükerrer ve ardışık okutma koruması devrede.'
-    };
-  }
-
-  // 3. İdare / Güvenlik / Veli Teslim onayı varsa her zaman serbest
-  if (isManualApproval) {
-    return {
-      ...base,
-      allowed: true,
-      recordExit: true,
-      code: EXIT_DECISION.OK_MANUAL,
-      title: 'İzinli Çıkış Onaylandı',
-      message: 'İdare / Görevli onayıyla çıkış yapıldı.',
-      detail: opts.reason || 'Manuel onaylı güvenli çıkış'
-    };
-  }
-
-  // 4. Normal Okul Çıkış Saati mi? (16:00 ve sonrası)
-  if (minutes >= w.schoolExit) {
-    return {
-      ...base,
-      allowed: true,
-      recordExit: true,
-      code: EXIT_DECISION.OK,
-      title: 'İyi Günler',
-      message: 'Kurum çıkışınız kaydedildi.',
-      detail: 'Ders bitimi normal çıkış'
-    };
-  }
-
-  // 5. Öğle Arası Çıkış Saati mi? (12:00 - 13:10)
-  const isLunchWindow = (minutes >= w.lunchExitStart && minutes <= (w.afternoonStart + cfg.afternoonGraceMinutes));
-  if (isLunchWindow) {
-    if (student.hasLunchPrivilege === false || student.lunchExitAllowed === false) {
-      return {
-        ...base,
-        code: EXIT_DECISION.NO_LUNCH_PRIVILEGE,
-        title: 'Öğle Çıkış İzniniz Yok',
-        message: 'Öğle arasında dışarı çıkış yetkiniz bulunmamaktadır.',
-        detail: 'Sadece veli izin belgeli öğrenciler çıkabilir.'
-      };
-    }
-
-    return {
-      ...base,
-      allowed: true,
-      recordExit: true,
-      code: EXIT_DECISION.OK,
-      title: 'Öğle Arası Çıkışı',
-      message: 'Öğle arası çıkışınız yapıldı.',
-      detail: `Öğleden sonra ders başlangıcı: ${cfg.afternoonEntryHour}`
-    };
-  }
-
-  // 6. Ders saatinde izinsiz çıkış engeli (Kaçış Kilidi)
+  // Güvenlik kısıtlamaları ve ders saati çıkış kilitleri kullanıcı talebiyle tamamen kaldırıldı
   return {
     ...base,
-    code: EXIT_DECISION.LOCKED_CLASS_HOUR,
-    title: 'Ders Saatinde Çıkış Yasaktır!',
-    message: `Saat ${minutesToTime(minutes)} — Ders saatinde izinsiz çıkış yapılamaz.`,
-    detail: 'Çıkış için İdareden veya Güvenlikten “İzinli Erken Çıkış” onayı almalısınız.'
+    allowed: true,
+    recordExit: true,
+    code: EXIT_DECISION.OK,
+    title: 'İyi Günler',
+    message: 'Kurum çıkışınız kaydedildi.',
+    detail: 'Çıkış işlemi onaylandı.'
   };
 };
 

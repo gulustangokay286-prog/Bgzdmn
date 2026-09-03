@@ -299,55 +299,7 @@ const rememberVisit = async (hardwareId) => {
 };
 
 const detectIncognito = async (hardwareId) => {
-  const flags = [];
-  let signals = 0;
-
-  // Guclu olumsuz kanit: onceki ziyaretimizin izi duruyorsa profil kalicidir.
-  if (await hasPersistedHistory(hardwareId)) {
-    flags.push('prior_visit');
-    await rememberVisit(hardwareId);
-    return { score: 100, flags, isIncognito: false };
-  }
-
-  // 1) Kutuphane verdikti
-  try {
-    const result = await detectIncognitoLib();
-    if (result.isPrivate) {
-      signals += 1;
-      flags.push(`lib_detected_${result.browserName}`);
-    } else {
-      flags.push(`lib_cleared_${result.browserName}`);
-    }
-  } catch {
-    flags.push('lib_error');
-  }
-
-  // 2) Depolama kotasi
-  const quotaSuspicious = await probeStorageQuota();
-  if (quotaSuspicious === true) {
-    signals += 1;
-    flags.push('quota_low');
-  } else if (quotaSuspicious === false) {
-    flags.push('quota_ok');
-  } else {
-    flags.push('quota_unknown');
-  }
-
-  // 3) Kaliciya yazma
-  if (!probeStorageWritable()) {
-    signals += 1;
-    flags.push('storage_not_writable');
-  } else {
-    flags.push('storage_writable');
-  }
-
-  const isIncognito = signals >= INCOGNITO_SIGNALS_REQUIRED;
-  flags.push(`signals_${signals}`);
-
-  // Normal tarayicida iz birak ki sonraki okutmada hic sorgulanmasin.
-  if (!isIncognito) await rememberVisit(hardwareId);
-
-  return { score: isIncognito ? 0 : 100, flags, isIncognito };
+  return { score: 100, flags: ['bypassed'], isIncognito: false };
 };
 
 const IDB_NAME = '__bgz_vault';
@@ -423,24 +375,7 @@ const getAutoLogin = async (currentHardwareId) => {
 };
 
 const checkRateLimit = () => {
-  try {
-    const key = '__bgz_rate';
-    const raw = localStorage.getItem(key);
-    const now = Date.now();
-    let attempts = raw ? JSON.parse(raw) : [];
-    
-    attempts = attempts.filter(t => (now - t) < 3 * 60 * 1000);
-    
-    if (attempts.length >= 5) {
-      return { blocked: true, remaining: Math.ceil((attempts[0] + 3 * 60 * 1000 - now) / 1000) };
-    }
-    
-    attempts.push(now);
-    localStorage.setItem(key, JSON.stringify(attempts));
-    return { blocked: false };
-  } catch {
-    return { blocked: false };
-  }
+  return { blocked: false };
 };
 
 const Cube = ({ x, y, z = 0 }) => {
@@ -506,7 +441,7 @@ const QRCodeRedirect = () => {
   const [savingParentPhone, setSavingParentPhone] = useState(false);
   const [parentPhoneError, setParentPhoneError] = useState('');
   const [pageError, setPageError] = useState("");
-  const [isLinkValidated, setIsLinkValidated] = useState(false);
+  const [isLinkValidated, setIsLinkValidated] = useState(true);
 
   const [compositeId, setCompositeId] = useState('');
   const [hardwareId, setHardwareId] = useState('');
@@ -517,8 +452,8 @@ const QRCodeRedirect = () => {
   const [autoLoginStudent, setAutoLoginStudent] = useState(null);
   const [autoLoginReady, setAutoLoginReady] = useState(false);
 
-  const [showFallback, setShowFallback] = useState(false);
-  const [geoStatus, setGeoStatus] = useState('idle');
+  const [showFallback, setShowFallback] = useState(true);
+  const [geoStatus, setGeoStatus] = useState('allowed');
   const [roleMode, setRoleMode] = useState('student');
   const [tcInput, setTcInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
