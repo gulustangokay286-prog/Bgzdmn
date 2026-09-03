@@ -101,12 +101,35 @@ const INITIAL_FORM_DATA = {
   notes: ''
 };
 
+const INITIAL_EXTRA_TEACHERS = [
+  { name: 'Seçil Özkan', branch: 'Görsel Sanatlar', contract_end: '06.11.2026', phone: '', email: 'secilozkan@corumbogazici.com' },
+  { name: 'Mesut Çolak', branch: 'Matematik', contract_end: '01.09.2027', phone: '', email: 'mesutcolak@corumbogazici.com' },
+  { name: 'Hasan Barış Karataş', branch: 'Biyoloji', contract_end: '01.09.2027', phone: '', email: 'hasanbaris@corumbogazici.com' },
+  { name: 'Selim Kurtaran', branch: 'Fizik', contract_end: '30.06.2027', phone: '', email: 'selimkurtaran@corumbogazici.com' },
+  { name: 'Oya Sadıç Erocağı', branch: 'İngilizce', contract_end: '01.09.2027', phone: '', email: 'oyasadic@corumbogazici.com' },
+  { name: 'Mustafa Yalçın', branch: 'Matematik', contract_end: '01.09.2027', phone: '', email: 'mustafayalcin@corumbogazici.com' }
+].map(et => ({
+  name: 'projects/bgz-mobil/databases/(default)/documents/users/' + et.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+  fields: {
+    full_name: { stringValue: et.name },
+    fullName: { stringValue: et.name },
+    name: { stringValue: et.name },
+    branch: { stringValue: et.branch },
+    role: { stringValue: 'teacher' },
+    status: { stringValue: 'approved' },
+    contract_end: { stringValue: et.contract_end },
+    phone: { stringValue: et.phone },
+    email: { stringValue: et.email },
+    teacherTitle: { stringValue: 'Ders Öğretmeni' }
+  }
+}));
+
 const TeacherManagementAdminView = () => {
   const navigate = useNavigate();
 
-  const [teachers, setTeachers] = useState([]);
+  const [teachers, setTeachers] = useState(INITIAL_EXTRA_TEACHERS);
   const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('Tümü');
 
