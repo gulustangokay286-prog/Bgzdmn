@@ -205,7 +205,8 @@ const handleQrScan = async (req, res) => {
                 io.emit('new_scan', rtdbData);
             }
 
-            // Send parent SMS only for students
+            // SMS gonderimi bakim modunda oldugu icin gecici olarak tamamen devre disi birakildi
+            /*
             if (userRole === 'student' && (newStatus === 'entry' || newStatus === 'exit')) {
                 netgsmService.sendParentGateSms({
                     studentId: foundUser.id,
@@ -216,6 +217,7 @@ const handleQrScan = async (req, res) => {
                     db
                 }).catch(() => {});
             }
+            */
         }
 
         return res.status(200).json({

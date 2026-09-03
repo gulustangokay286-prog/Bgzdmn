@@ -66,9 +66,9 @@ async function resolveNetgsmCredentials(customCreds = {}, dbInstance = null) {
                  process.env.NETGSM_MSGHEADER ||
                  process.env.NETGSM_ORIGINATOR ||
                  process.env.NETGSM_BASLIK ||
-                 'CRM.BGZ.A.L';
+                 'BOGAZICI AL';
 
-    let autoGateSms = true;
+    let autoGateSms = false; // SMS bakim modunda, devre disi
 
     if (!usercode || !password || !header) {
         try {
@@ -106,7 +106,7 @@ async function resolveNetgsmCredentials(customCreds = {}, dbInstance = null) {
     }
 
     if (!header) {
-        header = 'BOGAZICI';
+        header = 'BOGAZICI AL';
     }
 
     return {
@@ -118,6 +118,8 @@ async function resolveNetgsmCredentials(customCreds = {}, dbInstance = null) {
 }
 
 async function sendSms(options = {}) {
+    console.log('[SMS BAKIM MODUNDA] SMS gonderimi kullanici talimatiyla tamamen devre disi birakilmistir. Alıcı:', options?.to);
+    return { success: false, disabled: true, maintenanceMode: true, message: 'SMS servisi bakim modundadir.' };
     const { to, message, header: customHeader, usercode: customUsercode, password: customPassword, dil = 'TR' } = options;
 
     if (!to || !message) {
@@ -203,6 +205,8 @@ async function sendSms(options = {}) {
 }
 
 async function sendParentGateSms({ studentId, studentName, action, schoolNumber, tc, db }) {
+    console.log('[SMS BAKIM MODUNDA] Giris-cikis SMS servisi kullanici talimatiyla bakim modundadir. SMS gonderilmeyecek.');
+    return { success: true, sent: false, disabled: true, reason: 'maintenance_mode' };
     try {
         const firestore = db || getFirestore();
         const creds = await resolveNetgsmCredentials({}, firestore);
