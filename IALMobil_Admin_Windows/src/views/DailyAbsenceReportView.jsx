@@ -22,7 +22,8 @@ import {
   getMinutesInTimeZone,
   isClosedDay as isClosedDayFn,
   isStaffRole,
-  sumAbsenceWeight
+  sumAbsenceWeight,
+  timeToMinutes
 } from '../services/attendanceRules';
 import {
   Panel,
@@ -65,6 +66,7 @@ const DailyAbsenceReportView = () => {
   const [selectedDate, setSelectedDate] = useState(() => getDateKeyInTimeZone(new Date(), 'Europe/Istanbul'));
   const [allStudents, setAllStudents] = useState([]);
   const [rtdbLogs, setRtdbLogs] = useState({});
+  const [rtdbGateStatus, setRtdbGateStatus] = useState({});
   const [firestoreLogs, setFirestoreLogs] = useState({});
   const [gateStatusMap, setGateStatusMap] = useState({});
   const [manualAttendance, setManualAttendance] = useState({});
@@ -166,10 +168,21 @@ const DailyAbsenceReportView = () => {
 
   useEffect(() => {
     if (!rtdb) return;
-    const dateRef = ref(rtdb, `daily_logs/${selectedDate}`);
+    const gateRef = ref(rtdb, 'qr_system/gate_status');
+    const unsubGateRtdb = onValue(gateRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setRtdbGateStatus(snapshot.val() || {});
+      }
+    });
+    return () => unsubGateRtdb();
+  }, []);
+
+  useEffect(() => {
+    if (!rtdb) return;
+    const dateRef = ref(rtdb, `qr_system/daily_summary/${selectedDate}`);
     const unsubRtdb = onValue(dateRef, (snapshot) => {
       if (snapshot.exists()) {
-        setRtdbLogs(snapshot.val());
+        setRtdbLogs(snapshot.val() || {});
       } else {
         setRtdbLogs({});
       }
@@ -226,19 +239,23 @@ const DailyAbsenceReportView = () => {
       ];
       const scans = sortAndDedupeScans(rawScans.map(normalizeScanRecord));
       const excuse = manualAttendance[student.id];
-      const gateStatus = gateStatusMap[student.id];
+      const gateStatus = rtdbGateStatus[student.id] || gateStatusMap[student.id];
+      const liveGateStatus = gateStatus?.status || '';
 
-      // Motor tek bir secenek nesnesi alir; onceki konumsal cagri sessizce
-      // bos degerlendirme uretiyordu. Personel icin ayri motor calisir.
-      const evaluation = evaluatePersonDay({
-        scans,
-        nowMinutes,
-        config,
-        isClosedDay: isClosed,
-        isStaff: student.isStaff
-      });
-      const isTurnstileIn = gateStatus?.status === 'in' || scans.some((s) => s.direction === 'in');
-      const manualWeight = excuse?.type ? sumAbsenceWeight(excuse.type) : 0;
+      const isTurnstileIn = liveGateStatus === 'entry' || liveGateStatus === 'inside' || liveGateStatus === 'in' || scans.some((s) => s.direction === 'in' || s.action === 'entry');
+
+      let manualWeight = 0;
+      if (excuse) {
+        if (typeof excuse.absenceWeight === 'number') {
+          manualWeight = excuse.absenceWeight;
+        } else if (excuse.type) {
+          manualWeight = sumAbsenceWeight(excuse.type);
+        } else if (excuse.status === 'absent') {
+          manualWeight = excuse.session === 'morning' ? 0.5 : 1.0;
+        }
+      }
+
+      const isGateAbsent = liveGateStatus === 'absent';
 
       let status = 'present';
       let statusInfo = STATUS_BADGE_MAP.present;
@@ -246,13 +263,16 @@ const DailyAbsenceReportView = () => {
       if (isClosed) {
         status = 'closed';
         statusInfo = STATUS_BADGE_MAP.closed;
-      } else if (manualWeight >= 1) {
+      } else if (excuse?.status === 'excused') {
+        status = 'excused';
+        statusInfo = STATUS_BADGE_MAP.excused;
+      } else if (manualWeight >= 1 || evaluation.absenceWeight >= 1) {
         status = 'absent_full';
         statusInfo = STATUS_BADGE_MAP.absent_full;
-      } else if (manualWeight === 0.5) {
+      } else if (manualWeight === 0.5 || isGateAbsent || evaluation.absenceWeight === 0.5 || (!evaluation.morning?.present && evaluation.morning?.finalized)) {
         status = 'absent_half';
         statusInfo = STATUS_BADGE_MAP.absent_half;
-      } else if (isTurnstileIn) {
+      } else if (isTurnstileIn || evaluation.morning?.present) {
         if (evaluation.isLate) {
           status = 'late';
           statusInfo = STATUS_BADGE_MAP.late;
@@ -262,8 +282,14 @@ const DailyAbsenceReportView = () => {
         }
       } else {
         if (isToday) {
-          status = 'present';
-          statusInfo = { label: 'Beklemede', tone: 'neutral' };
+          const morningCutoff = (timeToMinutes(config.morningEntryHour) || 540) + (Number(config.morningGraceMinutes) || 11);
+          if (nowMinutes >= morningCutoff) {
+            status = 'absent_half';
+            statusInfo = STATUS_BADGE_MAP.absent_half;
+          } else {
+            status = 'present';
+            statusInfo = { label: 'Giriş Bekleniyor', tone: 'neutral' };
+          }
         } else {
           status = 'absent_full';
           statusInfo = STATUS_BADGE_MAP.absent_full;
@@ -286,10 +312,10 @@ const DailyAbsenceReportView = () => {
           : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : 'Giriş Yok'),
         detailNote: excuse?.courseName || (scans.length > 0 ? `${scans.length} Geçiş Kaydı` : 'Düzenli'),
         isLate: evaluation.isLate,
-        isPresent: isTurnstileIn || status === 'present'
+        isPresent: isTurnstileIn || status === 'present' || status === 'late'
       };
     });
-  }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, gateStatusMap, selectedDate, todayKey, config]);
+  }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, gateStatusMap, rtdbGateStatus, selectedDate, todayKey, config]);
 
   // Sayaclar yalnizca secili rolu kapsar; ogrenci ile personel karismaz.
   const scopedPeople = useMemo(
