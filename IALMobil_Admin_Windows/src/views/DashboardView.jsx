@@ -238,6 +238,7 @@ const DashboardView = () => {
   };
 
   const roleOf = (u) => (u?.fields?.role?.stringValue || u?.role || '').toLowerCase();
+  const branchOf = (u) => (u?.fields?.branch?.stringValue || u?.branch || '').trim();
 
   const visibleUsers = useMemo(
     () => (Array.isArray(users) ? users.filter((u) => u && roleOf(u) !== 'patron') : []),
@@ -245,7 +246,17 @@ const DashboardView = () => {
   );
 
   const countByRoles = useCallback(
-    (roles) => visibleUsers.filter((u) => roles.includes(roleOf(u))).length,
+    (roles) => visibleUsers.filter((u) => {
+      const r = roleOf(u);
+      const b = branchOf(u);
+      if (roles.includes('teacher')) {
+        return r === 'teacher' || r === 'öğretmen' || (r === 'admin' && b === 'Rehberlik');
+      }
+      if (roles.includes('admin') || roles.includes('personnel')) {
+        return (r === 'personnel' || r === 'personel' || r === 'admin' || r === 'yönetici') && !(r === 'admin' && b === 'Rehberlik');
+      }
+      return roles.includes(r);
+    }).length,
     [visibleUsers]
   );
 
