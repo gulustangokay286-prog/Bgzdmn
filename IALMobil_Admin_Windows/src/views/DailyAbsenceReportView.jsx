@@ -247,6 +247,11 @@ const DailyAbsenceReportView = () => {
         isStaff: student.isStaff
       });
 
+      const excuse = manualAttendance[student.id];
+      const gateStatus = rtdbGateStatus[student.id] || gateStatusMap[student.id];
+      const liveGateStatus = gateStatus?.status || '';
+      const isTurnstileIn = liveGateStatus === 'entry' || liveGateStatus === 'inside' || liveGateStatus === 'in' || scans.some((s) => s.direction === 'in' || s.action === 'entry');
+
       const morningSummary = rtdbLogs[student.id]?.morning;
       const morningPresent = Boolean(
         morningSummary?.present ||
