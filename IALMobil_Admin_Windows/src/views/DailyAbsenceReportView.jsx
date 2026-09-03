@@ -48,7 +48,7 @@ const STATUS_BADGE_MAP = {
 
 const ROLE_FILTERS = [
   { id: 'student', label: 'Öğrenci' },
-  { id: 'teacher', label: 'Öğretmen' },
+  { id: 'teacher', label: 'Öğretmen & İdareci' },
   { id: 'personnel', label: 'Personel' }
 ];
 
@@ -98,17 +98,17 @@ const DailyAbsenceReportView = () => {
 
           if (staff) {
             // Personelde sinif/sube yok; grup basligi bransa veya departmana gore.
-            const isTeacher = role === 'teacher' || role === 'öğretmen';
+            const isTeacherOrAdmin = ['teacher', 'öğretmen', 'admin', 'yönetici', 'superadmin', 'patron'].includes(role);
             studentList.push({
               id: d.id,
               role,
               isStaff: true,
-              roleKind: isTeacher ? 'teacher' : 'personnel',
+              roleKind: isTeacherOrAdmin ? 'teacher' : 'personnel',
               name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Personel',
               tc,
               schoolNumber: '—',
               classGrade: '—',
-              branch: (data.branch || data.department || (isTeacher ? 'Branş belirtilmemiş' : 'Departman belirtilmemiş')).toUpperCase(),
+              branch: (data.branch || data.department || (isTeacherOrAdmin ? (data.branch || (['admin', 'yönetici'].includes(role) ? 'Yönetim / İdare' : 'Öğretmen')) : 'Departman belirtilmemiş')).toUpperCase(),
               profileImage
             });
             return;
@@ -278,6 +278,19 @@ const DailyAbsenceReportView = () => {
       } else if (manualWeight >= 1 || evaluation.absenceWeight >= 1) {
         status = 'absent_full';
         statusInfo = STATUS_BADGE_MAP.absent_full;
+      } else if (student.isStaff) {
+        // Öğretmen / İdareci / Personel için yoklama değerlendirmesi:
+        const hasStaffEntry = isTurnstileIn || evaluation.isPresentToday || liveGateStatus === 'entry' || liveGateStatus === 'inside';
+        if (hasStaffEntry) {
+          status = 'present';
+          statusInfo = STATUS_BADGE_MAP.present;
+        } else if (isToday) {
+          status = 'present';
+          statusInfo = { label: 'Giriş Bekleniyor', tone: 'neutral' };
+        } else {
+          status = 'absent_full';
+          statusInfo = STATUS_BADGE_MAP.absent_full;
+        }
       } else if (manualWeight === 0.5 || isGateAbsent || evaluation.absenceWeight === 0.5 || (!evaluation.morning?.present && evaluation.morning?.finalized)) {
         status = 'absent_half';
         statusInfo = STATUS_BADGE_MAP.absent_half;
@@ -307,6 +320,7 @@ const DailyAbsenceReportView = () => {
 
       const morningEntry = evaluation.morning?.entryTime || '—';
       const afternoonEntry = evaluation.afternoon?.entryTime || '—';
+      const staffEntryTime = evaluation.day?.entryTime || gateStatus?.time || (liveGateStatus === 'entry' ? '09:00' : null);
 
       return {
         ...student,
@@ -314,13 +328,13 @@ const DailyAbsenceReportView = () => {
         statusLabel: statusInfo.label,
         statusTone: statusInfo.tone,
         morningStatus: student.isStaff
-          ? (evaluation.day?.entryTime ? `Giriş: ${evaluation.day.entryTime}` : 'Giriş Yok')
+          ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : 'Giriş Yok')
           : (morningEntry !== '—' ? `Giriş: ${morningEntry}` : 'Giriş Yok'),
         afternoonStatus: student.isStaff
           ? '—'
           : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : 'Giriş Yok'),
         detailNote: excuse?.courseName || (scans.length > 0 ? `${scans.length} Geçiş Kaydı` : 'Düzenli'),
-        isLate: evaluation.isLate,
+        isLate: student.isStaff ? false : evaluation.isLate,
         isPresent: isTurnstileIn || status === 'present' || status === 'late'
       };
     });

@@ -764,7 +764,9 @@ const QRCodeRedirect = () => {
    * Personelde bu kontrol yapılmaz.
    */
   const ensureParentPhone = async (foundStudent) => {
-    if (foundStudent.isStaff) return true;
+    const role = String(foundStudent?.role || '').toLowerCase();
+    const isStaff = Boolean(foundStudent?.isStaff) || isStaffRole(role) || ['teacher', 'öğretmen', 'admin', 'yönetici', 'staff', 'personnel', 'personel', 'patron', 'superadmin'].includes(role);
+    if (isStaff) return true;
     try {
       const { phone } = await resolveParentPhone(foundStudent.id);
       if (phone) return true;
