@@ -6,111 +6,43 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import UserRow, { UserTableHeader, USER_TABLE_MIN_WIDTH } from '../components/UserRow';
 import { Panel, PanelFooter, Button, IconButton, Input, Select, EmptyState } from '../components/ui/panel';
 import { cx, hairline, divider } from '../components/ui/tokens';
+import { buildRoster, hasPool, POOL } from '../services/roster';
+
+import { vdsUserService } from '../services/vdsUserService';
 
 const ROLE_FILTERS = [
-  { id: 'all', label: 'Tümü', icon: Users, roles: null },
-  { id: 'student', label: 'Öğrenci', icon: GraduationCap, roles: ['student', 'öğrenci'] },
-  { id: 'teacher', label: 'Öğretmen', icon: UserSquare, roles: ['teacher', 'öğretmen'] },
-  { id: 'parent', label: 'Veli', icon: UserPlus, roles: ['parent', 'veli'] },
-  { id: 'personnel', label: 'Personel', icon: Briefcase, roles: ['personnel', 'personel', 'admin', 'yönetici'] }
+  { id: 'all',       label: 'Tümü',     icon: Users,        pool: null },
+  { id: 'student',   label: 'Öğrenci',  icon: GraduationCap, pool: POOL.STUDENT },
+  { id: 'teacher',   label: 'Öğretmen', icon: UserSquare,   pool: POOL.TEACHER },
+  { id: 'parent',    label: 'Veli',     icon: UserPlus,     pool: POOL.PARENT },
+  { id: 'personnel', label: 'İdare',    icon: Briefcase,    pool: POOL.ADMIN }
 ];
 
 const roleOf = (u) => u?.fields?.role?.stringValue?.toLowerCase() || '';
 const statusOf = (u) => u?.fields?.status?.stringValue?.toLowerCase() || '';
 
-const INITIAL_EXTRA_TEACHERS = [
-  { name: 'Seçil Özkan', branch: 'Görsel Sanatlar', contract_end: '06.11.2026', phone: '05466860719', email: 'secilozkan@corumbogazici.com' },
-  { name: 'Mesut Çolak', branch: 'Matematik', contract_end: '01.09.2027', phone: '05550000001', email: 'mesutcolak@corumbogazici.com' },
-  { name: 'Hasan Barış Karataş', branch: 'Biyoloji', contract_end: '01.09.2027', phone: '05550000002', email: 'hasanbaris@corumbogazici.com' },
-  { name: 'Selim Kurtaran', branch: 'Fizik', contract_end: '30.06.2027', phone: '05550000003', email: 'selimkurtaran@corumbogazici.com' },
-  { name: 'Oya Sadıç Erocağı', branch: 'İngilizce', contract_end: '01.09.2027', phone: '05550000004', email: 'oyasadic@corumbogazici.com' },
-  { name: 'Mustafa Yalçın', branch: 'Matematik', contract_end: '01.09.2027', phone: '05550000005', email: 'mustafayalcin@corumbogazici.com' },
-  { name: 'İlhami Doğan', branch: 'Ders Öğretmeni', contract_end: '18.10.2026', phone: '05550000006', email: 'ilhamidogan@corumbogazici.com' },
-  { name: 'Serpil Satı Ceylan', branch: 'Eğitim Kadrosu', contract_end: 'SINIRSIZ', phone: '05550000007', email: 'serpilsati@corumbogazici.com' },
-  { name: 'Muharrem Kodaz', branch: 'Eğitim Kadrosu', contract_end: 'SINIRSIZ', phone: '05550000008', email: 'muharremkodaz@corumbogazici.com' }
-].map(et => ({
-  name: 'projects/bgz-mobil/databases/(default)/documents/users/' + et.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-  fields: {
-    full_name: { stringValue: et.name },
-    fullName: { stringValue: et.name },
-    name: { stringValue: et.name },
-    branch: { stringValue: et.branch },
-    role: { stringValue: 'teacher' },
-    status: { stringValue: 'approved' },
-    contract_end: { stringValue: et.contract_end },
-    phone: { stringValue: et.phone },
-    email: { stringValue: et.email },
-    teacherTitle: { stringValue: 'Ders Öğretmeni' }
-  }
-}));
-
 const UsersView = () => {
-  const [users, setUsers] = useState(INITIAL_EXTRA_TEACHERS);
+  const [users, setUsers] = useState(() => buildRoster(vdsUserService.users || []));
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   useEffect(() => {
-    let cancelled = false;
-    const safetyTimer = setTimeout(() => {
-      if (!cancelled) setLoading(false);
-    }, 6000);
+    setLoading(true);
+    const unsub = vdsUserService.subscribe((list) => {
+      setUsers(buildRoster(list));
+      setLoading(false);
+    });
 
-    const unsub = onSnapshot(
-      collection(db, 'users'),
-      (snap) => {
-        if (cancelled) return;
-        let list = [];
-        snap.forEach((d) => {
-          list.push(mapSdkToRest(d));
-        });
-
-        // Engin Kantemir filtrele
-        list = list.filter((u) => {
-          const n = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '').toLowerCase();
-          const em = (u.fields?.email?.stringValue || '').toLowerCase();
-          return !n.includes('kantemir') && !em.includes('kantemir') && !em.includes('enginkantemir');
-        });
-
-        // Büşra ve Seher öğretmen yap
-        list.forEach((u) => {
-          const n = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '');
-          if (n.includes('Büşra') || n.includes('Busra')) {
-            if (u.fields) {
-              u.fields.role = { stringValue: 'teacher' };
-              u.fields.branch = { stringValue: 'Rehberlik' };
-            }
-            u.role = 'teacher';
-          } else if (n === 'Seher Şanlı') {
-            if (u.fields) {
-              u.fields.role = { stringValue: 'teacher' };
-              u.fields.branch = { stringValue: 'İdare / Kurucu' };
-            }
-            u.role = 'teacher';
-          }
-        });
-
-        INITIAL_EXTRA_TEACHERS.forEach(et => {
-          const exists = list.some(u => {
-            const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
-            const n = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '';
-            return (r === 'teacher' || r === 'öğretmen') && n.toLowerCase() === et.fields?.name?.stringValue?.toLowerCase();
-          });
-          if (!exists) list.push(et);
-        });
-        setUsers(list);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Kullanıcılar canlı akış hatası:', err);
-        if (!cancelled) setLoading(false);
+    vdsUserService.fetchAllUsers().then((list) => {
+      if (Array.isArray(list) && list.length > 0) {
+        setUsers(buildRoster(list));
       }
-    );
+      setLoading(false);
+    }).catch(() => setLoading(false));
 
     return () => {
-      cancelled = true;
-      clearTimeout(safetyTimer);
       unsub();
     };
   }, []);
@@ -118,8 +50,8 @@ const UsersView = () => {
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = await firebaseService.fetchAllUsers();
-      if (Array.isArray(data)) setUsers(data);
+      const data = await vdsUserService.fetchAllUsers(true);
+      if (Array.isArray(data)) setUsers(buildRoster(data));
     } catch (e) {
       console.error(e);
     } finally {
@@ -132,13 +64,15 @@ const UsersView = () => {
       const role = roleOf(u);
       const email = u?.fields?.email?.stringValue?.toLowerCase() || '';
       if (role === 'patron' || email.includes('patron')) return false;
+      // Kisi birden fazla rol tasiyabilir; hicbir rolu yoksa listelenmez.
+      if (Array.isArray(u._pools) && u._pools.length === 0) return false;
       return true;
     });
   }, [users]);
 
   const countFor = (filter) => {
-    if (!filter.roles) return visibleUsers.length;
-    return visibleUsers.filter((u) => filter.roles.includes(roleOf(u))).length;
+    if (!filter.pool) return visibleUsers.length;
+    return visibleUsers.filter((u) => hasPool(u, filter.pool)).length;
   };
 
   const pendingCount = useMemo(
@@ -163,8 +97,8 @@ const UsersView = () => {
     }
 
     if (selectedRole !== 'all') {
-      const roles = ROLE_FILTERS.find((f) => f.id === selectedRole)?.roles || [];
-      result = result.filter((u) => roles.includes(roleOf(u)));
+      const pool = ROLE_FILTERS.find((f) => f.id === selectedRole)?.pool;
+      if (pool) result = result.filter((u) => hasPool(u, pool));
     }
 
     if (selectedStatus !== 'all') {

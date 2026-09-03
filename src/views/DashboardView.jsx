@@ -14,6 +14,7 @@ import { firebaseService } from '../services/firebase';
 import { financeService } from '../services/financeService';
 import { Panel, PanelHeader, IconButton, Badge, Dot, EmptyState } from '../components/ui/panel';
 import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
+import { hasPool, POOL } from '../services/roster';
 
 const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
@@ -191,8 +192,10 @@ const SummaryRow = ({ label, value, tone = 'default' }) => (
   </div>
 );
 
+import { vdsUserService } from '../services/vdsUserService';
+
 const DashboardView = () => {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(() => buildRoster(vdsUserService.users || []));
   const [financeRecords, setFinanceRecords] = useState([]);
   const [studentPayments, setStudentPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -201,11 +204,11 @@ const DashboardView = () => {
 
   const load = useCallback(async () => {
     const [fetchedUsers, fetchedFinance, fetchedPayments] = await Promise.all([
-      firebaseService.fetchAllUsers().catch(() => []),
+      vdsUserService.fetchAllUsers().catch(() => []),
       financeService.getCashTransactions().catch(() => []),
       financeService.fetchStudentPayments().catch(() => [])
     ]);
-    setUsers(fetchedUsers || []);
+    setUsers(buildRoster(fetchedUsers || []));
     setFinanceRecords(fetchedFinance || []);
     setStudentPayments(fetchedPayments || []);
     setSyncedAt(new Date());
@@ -213,6 +216,13 @@ const DashboardView = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const unsub = vdsUserService.subscribe((userList) => {
+      if (!cancelled) {
+        setUsers(buildRoster(userList));
+        setLoading(false);
+      }
+    });
+
     (async () => {
       try {
         await load();
@@ -224,6 +234,7 @@ const DashboardView = () => {
     })();
     return () => {
       cancelled = true;
+      unsub();
     };
   }, [load]);
 
@@ -240,20 +251,28 @@ const DashboardView = () => {
   const roleOf = (u) => (u?.fields?.role?.stringValue || u?.role || '').toLowerCase();
   const nameOf = (u) => (u?.fields?.full_name?.stringValue || u?.fields?.fullName?.stringValue || u?.fields?.name?.stringValue || u?.name || '').toLowerCase();
 
+  // Ayrilanlarin ayiklanmasi services/roster.js icinde yapilir; burada yalnizca
+  // patron hesabi gizlenir.
   const visibleUsers = useMemo(
-    () => (Array.isArray(users) ? users.filter((u) => u && roleOf(u) !== 'patron' && !nameOf(u).includes('kantemir')) : []),
+    () => (Array.isArray(users) ? users.filter((u) => u && roleOf(u) !== 'patron') : []),
     [users]
   );
 
-  const countByRoles = useCallback(
-    (roles) => visibleUsers.filter((u) => roles.includes(roleOf(u))).length,
+  /*
+   * Sayimlar HAVUZA gore yapilir, tek `role` alanina gore degil.
+   * Cocugu kurumda okuyan bir ogretmen hem ogretmen hem veli sayilir; tek rol
+   * okunsaydi velilerden dusup sayilar tutmazdi. Bu yuzden kisi sayilarinin
+   * toplami, toplam kisi sayisindan buyuk olabilir.
+   */
+  const countByPool = useCallback(
+    (pool) => visibleUsers.filter((u) => hasPool(u, pool)).length,
     [visibleUsers]
   );
 
-  const students = countByRoles(['student', 'öğrenci']);
-  const teachers = countByRoles(['teacher', 'öğretmen']);
-  const parents = countByRoles(['parent', 'veli']);
-  const personnel = countByRoles(['personnel', 'personel', 'admin', 'yönetici']);
+  const students = countByPool(POOL.STUDENT);
+  const teachers = countByPool(POOL.TEACHER);
+  const parents = countByPool(POOL.PARENT);
+  const personnel = countByPool(POOL.ADMIN);
   const totalCount = visibleUsers.length;
   const share = (n) => (totalCount > 0 ? Math.round((n / totalCount) * 100) : 0);
 
