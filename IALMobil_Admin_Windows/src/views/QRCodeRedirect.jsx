@@ -579,9 +579,8 @@ const QRCodeRedirect = () => {
       setIncognitoScore(incognito.score);
       setIncognitoFlags(incognito.flags);
       
-      if (incognito.isIncognito) {
-        setPageError("Güvenlik İhlali: Tarayıcınızın Gizli Sekme (Incognito/Private) modunda olduğu tespit edildi. Sistem güvenliği gereği yoklama işlemi gizli sekmelerden yapılamaz. Lütfen normal tarayıcı modunu kullanın.");
-        return;
+      if (false && incognito.isIncognito) {
+        console.warn("[QR] Gizli sekme uyarısı alındı ancak geçiş engellenmedi.");
       }
       
       const saved = await getAutoLogin(composite.hardwareId);
