@@ -238,7 +238,6 @@ const DashboardView = () => {
   };
 
   const roleOf = (u) => (u?.fields?.role?.stringValue || u?.role || '').toLowerCase();
-  const branchOf = (u) => (u?.fields?.branch?.stringValue || u?.branch || '').trim();
   const nameOf = (u) => (u?.fields?.full_name?.stringValue || u?.fields?.fullName?.stringValue || u?.fields?.name?.stringValue || u?.name || '').toLowerCase();
 
   const visibleUsers = useMemo(
@@ -247,24 +246,14 @@ const DashboardView = () => {
   );
 
   const countByRoles = useCallback(
-    (roles) => visibleUsers.filter((u) => {
-      const r = roleOf(u);
-      const b = branchOf(u);
-      if (roles.includes('teacher')) {
-        return r === 'teacher' || r === 'öğretmen' || Boolean(b);
-      }
-      if (roles.includes('personnel')) {
-        return (r === 'personnel' || r === 'personel' || r === 'admin' || r === 'yönetici') && !Boolean(b);
-      }
-      return roles.includes(r);
-    }).length,
+    (roles) => visibleUsers.filter((u) => roles.includes(roleOf(u))).length,
     [visibleUsers]
   );
 
   const students = countByRoles(['student', 'öğrenci']);
   const teachers = countByRoles(['teacher', 'öğretmen']);
   const parents = countByRoles(['parent', 'veli']);
-  const personnel = countByRoles(['personnel']);
+  const personnel = countByRoles(['personnel', 'personel', 'admin', 'yönetici']);
   const totalCount = visibleUsers.length;
   const share = (n) => (totalCount > 0 ? Math.round((n / totalCount) * 100) : 0);
 

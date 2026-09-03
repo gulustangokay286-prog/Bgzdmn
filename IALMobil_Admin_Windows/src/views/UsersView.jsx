@@ -93,8 +93,9 @@ const UsersView = () => {
 
         INITIAL_EXTRA_TEACHERS.forEach(et => {
           const exists = list.some(u => {
+            const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
             const n = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '';
-            return n.toLowerCase() === et.fields?.name?.stringValue?.toLowerCase();
+            return (r === 'teacher' || r === 'öğretmen') && n.toLowerCase() === et.fields?.name?.stringValue?.toLowerCase();
           });
           if (!exists) list.push(et);
         });

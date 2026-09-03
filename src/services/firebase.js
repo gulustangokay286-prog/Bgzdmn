@@ -62,8 +62,9 @@ class FirebaseService {
 
       EXTRA_TEACHERS.forEach((et) => {
         const exists = list.some((u) => {
+          const r = (u.fields?.role?.stringValue || u.role || '').toLowerCase();
           const n = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '';
-          return n.toLowerCase() === et.name.toLowerCase();
+          return (r === 'teacher' || r === 'öğretmen') && n.toLowerCase() === et.name.toLowerCase();
         });
         if (!exists) list.push(makeTeacherRestDoc(et));
       });
