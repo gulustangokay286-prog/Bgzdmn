@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
 import { financeService } from '../services/financeService';
+import { vdsUserService } from '../services/vdsUserService';
 import { Panel, PanelHeader, IconButton, Badge, Dot, EmptyState } from '../components/ui/panel';
 import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
-import { hasPool, POOL } from '../services/roster';
+import { buildRoster, hasPool, POOL } from '../services/roster';
 
 const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
@@ -191,8 +192,6 @@ const SummaryRow = ({ label, value, tone = 'default' }) => (
     </span>
   </div>
 );
-
-import { vdsUserService } from '../services/vdsUserService';
 
 const DashboardView = () => {
   const [users, setUsers] = useState(() => buildRoster(vdsUserService.users || []));
