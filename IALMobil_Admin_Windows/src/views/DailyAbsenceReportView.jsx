@@ -247,11 +247,15 @@ const DailyAbsenceReportView = () => {
         isStaff: student.isStaff
       });
 
-      const excuse = manualAttendance[student.id];
-      const gateStatus = rtdbGateStatus[student.id] || gateStatusMap[student.id];
-      const liveGateStatus = gateStatus?.status || '';
+      const morningSummary = rtdbLogs[student.id]?.morning;
+      const morningPresent = Boolean(
+        morningSummary?.present ||
+        gateStatus?.morningPresent ||
+        evaluation.morning?.present ||
+        scans.some(s => (s.direction === 'in' || s.action === 'entry') && (s.minutes || 0) <= 730)
+      );
 
-      const isTurnstileIn = liveGateStatus === 'entry' || liveGateStatus === 'inside' || liveGateStatus === 'in' || scans.some((s) => s.direction === 'in' || s.action === 'entry');
+      const isGateAbsent = liveGateStatus === 'absent' || morningSummary?.absent === true;
 
       let manualWeight = 0;
       if (excuse) {
@@ -263,8 +267,6 @@ const DailyAbsenceReportView = () => {
           manualWeight = excuse.session === 'morning' ? 0.5 : 1.0;
         }
       }
-
-      const isGateAbsent = liveGateStatus === 'absent';
 
       let status = 'present';
       let statusInfo = STATUS_BADGE_MAP.present;
@@ -291,10 +293,10 @@ const DailyAbsenceReportView = () => {
           status = 'absent_full';
           statusInfo = STATUS_BADGE_MAP.absent_full;
         }
-      } else if (manualWeight === 0.5 || isGateAbsent || evaluation.absenceWeight === 0.5 || (!evaluation.morning?.present && evaluation.morning?.finalized)) {
+      } else if (manualWeight === 0.5 || isGateAbsent) {
         status = 'absent_half';
         statusInfo = STATUS_BADGE_MAP.absent_half;
-      } else if (isTurnstileIn || evaluation.morning?.present) {
+      } else if (morningPresent || isTurnstileIn) {
         if (evaluation.isLate) {
           status = 'late';
           statusInfo = STATUS_BADGE_MAP.late;
@@ -318,7 +320,8 @@ const DailyAbsenceReportView = () => {
         }
       }
 
-      const morningEntry = evaluation.morning?.entryTime || '—';
+      const morningEntry = morningSummary?.entryTime || (morningPresent ? (gateStatus?.morningEntryTime || '09:00') : null);
+      const morningExit = morningSummary?.exitTime || (gateStatus?.lunchExitTime || (liveGateStatus === 'exit' ? '12:10' : null));
       const afternoonEntry = evaluation.afternoon?.entryTime || '—';
       const staffEntryTime = evaluation.day?.entryTime || gateStatus?.time || (liveGateStatus === 'entry' ? '09:00' : null);
 
@@ -329,11 +332,11 @@ const DailyAbsenceReportView = () => {
         statusTone: statusInfo.tone,
         morningStatus: student.isStaff
           ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : 'Giriş Yok')
-          : (morningEntry !== '—' ? `Giriş: ${morningEntry}` : 'Giriş Yok'),
+          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : 'Giriş Yok (Devamsız)'),
         afternoonStatus: student.isStaff
           ? '—'
-          : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : 'Giriş Yok'),
-        detailNote: excuse?.courseName || (scans.length > 0 ? `${scans.length} Geçiş Kaydı` : 'Düzenli'),
+          : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : (nowMinutes < 810 ? 'Öğle Arası (Giriş: 13:30)' : 'Giriş Bekleniyor')),
+        detailNote: excuse?.courseName || (isGateAbsent ? 'Sabah Girişi Yapılmadı (0.5 Gün)' : (liveGateStatus === 'exit' ? 'Öğle Çıkışı Yapıldı' : 'Düzenli')),
         isLate: student.isStaff ? false : evaluation.isLate,
         isPresent: isTurnstileIn || status === 'present' || status === 'late'
       };
