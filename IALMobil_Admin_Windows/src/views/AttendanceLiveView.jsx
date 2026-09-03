@@ -176,12 +176,28 @@ const AttendanceLiveView = () => {
       () => setLoading(false)
     );
 
+    const todayKey = new Date().toISOString().split('T')[0];
+    const todayLogsRef = rtdbQuery(ref(rtdb, `qr_system/attendance_logs/${todayKey}`), limitToLast(50));
+    const unsubTodayLogs = onValue(todayLogsRef, (snapshot) => {
+      setLoading(false);
+      if (!snapshot.exists()) return;
+      const incoming = [];
+      snapshot.forEach((child) => {
+        const data = child.val();
+        if (data && !data.autoKind) {
+          incoming.push({ ...data, id: child.key, source: 'firebase' });
+        }
+      });
+      mergeRecords(incoming);
+    });
+
     const guard = setTimeout(() => setLoading(false), 2500);
 
     return () => {
       socket.disconnect();
       try {
         unsubRtdb();
+        unsubTodayLogs();
       } catch {
         
       }

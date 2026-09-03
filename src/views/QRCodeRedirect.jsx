@@ -916,6 +916,8 @@ const QRCodeRedirect = () => {
       try {
         let foundStudent = null;
 
+        const matches = [];
+
         for (const data of cachedStudents) {
           const tcRaw = data.tc_kimlik || data.tc || data.tcNo || data.tcKimlik || data.identityNumber || data.idNumber || "";
           const tcString = String(tcRaw);
@@ -931,9 +933,30 @@ const QRCodeRedirect = () => {
               `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=9f1239&color=fff&size=200&bold=true`;
 
             const role = data.role || 'student';
-            foundStudent = { id: data.id, name, photo: photoUrl, tc: tcString, role, isStaff: isStaffRole(role) };
-            break;
+            matches.push({ id: data.id, name, photo: photoUrl, tc: tcString, role, isStaff: isStaffRole(role) });
           }
+        }
+
+        if (matches.length > 1) {
+          setIsVerifying(false);
+          const teacher = matches.find(m => m.isStaff);
+          const student = matches.find(m => !m.isStaff);
+          let chosen = null;
+          if (teacher && student) {
+            const ok = window.confirm(`T.C. Son 4 Haneniz (${val}) Çakıştı:\n\n1) ÖĞRETMEN (${teacher.name})\n2) ÖĞRENCİ (${student.name})\n\nÖĞRETMEN (${teacher.name}) olarak girmek için 'Tamam'a,\nÖĞRENCİ (${student.name}) olarak girmek için 'İptal'e basınız.`);
+            chosen = ok ? teacher : student;
+          } else {
+            const ok = window.confirm(`T.C. Son 4 Haneniz (${val}) Çakıştı:\n\n1) ${matches[0].name}\n2) ${matches[1].name}\n\n"${matches[0].name}" için 'Tamam'a,\n"${matches[1].name}" için 'İptal'e basınız.`);
+            chosen = ok ? matches[0] : matches[1];
+          }
+          if (chosen) {
+            foundStudent = chosen;
+          } else {
+            setTcInput('');
+            return;
+          }
+        } else if (matches.length === 1) {
+          foundStudent = matches[0];
         }
 
         // HIZLI YOL: indeksli `tc_last4` alanı varsa tek belge okunur.
