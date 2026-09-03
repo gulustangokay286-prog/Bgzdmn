@@ -238,6 +238,15 @@ const DailyAbsenceReportView = () => {
         ...(firestoreLogs[student.id] || [])
       ];
       const scans = sortAndDedupeScans(rawScans.map(normalizeScanRecord));
+
+      const evaluation = evaluatePersonDay({
+        scans,
+        nowMinutes,
+        config,
+        isClosedDay: isClosed,
+        isStaff: student.isStaff
+      });
+
       const excuse = manualAttendance[student.id];
       const gateStatus = rtdbGateStatus[student.id] || gateStatusMap[student.id];
       const liveGateStatus = gateStatus?.status || '';
