@@ -23,7 +23,8 @@ import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
 const ROLE_FILTERS = [
   { id: 'all', label: 'Tümü' },
   { id: 'student', label: 'Öğrenci' },
-  { id: 'staff', label: 'Personel' }
+  { id: 'staff', label: 'Personel' },
+  { id: 'parent', label: 'Veli' }
 ];
 
 const ROW_GRID = 'grid grid-cols-[minmax(0,1.6fr)_120px_90px_150px_128px] gap-4 items-center';
@@ -82,20 +83,23 @@ const StudentGateAdminView = () => {
           const data = docSnap.data();
           const role = (data.role || '').toLowerCase();
           const staff = isStaffRole(role);
-          const isStudent = role === 'student' || role === 'öğrenci';
-          if (!staff && !isStudent) return;
+          const isParent = role === 'parent' || role === 'veli';
+          const isStudent = role === 'student' || role === 'öğrenci' || (!staff && !isParent);
 
           list.push({
             id: docSnap.id,
             role: role || 'student',
             isStaff: staff,
+            isParent,
             name: data.full_name || data.fullName || data.name || data.displayName
-              || (staff ? 'İsimsiz Personel' : 'İsimsiz Öğrenci'),
+              || (staff ? 'İsimsiz Personel' : isParent ? 'İsimsiz Veli' : 'İsimsiz Öğrenci'),
             tc: data.tc_kimlik || data.tcKimlik || data.tc || '',
             schoolNumber: data.school_number || data.schoolNumber || '',
             group: staff
-              ? (data.branch || data.department || '')
-              : (data.branch || (data.class_id ? `${data.class_id}/${data.section || 'A'}` : '')),
+              ? (data.branch || data.department || 'Personel')
+              : isParent
+              ? (data.child_name ? `Veli (${data.child_name})` : 'Veli')
+              : (data.branch || (data.class_id ? `${data.class_id}/${data.section || 'A'}` : 'Öğrenci')),
             profileImage: data.profile_image || data.profileImageUrl || data.profileImage || null
           });
         });
@@ -251,8 +255,9 @@ const StudentGateAdminView = () => {
   const filteredPeople = useMemo(() => {
     const q = searchText.trim().toLocaleLowerCase('tr');
     return people.filter(p => {
-      if (roleFilter === 'student' && p.isStaff) return false;
+      if (roleFilter === 'student' && (p.isStaff || p.isParent)) return false;
       if (roleFilter === 'staff' && !p.isStaff) return false;
+      if (roleFilter === 'parent' && !p.isParent) return false;
       if (!q) return true;
       return (
         p.name.toLocaleLowerCase('tr').includes(q) ||

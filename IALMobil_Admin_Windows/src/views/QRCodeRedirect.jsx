@@ -684,8 +684,8 @@ const QRCodeRedirect = () => {
 
     const prefetchStudents = async () => {
       try {
-        // Ogrenci, ogretmen, yonetici ve personel; hepsi ayni karekodu okutabilir.
-        const q = query(collection(db, "users"), where("role", "in", ATTENDANCE_ROLES));
+        // Ogrenci, ogretmen, veli, yonetici ve personel; hepsi ayni karekodu okutabilir.
+        const q = query(collection(db, "users"));
         const snap = await getDocs(q);
         const people = [];
         snap.forEach(docSnap => {
@@ -949,7 +949,7 @@ const QRCodeRedirect = () => {
             for (const docSnap of fastSnap.docs) {
               const data = docSnap.data();
               const role = (data.role || 'student').toLowerCase();
-              if (!ATTENDANCE_ROLES.includes(role)) continue;
+              // Tum roller gecis yapabilir
               const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
               let name = "İsimsiz Kullanıcı";
               for (const k of nameKeys) { if (data[k]) { name = data[k]; break; } }
@@ -967,7 +967,7 @@ const QRCodeRedirect = () => {
         }
 
         if (!foundStudent) {
-          const q = query(collection(db, "users"), where("role", "in", ATTENDANCE_ROLES));
+          const q = query(collection(db, "users"));
           const querySnapshot = await getDocs(q);
           
           for (const docSnap of querySnapshot.docs) {

@@ -452,7 +452,8 @@ export const evaluateEntryAttempt = (options) => {
     };
   }
 
-  if (isStaff && cfg.staffFlexibleHours) {
+  const isParentOrVisitor = isParentOrVisitorRole(opts.role);
+  if ((isStaff || isParentOrVisitor) && cfg.staffFlexibleHours) {
     return {
       ...base,
       session: classification.session || (minutes < w.halfDayCutoff ? SESSION_MORNING : SESSION_AFTERNOON),
@@ -461,9 +462,9 @@ export const evaluateEntryAttempt = (options) => {
       recordEntry: true,
       allowed: true,
       code: ENTRY_DECISION.OK,
-      title: 'Hoş geldiniz',
+      title: isParentOrVisitor ? 'Hoş Geldiniz' : 'Hoş geldiniz',
       message: 'Kurum girişi yapıldı.',
-      detail: `Personel girişi · ${minutesToTime(minutes)}`
+      detail: `${isParentOrVisitor ? 'Veli / Ziyaretçi' : 'Personel'} girişi · ${minutesToTime(minutes)}`
     };
   }
 
@@ -908,20 +909,27 @@ export const formatDayCount = (value) => {
 };
 
 /** Yoklamasi tutulan ogrenci rolleri. */
-export const STUDENT_ROLES = ['student', 'öğrenci'];
+export const STUDENT_ROLES = ['student', 'öğrenci', 'ogrenci'];
 
 /** Yoklamasi tutulan personel rolleri. */
-export const STAFF_ROLES = ['teacher', 'öğretmen', 'personnel', 'personel', 'admin', 'yönetici'];
+export const STAFF_ROLES = ['teacher', 'öğretmen', 'ogretmen', 'personnel', 'personel', 'staff', 'admin', 'yönetici', 'yonetici', 'superadmin', 'patron'];
+
+/** Veli ve ziyaretci rolleri. */
+export const PARENT_AND_VISITOR_ROLES = ['parent', 'veli', 'guest', 'misafir', 'visitor', 'ziyaretçi'];
 
 /**
- * Firestore `where(role, 'in', ...)` icin duz liste.
- * En fazla 10 deger kabul edilir; bu liste 8.
+ * Tum roller turnikeden ve yoklamadan gecebilir.
  */
-export const ATTENDANCE_ROLES = [...STUDENT_ROLES, ...STAFF_ROLES];
+export const ATTENDANCE_ROLES = [...STUDENT_ROLES, ...STAFF_ROLES, ...PARENT_AND_VISITOR_ROLES, 'user', 'kullanıcı'];
 
 export const isStaffRole = (role) => {
   const r = String(role || '').toLowerCase();
-  return ['teacher', 'öğretmen', 'ogretmen', 'personnel', 'personel', 'staff', 'admin', 'yönetici', 'yonetici'].includes(r);
+  return STAFF_ROLES.includes(r);
+};
+
+export const isParentOrVisitorRole = (role) => {
+  const r = String(role || '').toLowerCase();
+  return PARENT_AND_VISITOR_ROLES.includes(r);
 };
 
 /**
