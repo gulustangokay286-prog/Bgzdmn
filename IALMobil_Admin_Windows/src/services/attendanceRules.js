@@ -6,17 +6,17 @@ export const DEFAULT_ATTENDANCE_CONFIG = {
   dayStartHour: '06:00',
 
   morningEntryHour: '09:00',
-  morningGraceMinutes: 10,          
+  morningGraceMinutes: 11,          
 
-  lunchExitHour: '12:00',
+  lunchExitHour: '12:10',
   lunchExitGraceMinutes: 10,        
 
-  afternoonEntryHour: '13:00',
+  afternoonEntryHour: '13:30',
   afternoonGraceMinutes: 10,        
 
-  schoolExitHour: '16:00',
+  schoolExitHour: '15:20',
 
-  halfDayCutoffHour: '12:00',
+  halfDayCutoffHour: '12:10',
 
   autoAttendanceEnabled: true,      
   autoLunchExitEnabled: true,       
@@ -37,9 +37,9 @@ export const DEFAULT_ATTENDANCE_CONFIG = {
   holidays: [],                     
 
   openingHour: '08:00',
-  closingHour: '18:00',
-  lunchBreakStart: '12:00',
-  lunchBreakEnd: '13:00'
+  closingHour: '15:20',
+  lunchBreakStart: '12:10',
+  lunchBreakEnd: '13:30'
 };
 
 export const TURKISH_DAY_NAMES = [
@@ -663,8 +663,8 @@ export const evaluateStudentDay = (options) => {
   const firstMorningEntry = morningPresent ? morningEntries[0] : null;
   const firstAfternoonEntry = afternoonPresent ? afternoonEntries[0] : null;
 
-  const morningFinalized = !closed && nowMinutes >= w.halfDayCutoff;
-  const afternoonFinalized = !closed && nowMinutes >= w.schoolExit;
+  const morningFinalized = !closed && nowMinutes >= (w.morningLateCutoff || w.halfDayCutoff);
+  const afternoonFinalized = !closed && nowMinutes >= (w.afternoonLateCutoff || w.schoolExit);
 
   const lastScan = scans.length ? scans[scans.length - 1] : null;
   const isInside = Boolean(lastScan && lastScan.action === 'entry');

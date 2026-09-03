@@ -744,9 +744,11 @@ export const runAttendanceAutomation = async (options = {}) => {
     return result;
   }
 
-  const w = ctx.windows;
-  
-  const earliestAction = Math.min(w.halfDayCutoff, w.lunchExitAutoAt);
+  const earliestAction = Math.min(
+    w.morningLateCutoff || 551,
+    w.halfDayCutoff || 730,
+    w.lunchExitAutoAt || 730
+  );
   if (ctx.nowMinutes < earliestAction) {
     result.skipped = `Henüz işlem saati gelmedi (ilk eşik ${minutesToTime(earliestAction)}).`;
     return result;
