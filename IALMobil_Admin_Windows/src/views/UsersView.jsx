@@ -19,12 +19,15 @@ const roleOf = (u) => u?.fields?.role?.stringValue?.toLowerCase() || '';
 const statusOf = (u) => u?.fields?.status?.stringValue?.toLowerCase() || '';
 
 const INITIAL_EXTRA_TEACHERS = [
-  { name: 'Seçil Özkan', branch: 'Görsel Sanatlar', contract_end: '06.11.2026', phone: '', email: 'secilozkan@corumbogazici.com' },
-  { name: 'Mesut Çolak', branch: 'Matematik', contract_end: '01.09.2027', phone: '', email: 'mesutcolak@corumbogazici.com' },
-  { name: 'Hasan Barış Karataş', branch: 'Biyoloji', contract_end: '01.09.2027', phone: '', email: 'hasanbaris@corumbogazici.com' },
-  { name: 'Selim Kurtaran', branch: 'Fizik', contract_end: '30.06.2027', phone: '', email: 'selimkurtaran@corumbogazici.com' },
-  { name: 'Oya Sadıç Erocağı', branch: 'İngilizce', contract_end: '01.09.2027', phone: '', email: 'oyasadic@corumbogazici.com' },
-  { name: 'Mustafa Yalçın', branch: 'Matematik', contract_end: '01.09.2027', phone: '', email: 'mustafayalcin@corumbogazici.com' }
+  { name: 'Seçil Özkan', branch: 'Görsel Sanatlar', contract_end: '06.11.2026', phone: '05466860719', email: 'secilozkan@corumbogazici.com' },
+  { name: 'Mesut Çolak', branch: 'Matematik', contract_end: '01.09.2027', phone: '05550000001', email: 'mesutcolak@corumbogazici.com' },
+  { name: 'Hasan Barış Karataş', branch: 'Biyoloji', contract_end: '01.09.2027', phone: '05550000002', email: 'hasanbaris@corumbogazici.com' },
+  { name: 'Selim Kurtaran', branch: 'Fizik', contract_end: '30.06.2027', phone: '05550000003', email: 'selimkurtaran@corumbogazici.com' },
+  { name: 'Oya Sadıç Erocağı', branch: 'İngilizce', contract_end: '01.09.2027', phone: '05550000004', email: 'oyasadic@corumbogazici.com' },
+  { name: 'Mustafa Yalçın', branch: 'Matematik', contract_end: '01.09.2027', phone: '05550000005', email: 'mustafayalcin@corumbogazici.com' },
+  { name: 'İlhami Doğan', branch: 'Ders Öğretmeni', contract_end: '18.10.2026', phone: '05550000006', email: 'ilhamidogan@corumbogazici.com' },
+  { name: 'Serpil Satı Ceylan', branch: 'Eğitim Kadrosu', contract_end: 'SINIRSIZ', phone: '05550000007', email: 'serpilsati@corumbogazici.com' },
+  { name: 'Muharrem Kodaz', branch: 'Eğitim Kadrosu', contract_end: 'SINIRSIZ', phone: '05550000008', email: 'muharremkodaz@corumbogazici.com' }
 ].map(et => ({
   name: 'projects/bgz-mobil/databases/(default)/documents/users/' + et.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
   fields: {
@@ -58,10 +61,36 @@ const UsersView = () => {
       collection(db, 'users'),
       (snap) => {
         if (cancelled) return;
-        const list = [];
+        let list = [];
         snap.forEach((d) => {
           list.push(mapSdkToRest(d));
         });
+
+        // Engin Kantemir filtrele
+        list = list.filter((u) => {
+          const n = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '').toLowerCase();
+          const em = (u.fields?.email?.stringValue || '').toLowerCase();
+          return !n.includes('kantemir') && !em.includes('kantemir') && !em.includes('enginkantemir');
+        });
+
+        // Büşra ve Seher öğretmen yap
+        list.forEach((u) => {
+          const n = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '');
+          if (n.includes('Büşra') || n.includes('Busra')) {
+            if (u.fields) {
+              u.fields.role = { stringValue: 'teacher' };
+              u.fields.branch = { stringValue: 'Rehberlik' };
+            }
+            u.role = 'teacher';
+          } else if (n === 'Seher Şanlı') {
+            if (u.fields) {
+              u.fields.role = { stringValue: 'teacher' };
+              u.fields.branch = { stringValue: 'İdare / Kurucu' };
+            }
+            u.role = 'teacher';
+          }
+        });
+
         INITIAL_EXTRA_TEACHERS.forEach(et => {
           const exists = list.some(u => {
             const n = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '';

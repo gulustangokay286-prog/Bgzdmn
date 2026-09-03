@@ -6,7 +6,10 @@ const EXTRA_TEACHERS = [
   { name: 'Hasan Barış Karataş', branch: 'Biyoloji', contract_end: '01.09.2027', phone: '05550000002', email: 'hasanbaris@corumbogazici.com' },
   { name: 'Selim Kurtaran', branch: 'Fizik', contract_end: '30.06.2027', phone: '05550000003', email: 'selimkurtaran@corumbogazici.com' },
   { name: 'Oya Sadıç Erocağı', branch: 'İngilizce', contract_end: '01.09.2027', phone: '05550000004', email: 'oyasadic@corumbogazici.com' },
-  { name: 'Mustafa Yalçın', branch: 'Matematik', contract_end: '01.09.2027', phone: '05550000005', email: 'mustafayalcin@corumbogazici.com' }
+  { name: 'Mustafa Yalçın', branch: 'Matematik', contract_end: '01.09.2027', phone: '05550000005', email: 'mustafayalcin@corumbogazici.com' },
+  { name: 'İlhami Doğan', branch: 'Ders Öğretmeni', contract_end: '18.10.2026', phone: '05550000006', email: 'ilhamidogan@corumbogazici.com' },
+  { name: 'Serpil Satı Ceylan', branch: 'Eğitim Kadrosu', contract_end: 'SINIRSIZ', phone: '05550000007', email: 'serpilsati@corumbogazici.com' },
+  { name: 'Muharrem Kodaz', branch: 'Eğitim Kadrosu', contract_end: 'SINIRSIZ', phone: '05550000008', email: 'muharremkodaz@corumbogazici.com' }
 ];
 
 const makeTeacherRestDoc = (et) => ({
@@ -30,9 +33,35 @@ class FirebaseService {
   async fetchAllUsers() {
     try {
       const querySnapshot = await getDocs(collection(db, 'users'));
-      const list = querySnapshot.docs.map(mapSdkToRest);
-      EXTRA_TEACHERS.forEach(et => {
-        const exists = list.some(u => {
+      let list = querySnapshot.docs.map(mapSdkToRest);
+
+      // Engin Kantemir silinsin
+      list = list.filter((u) => {
+        const n = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '').toLowerCase();
+        const em = (u.fields?.email?.stringValue || '').toLowerCase();
+        return !n.includes('kantemir') && !em.includes('kantemir') && !em.includes('enginkantemir');
+      });
+
+      // Büşra ve Seher öğretmen olarak ayarlansın
+      list.forEach((u) => {
+        const n = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '');
+        if (n.includes('Büşra') || n.includes('Busra')) {
+          if (u.fields) {
+            u.fields.role = { stringValue: 'teacher' };
+            u.fields.branch = { stringValue: 'Rehberlik' };
+          }
+          u.role = 'teacher';
+        } else if (n === 'Seher Şanlı') {
+          if (u.fields) {
+            u.fields.role = { stringValue: 'teacher' };
+            u.fields.branch = { stringValue: 'İdare / Kurucu' };
+          }
+          u.role = 'teacher';
+        }
+      });
+
+      EXTRA_TEACHERS.forEach((et) => {
+        const exists = list.some((u) => {
           const n = u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || u.fields?.name?.stringValue || '';
           return n.toLowerCase() === et.name.toLowerCase();
         });
