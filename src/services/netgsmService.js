@@ -4,7 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { cryptoService } from './cryptoService';
 
 // VDS Backend Bağlantısı
-const BACKEND_URL = 'http://213.142.159.36:8080';
+import { VDS_BASE_URL as BACKEND_URL } from './vdsConfig';
 
 export function calculateSmsParts(text = '') {
   const len = text.length;
@@ -151,8 +151,6 @@ export const netgsmService = {
   },
 
   async sendSms({ phones, message, title = '' }) {
-    console.log('[SMS BAKIM MODUNDA] Admin SMS servisi bakim modundadir.');
-    return { success: false, disabled: true, maintenanceMode: true, message: 'SMS servisi su anda bakim modundadir.' };
     if (!phones || phones.length === 0) {
       throw new Error('En az bir alıcı telefon numarası gereklidir.');
     }

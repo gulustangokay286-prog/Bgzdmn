@@ -208,8 +208,8 @@ export const recordGatePassage = async (options) => {
     }).catch(() => {  });
   }
 
-  // autoGateSms ayari aciksa giris ve cikis aninda veliye otomatik Netgsm SMS gonderilir
-  if (notifyParent && cfg.autoGateSms !== false && !staff) {
+  // autoGateSms ayari acikca true yapilmadigi surece otomatik kapı SMS gonderilmez
+  if (notifyParent && cfg.autoGateSms === true && !staff) {
     Promise.resolve()
       .then(async () => {
         const { netgsmService } = await import('./netgsmService');
@@ -877,7 +877,7 @@ export const runAttendanceAutomation = async (options = {}) => {
       result.absencesWritten = plannedWrites.length;
       result.absencesRemoved = plannedRemovals.length;
 
-      if (cfg.notifyParentsOnAbsence !== false && plannedWrites.length) {
+      if (cfg.notifyParentsOnAbsence === true && plannedWrites.length) {
         const stat = await notifyParentsOnAbsence(plannedWrites, cfg);
         result.absenceSmsSent = stat.sent;
         result.absenceSmsSkipped = stat.skipped;
@@ -888,7 +888,7 @@ export const runAttendanceAutomation = async (options = {}) => {
     }
   }
 
-  if (cfg.notifyParentsOnAutoExit !== false) {
+  if (cfg.notifyParentsOnAutoExit === true) {
     const lunchExits = plannedPassages.filter(p => p.autoKind === 'lunch_exit');
     if (lunchExits.length) notifyParentsThrottled(lunchExits, now);
   }

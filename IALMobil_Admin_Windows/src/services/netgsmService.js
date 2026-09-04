@@ -151,8 +151,6 @@ export const netgsmService = {
   },
 
   async sendSms({ phones, message, title = '' }) {
-    console.log('[SMS BAKIM MODUNDA] Admin SMS servisi bakim modundadir.');
-    return { success: false, disabled: true, maintenanceMode: true, message: 'SMS servisi su anda bakim modundadir.' };
     if (!phones || phones.length === 0) {
       throw new Error('En az bir alıcı telefon numarası gereklidir.');
     }
