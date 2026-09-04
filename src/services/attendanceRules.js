@@ -19,7 +19,7 @@ export const DEFAULT_ATTENDANCE_CONFIG = {
   halfDayCutoffHour: '12:10',
 
   autoAttendanceEnabled: true,      
-  autoLunchExitEnabled: true,       
+  autoLunchExitEnabled: false,       
   autoSchoolExitEnabled: true,      
   lateRequiresCounselorApproval: true, 
 
@@ -497,14 +497,43 @@ export const evaluateStudentDay = (options) => {
   );
 
   const entries = scans.filter(s => s.action === 'entry');
+  const exits = scans.filter(s => s.action === 'exit');
+
   const morningEntries = entries.filter(s => s.minutes < w.halfDayCutoff && s.minutes >= w.dayStart);
-  const afternoonEntries = entries.filter(s => s.minutes >= w.halfDayCutoff && s.minutes <= w.schoolExit);
+  const morningExits = exits.filter(s => s.minutes < w.halfDayCutoff && s.minutes >= w.dayStart);
+  // Sabah mevcudiyeti: sabah giriş taraması, sabah çıkış taraması veya öğleden sonra çıkış taraması
+  // (Öğleden sonra çıkış yapılmış olması öğrencinin kurumda bulunduğunun kesin kanıtıdır)
+  const morningPresent = morningEntries.length > 0 || morningExits.length > 0 || exits.some(s => s.minutes >= w.afternoonStart);
 
-  const morningPresent = morningEntries.length > 0;
-  const afternoonPresent = afternoonEntries.length > 0;
+  // Öğleden sonra giriş ve çıkışları
+  const afternoonEntries = entries.filter(s => s.minutes >= w.halfDayCutoff && s.minutes <= (w.schoolExit + 180));
+  const afternoonExits = exits.filter(s => s.minutes >= w.afternoonStart);
 
-  const firstMorningEntry = morningPresent ? morningEntries[0] : null;
-  const firstAfternoonEntry = afternoonPresent ? afternoonEntries[0] : null;
+  // Gerçek (manuel/fiziksel) öğle arası çıkışı: 12:10 - 13:30 arası yapılan gerçek çıkış
+  const hasRealLunchExit = exits.some(s =>
+    !s.auto && !s.autoKind &&
+    s.minutes >= w.lunchExitStart &&
+    s.minutes < w.afternoonStart
+  );
+
+  // Sabah erken çıkış (öğle arasından önce çıkıp dönmeyenler):
+  const hasEarlyDeparture = exits.some(s =>
+    !s.auto && !s.autoKind &&
+    s.minutes < w.lunchExitStart
+  );
+
+  // Öğleden sonra mevcudiyeti:
+  // 1) Öğleden sonra açıkça giriş taraması varsa
+  // 2) VEYA öğleden sonra (13:30+) çıkış taraması varsa (çıkış yapılması o sırada okulda olunduğunun kesin kanıtıdır)
+  // 3) VEYA sabah giriş yapmış, öğle arası veya erken çıkış yapmamışsa (öğrenci gün boyu kurumda derslere devam etmiştir)
+  const afternoonPresent = Boolean(
+    afternoonEntries.length > 0 ||
+    afternoonExits.length > 0 ||
+    (morningPresent && !hasRealLunchExit && !hasEarlyDeparture)
+  );
+
+  const firstMorningEntry = morningEntries.length ? morningEntries[0] : null;
+  const firstAfternoonEntry = afternoonEntries.length ? afternoonEntries[0] : null;
 
   const morningFinalized = !closed && nowMinutes >= (w.morningLateCutoff || w.halfDayCutoff);
   const afternoonFinalized = !closed && nowMinutes >= (w.afternoonLateCutoff || w.schoolExit);
@@ -569,9 +598,14 @@ export const evaluateStudentDay = (options) => {
 
   const parts = [];
   if (firstMorningEntry) parts.push(`Sabah giriş: ${firstMorningEntry.time}${firstMorningEntry.isLate ? ' (geç)' : ''}`);
-  else if (morningFinalized) parts.push('Sabah gelmedi');
+  else if (morningFinalized && !morningPresent) parts.push('Sabah gelmedi');
+  else if (morningPresent && morningExits.length) parts.push(`Sabah çıkış: ${morningExits[0].time}`);
+
   if (firstAfternoonEntry) parts.push(`Öğleden sonra giriş: ${firstAfternoonEntry.time}${firstAfternoonEntry.isLate ? ' (geç)' : ''}`);
-  else if (afternoonFinalized) parts.push('Öğleden sonra gelmedi');
+  else if (afternoonExits.length) parts.push(`Çıkış: ${afternoonExits[afternoonExits.length - 1].time}`);
+  else if (afternoonFinalized && !afternoonPresent) parts.push('Öğleden sonra gelmedi');
+  else if (morningPresent && afternoonPresent && morningFinalized) parts.push('Tam gün devam');
+
   if (!parts.length) parts.push('Henüz geçiş kaydı yok');
 
   return {
@@ -579,15 +613,15 @@ export const evaluateStudentDay = (options) => {
     morning: {
       present: morningPresent,
       finalized: morningFinalized,
-      entryTime: firstMorningEntry ? firstMorningEntry.time : null,
-      entryMinutes: firstMorningEntry ? firstMorningEntry.minutes : null,
+      entryTime: firstMorningEntry ? firstMorningEntry.time : (morningExits.length ? morningExits[0].time : null),
+      entryMinutes: firstMorningEntry ? firstMorningEntry.minutes : (morningExits.length ? morningExits[0].minutes : null),
       isLate: Boolean(firstMorningEntry && firstMorningEntry.isLate)
     },
     afternoon: {
       present: afternoonPresent,
       finalized: afternoonFinalized,
-      entryTime: firstAfternoonEntry ? firstAfternoonEntry.time : null,
-      entryMinutes: firstAfternoonEntry ? firstAfternoonEntry.minutes : null,
+      entryTime: firstAfternoonEntry ? firstAfternoonEntry.time : (afternoonExits.length ? afternoonExits[afternoonExits.length - 1].time : null),
+      entryMinutes: firstAfternoonEntry ? firstAfternoonEntry.minutes : (afternoonExits.length ? afternoonExits[afternoonExits.length - 1].minutes : null),
       isLate: Boolean(firstAfternoonEntry && firstAfternoonEntry.isLate)
     },
     missingSessions,

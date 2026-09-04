@@ -4,12 +4,17 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SRC = path.join(ROOT, 'src', 'services', 'attendanceRules.js');
-const REPO = path.resolve(ROOT, '..', '..', '..');
-const OUTPUTS = [
-  path.join(REPO, 'ial-backend', 'attendanceRules.cjs'),
-  path.join(REPO, 'IALMobil_Backend', 'attendanceRules.cjs')
+const SRC = fs.existsSync(path.join(ROOT, 'src', 'services', 'attendanceRules.js'))
+  ? path.join(ROOT, 'src', 'services', 'attendanceRules.js')
+  : path.join(ROOT, 'IALMobil_Admin_Windows', 'src', 'services', 'attendanceRules.js');
+
+const candidates = [
+  path.join(ROOT, 'IALMobil_Backend', 'attendanceRules.cjs'),
+  path.join(ROOT, 'ial-backend', 'attendanceRules.cjs'),
+  path.resolve(ROOT, '..', 'IALMobil_Backend', 'attendanceRules.cjs'),
+  path.resolve(ROOT, '..', 'ial-backend', 'attendanceRules.cjs')
 ];
+const OUTPUTS = Array.from(new Set(candidates.filter(p => fs.existsSync(path.dirname(p)))));
 
 function build() {
   const source = fs.readFileSync(SRC, 'utf8');
