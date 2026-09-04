@@ -10,7 +10,7 @@ class VDSUserService {
         const saved = window.localStorage.getItem('vds_cached_users');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) cached = parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) cached = this.deduplicateUsers(parsed).map(u => this.wrapUser(u));
         }
       }
     } catch (e) {}
@@ -21,6 +21,58 @@ class VDSUserService {
     this.hasFetched = this.users.length > 0;
     this.fetchPromise = null;
     this.initSocket();
+  }
+
+  deduplicateUsers(rawUsers) {
+    if (!Array.isArray(rawUsers) || rawUsers.length === 0) return [];
+    const mergedMap = new Map();
+
+    const getKey = (u) => {
+      const tc = (u.tc_kimlik || u.tcKimlik || u.tc || (u.fields?.tc_kimlik?.stringValue) || '').trim();
+      if (tc && tc.length >= 10) return `tc:${tc}`;
+
+      const schoolNo = (u.school_number || u.schoolNumber || (u.fields?.school_number?.stringValue) || '').trim();
+      const role = (u.role || (u.fields?.role?.stringValue) || '').toLowerCase();
+      if (schoolNo && (role === 'student' || role === 'öğrenci' || role === 'ogrenci')) {
+        return `school:${schoolNo}`;
+      }
+
+      const canon = (u.canonical_id || (u.fields?.canonical_id?.stringValue) || '').trim();
+      if (canon) return `canon:${canon}`;
+
+      const fbUid = (u.firebase_uid || (u.fields?.firebase_uid?.stringValue) || '').trim();
+      if (fbUid) return `fb:${fbUid}`;
+
+      const email = (u.email || (u.fields?.email?.stringValue) || '').trim().toLowerCase();
+      if (email && email.includes('@')) return `email:${email}`;
+
+      const name = (u.full_name || u.fullName || u.name || (u.fields?.full_name?.stringValue) || '').trim().toLowerCase();
+      return `name_role:${name}:${role}`;
+    };
+
+    rawUsers.forEach(u => {
+      if (!u) return;
+      const key = getKey(u);
+      const aliases = new Set([u._id, u.id, u.canonical_id, u.firebase_uid].filter(Boolean));
+
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, { ...u, aliases: [...aliases] });
+      } else {
+        const existing = mergedMap.get(key);
+        const combinedAliases = new Set([...(existing.aliases || []), ...aliases]);
+
+        const merged = { ...u, ...existing };
+        for (const [k, v] of Object.entries(u)) {
+          if (v !== null && v !== undefined && v !== '' && (merged[k] === null || merged[k] === undefined || merged[k] === '')) {
+            merged[k] = v;
+          }
+        }
+        merged.aliases = [...combinedAliases];
+        mergedMap.set(key, merged);
+      }
+    });
+
+    return [...mergedMap.values()];
   }
 
   saveToStorage() {
@@ -46,18 +98,22 @@ class VDSUserService {
       this.socket.on('user_created', (newUser) => {
         console.log('[VDS Socket] User created:', newUser._id || newUser.id);
         const mapped = this.wrapUser(newUser);
-        const exists = this.users.some(u => (u._id || u.id) === (mapped._id || mapped.id));
-        if (!exists) {
-          this.users = [mapped, ...this.users];
-          this.saveToStorage();
-          this.notify();
-        }
+        const all = this.deduplicateUsers([mapped, ...this.users]);
+        this.users = all.map(u => this.wrapUser(u));
+        this.saveToStorage();
+        this.notify();
       });
 
       this.socket.on('user_updated', (updatedUser) => {
         console.log('[VDS Socket] User updated:', updatedUser._id || updatedUser.id);
         const mapped = this.wrapUser(updatedUser);
-        this.users = this.users.map(u => (u._id || u.id) === (mapped._id || mapped.id) ? mapped : u);
+        const replaced = this.users.map(u => {
+          const isMatch = (u._id || u.id) === (mapped._id || mapped.id) ||
+            (Array.isArray(u.aliases) && u.aliases.includes(mapped._id || mapped.id));
+          return isMatch ? mapped : u;
+        });
+        const all = this.deduplicateUsers(replaced);
+        this.users = all.map(u => this.wrapUser(u));
         this.saveToStorage();
         this.notify();
       });
@@ -65,7 +121,7 @@ class VDSUserService {
       this.socket.on('user_deleted', (payload) => {
         const id = payload._id || payload.id;
         console.log('[VDS Socket] User deleted:', id);
-        this.users = this.users.filter(u => (u._id || u.id) !== id);
+        this.users = this.users.filter(u => (u._id || u.id) !== id && (!Array.isArray(u.aliases) || !u.aliases.includes(id)));
         this.saveToStorage();
         this.notify();
       });
@@ -87,6 +143,7 @@ class VDSUserService {
       ...u,
       id,
       _id: id,
+      aliases: u.aliases || [id],
       name: 'projects/bgz-mobil/databases/(default)/documents/users/' + id,
       fields
     };
@@ -129,7 +186,8 @@ class VDSUserService {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data && Array.isArray(data.users) && data.users.length > 0) {
-          this.users = data.users.map(u => this.wrapUser(u));
+          const deduped = this.deduplicateUsers(data.users);
+          this.users = deduped.map(u => this.wrapUser(u));
           this.hasFetched = true;
           this.saveToStorage();
           this.notify();

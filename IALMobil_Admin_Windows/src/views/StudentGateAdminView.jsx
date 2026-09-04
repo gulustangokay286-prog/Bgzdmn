@@ -81,13 +81,14 @@ const StudentGateAdminView = () => {
 
     const unsub = vdsUserService.subscribe((userList) => {
       try {
-        const list = (userList || []).map((data) => {
+        const rawList = (userList || []).map((data) => {
           const role = (data.role || '').toLowerCase();
           const staff = isStaffRole(role);
           const isParent = role === 'parent' || role === 'veli';
 
           return {
             id: data._id || data.id,
+            aliases: data.aliases || [data._id, data.id].filter(Boolean),
             role: role || 'student',
             isStaff: staff,
             isParent,
@@ -103,6 +104,32 @@ const StudentGateAdminView = () => {
             profileImage: data.profile_image || data.profileImageUrl || data.profileImage || null
           };
         });
+
+        // Kesin tekilleştirme: TC, okul no veya (isim+rol) bazında tekil kayıt
+        const seen = new Set();
+        const list = [];
+        for (const p of rawList) {
+          const tc = (p.tc || '').trim();
+          const sch = (p.schoolNumber || '').trim();
+          const nm = (p.name || '').trim().toLowerCase();
+          const key = tc && tc.length >= 10 ? `tc:${tc}` : (sch && !p.isStaff ? `sch:${sch}` : `nm:${nm}_${p.role}`);
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push(p);
+          } else {
+            const existing = list.find(x => {
+              const xTc = (x.tc || '').trim();
+              const xSch = (x.schoolNumber || '').trim();
+              const xNm = (x.name || '').trim().toLowerCase();
+              const xKey = xTc && xTc.length >= 10 ? `tc:${xTc}` : (xSch && !x.isStaff ? `sch:${xSch}` : `nm:${xNm}_${x.role}`);
+              return xKey === key;
+            });
+            if (existing) {
+              const combined = new Set([...(existing.aliases || []), ...(p.aliases || []), p.id]);
+              existing.aliases = [...combined];
+            }
+          }
+        }
 
         list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
         if (!cancelled) {
@@ -147,12 +174,28 @@ const StudentGateAdminView = () => {
 
     // VDS Socket.io Canlı Güncelleme
     const socket = io('http://213.142.159.36:8080', {
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 15,
       timeout: 5000
     });
-    socket.on('gate_status_updated', ({ studentId, targetState, status }) => {
+
+    socket.on('gate_status_updated', ({ studentId, aliases, targetState, status }) => {
       const finalState = targetState || (status === 'entry' ? 'inside' : 'outside');
-      setStatusMap(prev => ({ ...prev, [studentId]: finalState }));
+      const allIds = aliases || [studentId].filter(Boolean);
+      setStatusMap(prev => {
+        const next = { ...prev };
+        allIds.forEach(id => { next[id] = finalState; });
+        return next;
+      });
+    });
+
+    socket.on('new_scan', (data) => {
+      const finalState = (data.action === 'entry' || data.status === 'entry') ? 'inside' : 'outside';
+      const allIds = data.aliases || [data.studentId, data.userId].filter(Boolean);
+      setStatusMap(prev => {
+        const next = { ...prev };
+        allIds.forEach(id => { next[id] = finalState; });
+        return next;
+      });
     });
 
     const unsubFirestore = onSnapshot(collection(db, 'gate_status'), (snapshot) => {
@@ -194,74 +237,103 @@ const StudentGateAdminView = () => {
     return () => { try { unsub(); } catch { /* kapalı */ } };
   }, [dateKey]);
 
+  const getPersonStatus = useCallback((person) => {
+    if (!person) return 'outside';
+    if (statusMap[person.id]) return statusMap[person.id];
+    if (Array.isArray(person.aliases)) {
+      for (const a of person.aliases) {
+        if (statusMap[a]) return statusMap[a];
+      }
+    }
+    return 'outside';
+  }, [statusMap]);
+
   const handleAction = async (person) => {
     if (processingId) return;
     setProcessingId(person.id);
 
-    const currentStatus = statusMap[person.id] || 'outside';
+    const currentStatus = getPersonStatus(person);
     const nextAction = currentStatus === 'inside' ? 'exit' : 'entry';
     const targetStatus = nextAction === 'entry' ? 'inside' : 'outside';
 
-    // İyimser güncelleme: buton anında tepki versin.
-    setStatusMap(prev => ({ ...prev, [person.id]: targetStatus }));
-    statusFromFirestoreRef.current[person.id] = { status: nextAction, date: dateKey };
-    statusFromRtdbRef.current[person.id] = { status: nextAction, date: dateKey };
+    // İyimser anında arayüz tepkisi (tüm alias'ları da güncelle)
+    setStatusMap(prev => {
+      const next = { ...prev, [person.id]: targetStatus };
+      if (Array.isArray(person.aliases)) {
+        person.aliases.forEach(a => { next[a] = targetStatus; });
+      }
+      return next;
+    });
     soundManager.playSuccessDing();
 
     try {
       const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-      const vdsManualPromise = fetch('http://213.142.159.36:8080/api/attendance/manual', {
+      // 1. VDS Birincil Otoriter Kayıt (Yoklama logu, anlık soket yayını ve gerçek zamanlı veli SMS'i)
+      const res = await fetch('http://213.142.159.36:8080/api/attendance/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: person.id,
+          aliases: person.aliases,
           action: nextAction,
           studentName: person.name,
-          role: person.role,
+          role: person.role || (person.isStaff ? 'teacher' : 'student'),
+          schoolNumber: person.schoolNumber,
+          tc: person.tc,
           method: 'manual_admin'
         })
-      }).catch(e => console.warn('VDS manual attendance log:', e));
+      });
 
-      await Promise.all([
-        vdsManualPromise,
-        setDoc(doc(db, 'gate_status', person.id), {
+      if (!res.ok) {
+        throw new Error(`VDS Sunucu Hatası: HTTP ${res.status}`);
+      }
+
+      // Arka plan yedeklemeleri (asla işlemi aksatmaz veya hata fırlatmaz)
+      setDoc(doc(db, 'gate_status', person.id), {
+        status: nextAction,
+        lastAction: nextAction,
+        date: dateKey,
+        time: nowTime,
+        studentName: person.name,
+        role: person.role,
+        timestamp: serverTimestamp()
+      }).catch(() => {});
+
+      update(ref(rtdb), {
+        [`qr_system/gate_status/${person.id}`]: {
           status: nextAction,
           lastAction: nextAction,
           date: dateKey,
           time: nowTime,
-          studentName: person.name,
+          name: person.name,
           role: person.role,
-          timestamp: serverTimestamp()
-        }),
-        update(ref(rtdb), {
-          [`qr_system/gate_status/${person.id}`]: {
-            status: nextAction,
-            lastAction: nextAction,
-            date: dateKey,
-            time: nowTime,
-            name: person.name,
-            role: person.role,
-            timestamp: rtdbServerTimestamp()
-          }
-        }),
-        recordGatePassage({
-          student: person,
-          action: nextAction,
-          method: 'manual_admin',
-          isManualApproval: nextAction === 'entry',
-          approvedBy: 'Görevli Öğretmen (Panel)',
-          sessionId: 'manual_admin',
-          config
-        }).catch(e => console.warn('recordGatePassage log:', e))
-      ]);
+          timestamp: rtdbServerTimestamp()
+        }
+      }).catch(() => {});
+
+      recordGatePassage({
+        student: person,
+        action: nextAction,
+        method: 'manual_admin',
+        isManualApproval: nextAction === 'entry',
+        approvedBy: 'Görevli Öğretmen (Panel)',
+        sessionId: 'manual_admin',
+        config
+      }).catch(() => {});
 
       flash('success', nextAction === 'entry'
-        ? `${person.name} — kuruma giriş yaptı.`
-        : `${person.name} — kurumdan çıkış yaptı.`);
+        ? `${person.name} — kuruma giriş yaptı (SMS ve Rapor güncellendi).`
+        : `${person.name} — kurumdan çıkış yaptı (SMS ve Rapor güncellendi).`);
     } catch (err) {
       console.error('Geçiş kaydedilemedi:', err);
-      setStatusMap(prev => ({ ...prev, [person.id]: currentStatus }));
+      setStatusMap(prev => {
+        const next = { ...prev, [person.id]: currentStatus };
+        if (Array.isArray(person.aliases)) {
+          person.aliases.forEach(a => { next[a] = currentStatus; });
+        }
+        return next;
+      });
       flash('error', `Geçiş kaydedilemedi: ${err?.message || 'bağlantı hatası'}`);
     } finally {
       setProcessingId(null);
@@ -313,8 +385,8 @@ const StudentGateAdminView = () => {
   }, [people, searchText, roleFilter]);
 
   const insideCount = useMemo(
-    () => people.filter(p => statusMap[p.id] === 'inside').length,
-    [people, statusMap]
+    () => people.filter(p => getPersonStatus(p) === 'inside').length,
+    [people, getPersonStatus]
   );
 
   if (loading) {
@@ -483,9 +555,9 @@ const StudentGateAdminView = () => {
 
               <div className={cx('divide-y', divider)}>
                 {filteredPeople.map((person) => {
-                  const isInside = statusMap[person.id] === 'inside';
+                  const isInside = getPersonStatus(person) === 'inside';
                   const isProcessing = processingId === person.id;
-                  const hasPendingRequest = lateRequests.some(r => r.studentId === person.id);
+                  const hasPendingRequest = lateRequests.some(r => r.studentId === person.id || (Array.isArray(person.aliases) && person.aliases.includes(r.studentId)));
 
                   return (
                     <div

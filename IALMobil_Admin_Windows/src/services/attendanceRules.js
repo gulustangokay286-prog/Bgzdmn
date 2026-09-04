@@ -6,7 +6,7 @@ export const DEFAULT_ATTENDANCE_CONFIG = {
   dayStartHour: '06:00',
 
   morningEntryHour: '09:00',
-  morningGraceMinutes: 11,          
+  morningGraceMinutes: 20, // 09:20'ye kadar serbest giriş müsaadesi
 
   lunchExitHour: '12:10',
   lunchExitGraceMinutes: 10,        

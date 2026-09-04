@@ -78,11 +78,13 @@ const DailyAbsenceReportView = () => {
     const profileImage = data.profile_image || data.fields?.profile_image?.stringValue || data.profileImageUrl || data.photo_url || null;
     const tc = data.tc_kimlik || data.fields?.tc_kimlik?.stringValue || data.tcKimlik || data.tc || '';
     const id = data.id || data._id;
+    const aliases = data.aliases || [id, data._id, data.canonical_id, data.firebase_uid, data.school_number ? `std_${data.school_number}` : null].filter(Boolean);
 
     if (staff) {
       const isTeacherOrAdmin = ['teacher', 'öğretmen', 'admin', 'yönetici', 'superadmin', 'patron'].includes(role);
       return {
         id,
+        aliases,
         role,
         isStaff: true,
         roleKind: isTeacherOrAdmin ? 'teacher' : 'personnel',
@@ -110,6 +112,7 @@ const DailyAbsenceReportView = () => {
 
     return {
       id,
+      aliases,
       role: role || 'student',
       isStaff: false,
       roleKind: 'student',
@@ -122,13 +125,24 @@ const DailyAbsenceReportView = () => {
     };
   };
 
+  const [selectedDate, setSelectedDate] = useState(() => getDateKeyInTimeZone(new Date(), 'Europe/Istanbul'));
   const [allStudents, setAllStudents] = useState(() => {
     const initialList = vdsUserService.users || [];
     if (initialList.length > 0) {
       const seen = new Set();
       const uniqueUsers = [];
       for (const u of initialList) {
-        const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
+        const tc = (u.tc_kimlik || u.fields?.tc_kimlik?.stringValue || u.tcKimlik || u.tc || '').trim();
+        const schoolNo = (u.school_number || u.fields?.school_number?.stringValue || u.schoolNumber || '').trim();
+        const role = (u.role || u.fields?.role?.stringValue || '').toLowerCase();
+        const name = (u.full_name || u.fields?.full_name?.stringValue || u.fullName || u.name || '').trim().toLowerCase();
+
+        let key = '';
+        if (tc && tc.length >= 10) key = `tc:${tc}`;
+        else if (schoolNo && (role === 'student' || role === 'öğrenci' || role === 'ogrenci')) key = `sch:${schoolNo}`;
+        else if (u.canonical_id) key = `canon:${u.canonical_id}`;
+        else key = `nr:${name}_${role}`;
+
         if (!seen.has(key)) {
           seen.add(key);
           uniqueUsers.push(u);
@@ -146,7 +160,7 @@ const DailyAbsenceReportView = () => {
   const [gateStatusMap, setGateStatusMap] = useState({});
   const [manualAttendance, setManualAttendance] = useState({});
   const [socketConnected, setSocketConnected] = useState(false);
-  const [loading, setLoading] = useState(() => allStudents.length === 0);
+  const [loading, setLoading] = useState(() => !(vdsUserService.users && vdsUserService.users.length > 0));
   const [searchText, setSearchText] = useState('');
   const [roleFilter, setRoleFilter] = useState('student');
   const [selectedClassFilter, setSelectedClassFilter] = useState('all');
@@ -163,7 +177,17 @@ const DailyAbsenceReportView = () => {
       const seen = new Set();
       const uniqueUsers = [];
       for (const u of users) {
-        const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
+        const tc = (u.tc_kimlik || u.fields?.tc_kimlik?.stringValue || u.tcKimlik || u.tc || '').trim();
+        const schoolNo = (u.school_number || u.fields?.school_number?.stringValue || u.schoolNumber || '').trim();
+        const role = (u.role || u.fields?.role?.stringValue || '').toLowerCase();
+        const name = (u.full_name || u.fields?.full_name?.stringValue || u.fullName || u.name || '').trim().toLowerCase();
+
+        let key = '';
+        if (tc && tc.length >= 10) key = `tc:${tc}`;
+        else if (schoolNo && (role === 'student' || role === 'öğrenci' || role === 'ogrenci')) key = `sch:${schoolNo}`;
+        else if (u.canonical_id) key = `canon:${u.canonical_id}`;
+        else key = `nr:${name}_${role}`;
+
         if (!seen.has(key)) {
           seen.add(key);
           uniqueUsers.push(u);
@@ -433,8 +457,8 @@ const DailyAbsenceReportView = () => {
         }
       } else {
         if (isToday) {
-          const morningCutoff = (timeToMinutes(config.morningEntryHour) || 540) + (Number(config.morningGraceMinutes) || 11);
-          if (nowMinutes >= morningCutoff) {
+          const halfDayMinutes = timeToMinutes(config.halfDayCutoffHour) || 730;
+          if (nowMinutes >= halfDayMinutes) {
             status = 'absent_half';
             statusInfo = STATUS_BADGE_MAP.absent_half;
           } else {
@@ -463,7 +487,7 @@ const DailyAbsenceReportView = () => {
         statusTone: statusInfo.tone,
         morningStatus: student.isStaff
           ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : (isToday ? 'Giriş Bekleniyor' : 'Giriş Yok'))
-          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : (isToday && nowMinutes < ((timeToMinutes(config.morningEntryHour) || 540) + (Number(config.morningGraceMinutes) || 11)) ? 'Giriş Bekleniyor' : 'Giriş Yok (Devamsız)')),
+          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : (isToday && nowMinutes < (timeToMinutes(config.halfDayCutoffHour) || 730) ? 'Giriş Bekleniyor' : 'Giriş Yok (Devamsız)')),
         afternoonStatus: student.isStaff
           ? '—'
           : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : (nowMinutes < 810 ? 'Öğle Arası (Giriş: 13:30)' : 'Giriş Bekleniyor')),
@@ -548,7 +572,7 @@ const DailyAbsenceReportView = () => {
 
     const result = {};
     sortedKeys.forEach((k) => {
-      groups[k].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+      groups[k].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
       result[k] = groups[k];
     });
 
@@ -664,16 +688,6 @@ const DailyAbsenceReportView = () => {
     printWindow.document.write(fullHtml);
     printWindow.document.close();
   };
-
-  if (loading && allStudents.length === 0) {
-    return (
-      <div className="w-full flex flex-col gap-5 animate-pulse">
-        <div className="h-9 w-64 rounded-lg bg-slate-200/70 dark:bg-white/[0.06]" />
-        <div className="h-24 rounded-xl bg-slate-200/50 dark:bg-white/[0.04]" />
-        <div className="h-96 rounded-xl bg-slate-200/50 dark:bg-white/[0.04]" />
-      </div>
-    );
-  }
 
   return (
     <div className="w-full flex flex-col gap-5 pb-2">
@@ -873,7 +887,7 @@ const DailyAbsenceReportView = () => {
                                 )}
                               >
                                 <span className="text-[11px] font-bold uppercase">
-                                  {student.name.slice(0, 2)}
+                                  {(student.name || 'ÖĞ').slice(0, 2)}
                                 </span>
                               </div>
                             )}
