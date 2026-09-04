@@ -43,7 +43,7 @@ import {
 import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
 
 const STATUS_BADGE_MAP = {
-  present: { label: 'Mevcut', tone: 'success' },
+  present: { label: 'Geldi', tone: 'success' },
   late: { label: 'Geç Giriş', tone: 'warning' },
   absent_full: { label: 'Tam Gün Devamsız', tone: 'danger' },
   absent_half: { label: 'Yarım Gün Devamsız', tone: 'warning' },
@@ -355,24 +355,33 @@ const DailyAbsenceReportView = () => {
       : getMinutesInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul');
 
     return allStudents.map((student) => {
-      const studentAliases = [
+      const studentAliases = Array.from(new Set([
         student.id,
         student.canonicalId,
         student.schoolNumber,
         student.schoolNumber ? `std_${student.schoolNumber}` : null,
         student.tc,
         student.firebaseUid,
-        student.uid
-      ].filter(Boolean);
+        student.uid,
+        ...(Array.isArray(student.aliases) ? student.aliases : [])
+      ].filter(Boolean)));
 
       let vdsStudentLogs = [];
       if (isToday) {
+        const combined = [];
+        const seenLogIds = new Set();
         for (const a of studentAliases) {
-          if (vdsLogs[a] && vdsLogs[a].length > 0) {
-            vdsStudentLogs = vdsLogs[a];
-            break;
+          if (vdsLogs[a] && Array.isArray(vdsLogs[a])) {
+            for (const l of vdsLogs[a]) {
+              const lId = l.id || `${l.timestamp}_${l.action}`;
+              if (!seenLogIds.has(lId)) {
+                seenLogIds.add(lId);
+                combined.push(l);
+              }
+            }
           }
         }
+        vdsStudentLogs = combined;
       }
 
       const scans = sortAndDedupeScans(vdsStudentLogs.map(normalizeScanRecord));
@@ -406,6 +415,14 @@ const DailyAbsenceReportView = () => {
         scans.some(s => (s.direction === 'in' || s.action === 'entry') && (s.minutes || 0) <= 730)
       );
 
+      const afternoonPresent = Boolean(
+        gateStatus?.afternoonPresent ||
+        evaluation.afternoon?.present ||
+        scans.some(s => (s.minutes || 0) >= 730)
+      );
+
+      const hasAnyPresence = morningPresent || afternoonPresent || scans.length > 0 || isTurnstileIn || evaluation.isPresentToday;
+
       const isGateAbsent = liveGateStatus === 'absent';
 
       let manualWeight = 0;
@@ -433,7 +450,7 @@ const DailyAbsenceReportView = () => {
         statusInfo = STATUS_BADGE_MAP.absent_full;
       } else if (student.isStaff) {
         // Öğretmen / İdareci / Personel için yoklama değerlendirmesi:
-        const hasStaffEntry = isTurnstileIn || evaluation.isPresentToday || liveGateStatus === 'entry' || liveGateStatus === 'inside';
+        const hasStaffEntry = isTurnstileIn || evaluation.isPresentToday || liveGateStatus === 'entry' || liveGateStatus === 'inside' || hasAnyPresence;
         if (hasStaffEntry) {
           status = 'present';
           statusInfo = STATUS_BADGE_MAP.present;
@@ -447,7 +464,7 @@ const DailyAbsenceReportView = () => {
       } else if (manualWeight === 0.5 || isGateAbsent) {
         status = 'absent_half';
         statusInfo = STATUS_BADGE_MAP.absent_half;
-      } else if (morningPresent || isTurnstileIn) {
+      } else if (hasAnyPresence) {
         if (evaluation.isLate) {
           status = 'late';
           statusInfo = STATUS_BADGE_MAP.late;
@@ -471,13 +488,23 @@ const DailyAbsenceReportView = () => {
         }
       }
 
-      const studentScans = vdsStudentLogs;
+      const studentScans = scans;
       const firstEntryScan = studentScans.find(s => s.action === 'entry' || s.direction === 'in');
       const lastExitScan = studentScans.find(s => s.action === 'exit' || s.direction === 'out');
 
-      const morningEntry = firstEntryScan?.time || (morningPresent ? (gateStatus?.morningEntryTime || gateStatus?.time || '09:00') : null);
-      const morningExit = lastExitScan?.time || (gateStatus?.lunchExitTime || (liveGateStatus === 'exit' ? '12:10' : null));
-      const afternoonEntry = evaluation.afternoon?.entryTime || '—';
+      const morningScans = studentScans.filter(s => (s.minutes || 0) < 730);
+      const afternoonScans = studentScans.filter(s => (s.minutes || 0) >= 730);
+
+      const firstMorningEntryScan = morningScans.find(s => s.action === 'entry' || s.direction === 'in');
+      const lastMorningExitScan = morningScans.find(s => s.action === 'exit' || s.direction === 'out');
+
+      const firstAfternoonEntryScan = afternoonScans.find(s => s.action === 'entry' || s.direction === 'in');
+      const lastAfternoonExitScan = afternoonScans.find(s => s.action === 'exit' || s.direction === 'out');
+
+      const morningEntry = firstMorningEntryScan?.time || (morningPresent ? (gateStatus?.morningEntryTime || gateStatus?.time || '09:00') : null);
+      const morningExit = lastMorningExitScan?.time || (gateStatus?.lunchExitTime || (liveGateStatus === 'exit' ? '12:10' : null));
+      const afternoonEntry = firstAfternoonEntryScan?.time || evaluation.afternoon?.entryTime || (afternoonPresent ? (firstEntryScan?.time || '13:30') : '—');
+      const afternoonExit = lastAfternoonExitScan?.time || (lastExitScan && lastExitScan.minutes >= 730 ? lastExitScan.time : null);
       const staffEntryTime = evaluation.day?.entryTime || firstEntryScan?.time || gateStatus?.time || (liveGateStatus === 'entry' ? '09:00' : null);
 
       return {
@@ -487,10 +514,14 @@ const DailyAbsenceReportView = () => {
         statusTone: statusInfo.tone,
         morningStatus: student.isStaff
           ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : (isToday ? 'Giriş Bekleniyor' : 'Giriş Yok'))
-          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : (isToday && nowMinutes < (timeToMinutes(config.halfDayCutoffHour) || 730) ? 'Giriş Bekleniyor' : 'Giriş Yok (Devamsız)')),
+          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : (isToday && nowMinutes < (timeToMinutes(config.halfDayCutoffHour) || 840) ? 'Giriş Bekleniyor' : 'Giriş Yok (Devamsız)')),
         afternoonStatus: student.isStaff
           ? '—'
-          : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : (nowMinutes < 810 ? 'Öğle Arası (Giriş: 13:30)' : 'Giriş Bekleniyor')),
+          : (afternoonEntry !== '—'
+              ? `Giriş: ${afternoonEntry}${afternoonExit ? ` | Çıkış: ${afternoonExit}` : ''}`
+              : (afternoonExit
+                  ? `Çıkış: ${afternoonExit}`
+                  : (morningPresent && !morningExit ? 'Okulda (Sabah Girişi)' : (nowMinutes < 810 ? 'Öğle Arası (Giriş: 13:30)' : (isToday ? 'Giriş Bekleniyor' : 'Giriş Yok'))))),
         detailNote: excuse?.courseName || (isGateAbsent ? 'Sabah Girişi Yapılmadı (0.5 Gün)' : (liveGateStatus === 'exit' ? 'Öğle Çıkışı Yapıldı' : 'Düzenli')),
         isLate: student.isStaff ? false : evaluation.isLate,
         isPresent: isTurnstileIn || status === 'present' || status === 'late'

@@ -293,6 +293,8 @@ export const normalizeScanRecord = (raw, config) => {
 
   if (typeof raw.minutes === 'number' && Number.isFinite(raw.minutes)) {
     minutes = raw.minutes;
+  } else if (raw.timestamp instanceof Date && !Number.isNaN(raw.timestamp.getTime())) {
+    minutes = getMinutesInTimeZone(raw.timestamp, cfg.timeZone);
   } else if (raw.timestamp && typeof raw.timestamp === 'object' && typeof raw.timestamp.seconds === 'number') {
     minutes = getMinutesInTimeZone(new Date(raw.timestamp.seconds * 1000), cfg.timeZone);
   } else if (raw.timestamp && typeof raw.timestamp.toDate === 'function') {
@@ -566,10 +568,17 @@ export const evaluateStudentDay = (options) => {
 
   let absenceWeight = 0;
   const missingSessions = [];
-  if (morningFinalized && !morningPresent) { absenceWeight += 0.5; missingSessions.push(SESSION_MORNING); }
-  if (afternoonFinalized && !afternoonPresent) { absenceWeight += 0.5; missingSessions.push(SESSION_AFTERNOON); }
+  const hasAnyPresence = morningPresent || afternoonPresent || scans.length > 0;
 
-  const projectedWeight = (morningPresent ? 0 : 0.5) + (afternoonPresent ? 0 : 0.5);
+  if (!hasAnyPresence) {
+    if (morningFinalized && !morningPresent) { absenceWeight += 0.5; missingSessions.push(SESSION_MORNING); }
+    if (afternoonFinalized && !afternoonPresent) { absenceWeight += 0.5; missingSessions.push(SESSION_AFTERNOON); }
+  } else if (hasRealLunchExit && !afternoonPresent) {
+    absenceWeight = 0.5;
+    missingSessions.push(SESSION_AFTERNOON);
+  }
+
+  const projectedWeight = hasAnyPresence ? 0 : ((morningPresent ? 0 : 0.5) + (afternoonPresent ? 0 : 0.5));
 
   const isLate = Boolean(
     (firstMorningEntry && firstMorningEntry.isLate) ||
@@ -588,9 +597,9 @@ export const evaluateStudentDay = (options) => {
   } else if (absenceWeight === 0.5) {
     status = ABSENCE_STATUS.HALF_DAY;
     statusLabel = 'Yarım Gün Devamsız (0.5)';
-  } else if (morningPresent || afternoonPresent) {
+  } else if (hasAnyPresence) {
     status = ABSENCE_STATUS.PRESENT;
-    statusLabel = isLate ? 'Mevcut (Geç Kaldı)' : 'Mevcut';
+    statusLabel = isLate ? 'Mevcut (Geç Kaldı)' : 'Mevcut (Geldi)';
   } else {
     status = ABSENCE_STATUS.PENDING;
     statusLabel = `Giriş Bekleniyor (${cfg.halfDayCutoffHour} sonrası kesinleşir)`;

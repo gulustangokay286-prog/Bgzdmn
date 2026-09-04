@@ -91,7 +91,7 @@ const AttendanceLiveView = () => {
           if (!deduped.has(key)) deduped.set(key, r);
         });
 
-      return Array.from(deduped.values()).slice(0, 50);
+      return Array.from(deduped.values()).slice(0, 500);
     });
   }, []);
 
@@ -296,7 +296,7 @@ const AttendanceLiveView = () => {
       </header>
 
       <StatStrip>
-        <Stat label="Toplam Canlı Kayıt" value={liveRecords.length} hint="Son 50 işlem penceresi" />
+        <Stat label="Toplam Canlı Kayıt" value={liveRecords.length} hint="Bugünkü tüm geçiş kayıtları" />
         <Stat label="Öğrenci Giriş / Çıkış" value={studentCount} hint="Turnike ve kapı taramaları" />
         <Stat label="Personel & Öğretmen" value={personnelCount} hint="Kurum içi personel hareketleri" />
         <Stat label="Son İşlem Saati" value={lastScanTime} hint="En son okunan kart / QR" last />
