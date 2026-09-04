@@ -18,7 +18,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
 import useAttendanceConfig from '../hooks/useAttendanceConfig';
 
-const VDS_BASE_URL = 'http://213.142.159.36:8080';
+import { VDS_BASE_URL, VDS_SOCKET_URL } from '../services/vdsConfig';
 import {
   evaluatePersonDay,
   normalizeScanRecord,
@@ -271,7 +271,7 @@ const DailyAbsenceReportView = () => {
     fetchVdsData();
 
     // VDS Real-time Socket.io
-    const socket = io(VDS_BASE_URL, {
+    const socket = io(VDS_SOCKET_URL || VDS_BASE_URL || window.location.origin, {
       reconnectionAttempts: 15,
       timeout: 5000
     });

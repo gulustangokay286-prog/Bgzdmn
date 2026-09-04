@@ -23,6 +23,7 @@ import { db } from '../services/firebaseConfig';
 import { collection, query, orderBy, limit, onSnapshot, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { io } from 'socket.io-client';
 import { soundManager } from '../services/soundManager';
+import { VDS_SOCKET_URL, VDS_BASE_URL } from '../services/vdsConfig';
 import {
   Panel,
   PanelHeader,
@@ -134,7 +135,7 @@ const CheatLogsAdminView = () => {
 
   // 3. VDS Real-time Socket Connection (213.142.159.36:8080)
   useEffect(() => {
-    const socket = io('http://213.142.159.36:8080', {
+    const socket = io(VDS_SOCKET_URL || VDS_BASE_URL || window.location.origin, {
       reconnectionAttempts: 10,
       timeout: 5000
     });

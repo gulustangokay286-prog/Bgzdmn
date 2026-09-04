@@ -4,7 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { cryptoService } from './cryptoService';
 
 // VDS Backend Bağlantısı
-const BACKEND_URL = 'http://213.142.159.36:8080';
+import { VDS_BASE_URL as BACKEND_URL } from './vdsConfig';
 
 export function calculateSmsParts(text = '') {
   const len = text.length;

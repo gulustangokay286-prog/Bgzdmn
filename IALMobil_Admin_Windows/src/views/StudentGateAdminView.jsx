@@ -22,6 +22,7 @@ import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
 
 import { vdsUserService } from '../services/vdsUserService';
 import { io } from 'socket.io-client';
+import { VDS_BASE_URL, VDS_SOCKET_URL } from '../services/vdsConfig';
 
 const ROLE_FILTERS = [
   { id: 'all', label: 'Tümü' },
@@ -195,7 +196,7 @@ const StudentGateAdminView = () => {
     // VDS Turnike Durumlarını Çek
     const fetchVdsGateStatus = async () => {
       try {
-        const res = await fetch('http://213.142.159.36:8080/api/gate-status');
+        const res = await fetch(`${VDS_BASE_URL}/api/gate-status`);
         if (res.ok) {
           const data = await res.json();
           if (data && data.map) {
@@ -213,7 +214,7 @@ const StudentGateAdminView = () => {
     fetchVdsGateStatus();
 
     // VDS Socket.io Canlı Güncelleme
-    const socket = io('http://213.142.159.36:8080', {
+    const socket = io(VDS_SOCKET_URL || VDS_BASE_URL || window.location.origin, {
       reconnectionAttempts: 15,
       timeout: 5000
     });
@@ -312,7 +313,7 @@ const StudentGateAdminView = () => {
       const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
       // 1. VDS Kaydı (erişilebiliyorsa)
-      fetch('http://213.142.159.36:8080/api/attendance/manual', {
+      fetch(`${VDS_BASE_URL}/api/attendance/manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,8 +1,7 @@
 import { io } from 'socket.io-client';
 import { db, mapSdkToRest } from './firebaseConfig';
 import { collection, getDocs } from 'firebase/firestore';
-
-const VDS_BASE_URL = 'http://213.142.159.36:8080';
+import { VDS_BASE_URL, VDS_SOCKET_URL } from './vdsConfig';
 
 class VDSUserService {
   constructor() {
@@ -113,7 +112,7 @@ class VDSUserService {
 
   initSocket() {
     try {
-      this.socket = io(VDS_BASE_URL, {
+      this.socket = io(VDS_SOCKET_URL || VDS_BASE_URL || window.location.origin, {
         reconnection: true,
         reconnectionAttempts: 15,
         reconnectionDelay: 2000

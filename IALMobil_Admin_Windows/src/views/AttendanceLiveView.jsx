@@ -19,6 +19,7 @@ import { rtdb, db } from '../services/firebaseConfig';
 import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { firebaseService } from '../services/firebase';
 import { io } from 'socket.io-client';
+import { VDS_BASE_URL, VDS_SOCKET_URL } from '../services/vdsConfig';
 import {
   Panel,
   PanelHeader,
@@ -139,7 +140,7 @@ const AttendanceLiveView = () => {
 
     const fetchVdsLiveLogs = async () => {
       try {
-        const res = await fetch('http://213.142.159.36:8080/api/attendance/live');
+        const res = await fetch(`${VDS_BASE_URL}/api/attendance/live`);
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.logs) && data.logs.length > 0) {
@@ -154,7 +155,7 @@ const AttendanceLiveView = () => {
     };
     fetchVdsLiveLogs();
 
-    const socket = io('http://213.142.159.36:8080', {
+    const socket = io(VDS_SOCKET_URL || VDS_BASE_URL || window.location.origin, {
       reconnectionAttempts: 5,
       timeout: 5000
     });

@@ -29,7 +29,8 @@ import {
   SESSION_LABELS
 } from './attendanceRules';
 
-export const VDS_ENDPOINT = 'http://213.142.159.36:8080';
+import { VDS_BASE_URL as VDS_ENDPOINT } from './vdsConfig';
+export { VDS_ENDPOINT };
 
 let cachedConfig = resolveAttendanceConfig({});
 let cachedConfigAt = 0;

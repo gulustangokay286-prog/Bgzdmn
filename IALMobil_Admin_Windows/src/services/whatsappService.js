@@ -1,5 +1,6 @@
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { VDS_BASE_URL } from './vdsConfig';
 
 /** Telefonu 10 haneli yerel biçime indirger (5XXXXXXXXX). */
 export const normalizeParentPhone = (raw) => {
@@ -106,7 +107,7 @@ export const sendWhatsAppNotification = async (userId, studentName, action, date
     };
     const encryptedPayload = await cryptoService.encryptPayload(rawBody);
 
-    const response = await fetch('http://213.142.159.36:8080/api/system/broadcast-whatsapp', {
+    const response = await fetch(`${VDS_BASE_URL}/api/system/broadcast-whatsapp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
