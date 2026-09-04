@@ -11,16 +11,17 @@ class VDSUserService {
         const saved = window.localStorage.getItem('vds_cached_users');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed) && parsed.length >= 50) {
             const hasHealthyNames = parsed.every(u => {
               const nm = u.full_name || u.fullName || u.fields?.full_name?.stringValue || '';
               return nm && !nm.startsWith('projects/');
             });
             if (hasHealthyNames) {
               cached = this.deduplicateUsers(parsed).map(u => this.wrapUser(u));
-            } else {
-              window.localStorage.removeItem('vds_cached_users');
             }
+          }
+          if (cached.length === 0) {
+            window.localStorage.removeItem('vds_cached_users');
           }
         }
       }
@@ -29,7 +30,7 @@ class VDSUserService {
     this.users = cached;
     this.subscribers = new Set();
     this.isFetching = false;
-    this.hasFetched = this.users.length > 0;
+    this.hasFetched = false;
     this.fetchPromise = null;
     this.initSocket();
   }
@@ -104,7 +105,7 @@ class VDSUserService {
 
   saveToStorage() {
     try {
-      if (typeof window !== 'undefined' && window.localStorage && Array.isArray(this.users) && this.users.length > 0) {
+      if (typeof window !== 'undefined' && window.localStorage && Array.isArray(this.users) && this.users.length >= 50) {
         window.localStorage.setItem('vds_cached_users', JSON.stringify(this.users));
       }
     } catch (e) {}
@@ -270,7 +271,7 @@ class VDSUserService {
   }
 
   async fetchAllUsers(force = false) {
-    if (this.hasFetched && !force && this.users.length > 0) {
+    if (this.hasFetched && !force && this.users && this.users.length >= 50) {
       return this.users;
     }
     if (this.fetchPromise) {
@@ -282,12 +283,13 @@ class VDSUserService {
       let loaded = false;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`, { signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const baseUrl = VDS_BASE_URL || '';
+        const res = await fetch(`${baseUrl}/api/users?limit=1000`, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
-          if (data && Array.isArray(data.users) && data.users.length > 0) {
+          if (data && Array.isArray(data.users) && data.users.length >= 50) {
             const deduped = this.deduplicateUsers(data.users);
             this.users = deduped.map(u => this.wrapUser(u));
             this.hasFetched = true;
@@ -297,21 +299,23 @@ class VDSUserService {
           }
         }
       } catch (err) {
-        console.warn('[VDSUserService] VDS fetch notice (falling back to Firestore):', err.message);
+        console.warn('[VDSUserService] VDS fetch notice:', err.message);
       }
 
-      // VDS yanıt vermediyse veya web mixed-content engeli varsa anında Firestore yedeğine geç
-      if (!loaded && (!this.users || this.users.length === 0 || force)) {
+      // VDS yanıt vermediyse ve elimizde yeterli kullanıcı yoksa Firestore yedeğine geç
+      if (!loaded && (!this.users || this.users.length < 50 || force)) {
         try {
           const snap = await getDocs(collection(db, 'users'));
           if (!snap.empty) {
             const fbUsers = snap.docs.map(docSnap => mapSdkToRest(docSnap));
-            const deduped = this.deduplicateUsers(fbUsers);
-            this.users = deduped.map(u => this.wrapUser(u));
-            this.hasFetched = true;
-            this.saveToStorage();
-            this.notify();
-            loaded = true;
+            if (fbUsers.length >= 50 || this.users.length === 0) {
+              const deduped = this.deduplicateUsers(fbUsers);
+              this.users = deduped.map(u => this.wrapUser(u));
+              this.hasFetched = true;
+              this.saveToStorage();
+              this.notify();
+              loaded = true;
+            }
           }
         } catch (fsErr) {
           console.error('[VDSUserService] Firestore Fallback Error:', fsErr);
