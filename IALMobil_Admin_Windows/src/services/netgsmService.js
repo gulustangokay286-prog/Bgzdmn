@@ -151,12 +151,13 @@ export const netgsmService = {
   },
 
   async sendSms({ phones, message, title = '' }) {
-    if (!phones || phones.length === 0) {
-      throw new Error('En az bir alıcı telefon numarası gereklidir.');
-    }
-    if (!message || !message.trim()) {
-      throw new Error('Mesaj metni boş olamaz.');
-    }
+    console.log('[SMS SİSTEMİ KAPALI] Kullanıcı talimatı: Tüm SMS gönderimleri tamamen devre dışıdır.');
+    return {
+      success: true,
+      sent: false,
+      disabled: true,
+      message: 'SMS sistemi kullanıcı talimatıyla tamamen kapatılmıştır.'
+    };
 
     const validPhones = (Array.isArray(phones) ? phones : [phones])
       .map(formatPhoneNumber)

@@ -57,11 +57,14 @@ async function resolveNetgsmCredentials(customCreds = {}) {
 }
 
 async function sendSms(options = {}) {
+    console.log('[SMS SİSTEMİ KAPALI] Kullanıcı talimatı: Tüm SMS gönderimleri devre dışı bırakıldı.');
+    return {
+        success: true,
+        sent: false,
+        disabled: true,
+        message: 'SMS sistemi kullanıcı talimatıyla tamamen kapatılmıştır.'
+    };
     const { to, message, header: customHeader, usercode: customUsercode, password: customPassword } = options;
-
-    if (!to || !message) {
-        return { success: false, error: 'Eksik parametre: to ve message zorunludur.' };
-    }
 
     const rawPhones = Array.isArray(to) ? to : [to];
     const validPhones = rawPhones.map(formatPhoneNumber).filter(Boolean);
