@@ -10,6 +10,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { firebaseService } from '../services/firebase';
+import { vdsUserService } from '../services/vdsUserService';
 import { db } from '../services/firebaseConfig';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Modal, Button, IconButton, Badge, Field, FieldRows, Input, Select } from './ui/panel';
@@ -172,7 +173,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
         payload.department = editDepartment;
       }
 
-      await updateDoc(doc(db, 'users', userId), payload);
+      await vdsUserService.updateUser(userId, payload);
       setSaveSuccess(true);
       if (onUpdate) onUpdate();
       setTimeout(() => {

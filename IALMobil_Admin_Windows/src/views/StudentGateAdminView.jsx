@@ -20,6 +20,9 @@ import {
 } from '../components/ui/panel';
 import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
 
+import { vdsUserService } from '../services/vdsUserService';
+import { io } from 'socket.io-client';
+
 const ROLE_FILTERS = [
   { id: 'all', label: 'Tümü' },
   { id: 'student', label: 'Öğrenci' },
@@ -72,22 +75,19 @@ const StudentGateAdminView = () => {
     setStatusMap(prev => ({ ...prev, ...combined }));
   }, []);
 
-  // Öğrenci ve personel birlikte yüklenir; ikisi de turnikeden geçer.
+  // VDS Kullanıcı Listesi Dinleyicisi
   useEffect(() => {
     let cancelled = false;
 
-    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
+    const unsub = vdsUserService.subscribe((userList) => {
       try {
-        const list = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
+        const list = (userList || []).map((data) => {
           const role = (data.role || '').toLowerCase();
           const staff = isStaffRole(role);
           const isParent = role === 'parent' || role === 'veli';
-          const isStudent = role === 'student' || role === 'öğrenci' || (!staff && !isParent);
 
-          list.push({
-            id: docSnap.id,
+          return {
+            id: data._id || data.id,
             role: role || 'student',
             isStaff: staff,
             isParent,
@@ -101,7 +101,7 @@ const StudentGateAdminView = () => {
               ? (data.child_name ? `Veli (${data.child_name})` : 'Veli')
               : (data.branch || (data.class_id ? `${data.class_id}/${data.section || 'A'}` : 'Öğrenci')),
             profileImage: data.profile_image || data.profileImageUrl || data.profileImage || null
-          });
+          };
         });
 
         list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
@@ -110,7 +110,7 @@ const StudentGateAdminView = () => {
           setLoading(false);
         }
       } catch (err) {
-        console.error('Kişi listesi okunamadı:', err);
+        console.error('VDS Kişi listesi okunamadı:', err);
         if (!cancelled) setLoading(false);
       }
     });
@@ -124,6 +124,36 @@ const StudentGateAdminView = () => {
   useEffect(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const isToday = (d) => d === dateKey || d === todayStr || !d;
+
+    // VDS Turnike Durumlarını Çek
+    const fetchVdsGateStatus = async () => {
+      try {
+        const res = await fetch('http://213.142.159.36:8080/api/gate-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.map) {
+            const vdsMap = {};
+            Object.entries(data.map).forEach(([k, v]) => {
+              vdsMap[k] = v?.status || (v === 'entry' || v === 'inside' ? 'inside' : 'outside');
+            });
+            setStatusMap(prev => ({ ...prev, ...vdsMap }));
+          }
+        }
+      } catch (err) {
+        console.warn('VDS gate-status notice:', err?.message);
+      }
+    };
+    fetchVdsGateStatus();
+
+    // VDS Socket.io Canlı Güncelleme
+    const socket = io('http://213.142.159.36:8080', {
+      reconnectionAttempts: 5,
+      timeout: 5000
+    });
+    socket.on('gate_status_updated', ({ studentId, targetState, status }) => {
+      const finalState = targetState || (status === 'entry' ? 'inside' : 'outside');
+      setStatusMap(prev => ({ ...prev, [studentId]: finalState }));
+    });
 
     const unsubFirestore = onSnapshot(collection(db, 'gate_status'), (snapshot) => {
       const map = {};
@@ -148,6 +178,7 @@ const StudentGateAdminView = () => {
     }, (err) => console.warn('RTDB gate_status dinleyici:', err));
 
     return () => {
+      try { socket.disconnect(); } catch { /* kapalı */ }
       try { unsubFirestore(); } catch { /* kapalı */ }
       try { unsubRtdb(); } catch { /* kapalı */ }
     };
@@ -180,7 +211,20 @@ const StudentGateAdminView = () => {
     try {
       const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
+      const vdsManualPromise = fetch('http://213.142.159.36:8080/api/attendance/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: person.id,
+          action: nextAction,
+          studentName: person.name,
+          role: person.role,
+          method: 'manual_admin'
+        })
+      }).catch(e => console.warn('VDS manual attendance log:', e));
+
       await Promise.all([
+        vdsManualPromise,
         setDoc(doc(db, 'gate_status', person.id), {
           status: nextAction,
           lastAction: nextAction,

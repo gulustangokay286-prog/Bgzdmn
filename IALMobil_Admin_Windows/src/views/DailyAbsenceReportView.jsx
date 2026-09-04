@@ -10,10 +10,15 @@ import {
   FileText,
   CheckCircle2
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { db, rtdb } from '../services/firebaseConfig';
+import { vdsUserService } from '../services/vdsUserService';
+import { soundManager } from '../services/soundManager';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
 import useAttendanceConfig from '../hooks/useAttendanceConfig';
+
+const VDS_BASE_URL = 'http://213.142.159.36:8080';
 import {
   evaluatePersonDay,
   normalizeScanRecord,
@@ -65,11 +70,14 @@ const DailyAbsenceReportView = () => {
 
   const [selectedDate, setSelectedDate] = useState(() => getDateKeyInTimeZone(new Date(), 'Europe/Istanbul'));
   const [allStudents, setAllStudents] = useState([]);
+  const [vdsGateStatus, setVdsGateStatus] = useState({});
+  const [vdsLogs, setVdsLogs] = useState({});
   const [rtdbLogs, setRtdbLogs] = useState({});
   const [rtdbGateStatus, setRtdbGateStatus] = useState({});
   const [firestoreLogs, setFirestoreLogs] = useState({});
   const [gateStatusMap, setGateStatusMap] = useState({});
   const [manualAttendance, setManualAttendance] = useState({});
+  const [socketConnected, setSocketConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [roleFilter, setRoleFilter] = useState('student');
@@ -79,151 +87,240 @@ const DailyAbsenceReportView = () => {
   const todayKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul'), [config.timeZone]);
   const isToday = selectedDate === todayKey;
 
+  const parseUser = (data) => {
+    if (!data) return null;
+    const role = (data.role || '').toLowerCase();
+    const isStudent = role === 'student' || role === 'öğrenci';
+    const staff = isStaffRole(role);
+    if (!isStudent && !staff) return null;
+
+    const profileImage = data.profile_image || data.profileImageUrl || data.photo_url || null;
+    const tc = data.tc_kimlik || data.tcKimlik || data.tc || '';
+    const id = data.id || data._id;
+
+    if (staff) {
+      const isTeacherOrAdmin = ['teacher', 'öğretmen', 'admin', 'yönetici', 'superadmin', 'patron'].includes(role);
+      return {
+        id,
+        role,
+        isStaff: true,
+        roleKind: isTeacherOrAdmin ? 'teacher' : 'personnel',
+        name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Personel',
+        tc,
+        schoolNumber: '—',
+        classGrade: '—',
+        branch: (data.branch || data.department || (isTeacherOrAdmin ? (data.branch || (['admin', 'yönetici'].includes(role) ? 'Yönetim / İdare' : 'Öğretmen')) : 'Departman belirtilmemiş')).toUpperCase(),
+        profileImage
+      };
+    }
+
+    let branch = data.branch || '';
+    let classGrade = '12';
+    if (!branch && data.class_id) {
+      branch = `${data.class_id}/${data.section || 'A'}`;
+    }
+    if (branch) {
+      const match = branch.match(/\d+/);
+      if (match) classGrade = match[0];
+    } else {
+      branch = '12/A';
+    }
+
+    return {
+      id,
+      role: role || 'student',
+      isStaff: false,
+      roleKind: 'student',
+      name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Öğrenci',
+      tc,
+      schoolNumber: data.school_number || data.schoolNumber || data.no || '—',
+      classGrade,
+      branch: branch.toUpperCase(),
+      profileImage
+    };
+  };
+
+  // 1. Load users primarily from VDS MongoDB
   useEffect(() => {
-    setLoading(true);
-    const usersCol = collection(db, 'users');
-    const unsubUsers = onSnapshot(
-      usersCol,
-      (snap) => {
-        const studentList = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          const role = (data.role || '').toLowerCase();
-          const isStudent = role === 'student' || role === 'öğrenci';
-          const staff = isStaffRole(role);
-          if (!isStudent && !staff) return;
+    setLoading(allStudents.length === 0);
 
-          const profileImage = data.profile_image || data.profileImageUrl || null;
-          const tc = data.tc_kimlik || data.tcKimlik || data.tc || '';
-
-          if (staff) {
-            // Personelde sinif/sube yok; grup basligi bransa veya departmana gore.
-            const isTeacherOrAdmin = ['teacher', 'öğretmen', 'admin', 'yönetici', 'superadmin', 'patron'].includes(role);
-            studentList.push({
-              id: d.id,
-              role,
-              isStaff: true,
-              roleKind: isTeacherOrAdmin ? 'teacher' : 'personnel',
-              name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Personel',
-              tc,
-              schoolNumber: '—',
-              classGrade: '—',
-              branch: (data.branch || data.department || (isTeacherOrAdmin ? (data.branch || (['admin', 'yönetici'].includes(role) ? 'Yönetim / İdare' : 'Öğretmen')) : 'Departman belirtilmemiş')).toUpperCase(),
-              profileImage
-            });
-            return;
+    const loadUsers = async () => {
+      try {
+        let users = await vdsUserService.fetchAllUsers(true);
+        if (!users || users.length === 0) {
+          const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`);
+          if (res.ok) {
+            const data = await res.json();
+            users = data.users || [];
           }
-
-          let branch = data.branch || '';
-          let classGrade = '12';
-          if (!branch && data.class_id) {
-            branch = `${data.class_id}/${data.section || 'A'}`;
-          }
-          if (branch) {
-            const match = branch.match(/\d+/);
-            if (match) classGrade = match[0];
-          } else {
-            branch = '12/A';
-          }
-
-          studentList.push({
-            id: d.id,
-            role: role || 'student',
-            isStaff: false,
-            roleKind: 'student',
-            name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Öğrenci',
-            tc,
-            schoolNumber: data.school_number || data.schoolNumber || data.no || '—',
-            classGrade,
-            branch: branch.toUpperCase(),
-            profileImage
-          });
-        });
-        studentList.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-        setAllStudents(studentList);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Öğrenci listesi dinleme hatası:', err);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubUsers();
-  }, []);
-
-  useEffect(() => {
-    const unsubGate = onSnapshot(collection(db, 'gate_status'), (snap) => {
-      const map = {};
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data.date === selectedDate || !data.date) {
-          map[d.id] = data;
         }
-      });
-      setGateStatusMap(map);
-    });
-    return () => unsubGate();
-  }, [selectedDate]);
+        if (users && users.length > 0) {
+          const seen = new Set();
+          const uniqueUsers = [];
+          for (const u of users) {
+            const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
+            if (!seen.has(key)) {
+              seen.add(key);
+              uniqueUsers.push(u);
+            }
+          }
 
-  useEffect(() => {
-    if (!rtdb) return;
-    const gateRef = ref(rtdb, 'qr_system/gate_status');
-    const unsubGateRtdb = onValue(gateRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setRtdbGateStatus(snapshot.val() || {});
+          const parsed = uniqueUsers.map(parseUser).filter(Boolean);
+          parsed.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+          setAllStudents(parsed);
+        }
+      } catch (e) {
+        console.warn('VDS Users fetch notice:', e?.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUsers();
+
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1200);
+
+    const unsubVds = vdsUserService.subscribe((users) => {
+      if (users && users.length > 0) {
+        const seen = new Set();
+        const uniqueUsers = [];
+        for (const u of users) {
+          const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueUsers.push(u);
+          }
+        }
+        const parsed = uniqueUsers.map(parseUser).filter(Boolean);
+        parsed.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+        setAllStudents(parsed);
+        setLoading(false);
       }
     });
-    return () => unsubGateRtdb();
+
+    return () => {
+      clearTimeout(timer);
+      unsubVds();
+    };
   }, []);
 
+  // 2. Fetch VDS gate status and today's live logs + Socket.io stream
   useEffect(() => {
-    if (!rtdb) return;
-    const dateRef = ref(rtdb, `qr_system/daily_summary/${selectedDate}`);
-    const unsubRtdb = onValue(dateRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setRtdbLogs(snapshot.val() || {});
-      } else {
-        setRtdbLogs({});
+    const fetchVdsData = async () => {
+      try {
+        const [statusRes, logsRes] = await Promise.allSettled([
+          fetch(`${VDS_BASE_URL}/api/gate-status`),
+          fetch(`${VDS_BASE_URL}/api/attendance/live`)
+        ]);
+
+        if (statusRes.status === 'fulfilled' && statusRes.value.ok) {
+          const data = await statusRes.value.json();
+          if (data && data.map) setVdsGateStatus(data.map);
+        }
+
+        if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
+          const data = await logsRes.value.json();
+          if (data && Array.isArray(data.logs)) {
+            const logsByStudent = {};
+            data.logs.forEach(l => {
+              const sid = l.studentId || l.userId;
+              if (!sid) return;
+              if (!logsByStudent[sid]) logsByStudent[sid] = [];
+              const timeStr = l.timestamp ? new Date(l.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '09:00';
+              logsByStudent[sid].push({
+                ...l,
+                time: timeStr,
+                direction: (l.action === 'entry' || l.status === 'entry') ? 'in' : 'out',
+                action: l.action || l.status
+              });
+            });
+            setVdsLogs(logsByStudent);
+          }
+        }
+      } catch (err) {
+        console.warn('VDS initial fetch notice:', err?.message);
+      }
+    };
+
+    fetchVdsData();
+
+    // VDS Real-time Socket.io
+    const socket = io(VDS_BASE_URL, {
+      reconnectionAttempts: 15,
+      timeout: 5000
+    });
+
+    socket.on('connect', () => {
+      setSocketConnected(true);
+    });
+
+    socket.on('new_scan', (data) => {
+      const sid = data.studentId || data.userId;
+      const allTargetIds = data.aliases || [
+        sid,
+        data.schoolNumber,
+        data.schoolNumber ? `std_${data.schoolNumber}` : null,
+        data.tc,
+        data.firebaseUid
+      ].filter(Boolean);
+
+      if (allTargetIds.length > 0) {
+        const timeStr = data.timestamp ? new Date(data.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '09:00';
+        const isEntry = data.action === 'entry' || data.status === 'entry';
+        const normalized = {
+          ...data,
+          time: timeStr,
+          direction: isEntry ? 'in' : 'out',
+          action: isEntry ? 'entry' : 'exit'
+        };
+
+        setVdsLogs(prev => {
+          const next = { ...prev };
+          allTargetIds.forEach(id => {
+            next[id] = [normalized, ...(next[id] || [])];
+          });
+          return next;
+        });
+
+        setVdsGateStatus(prev => {
+          const next = { ...prev };
+          allTargetIds.forEach(id => {
+            next[id] = {
+              status: isEntry ? 'inside' : 'outside',
+              date: todayKey,
+              timestamp: data.timestamp || Date.now()
+            };
+          });
+          return next;
+        });
+
+        soundManager.playSuccessDing();
       }
     });
-    return () => unsubRtdb();
-  }, [selectedDate]);
 
-  useEffect(() => {
-    const q = query(
-      collection(db, 'gate_logs'),
-      where('date', '==', selectedDate)
-    );
-    const unsubFs = onSnapshot(q, (snap) => {
-      const logs = {};
-      snap.forEach((d) => {
-        const data = d.data();
-        const studentId = data.studentId || data.userId || d.id;
-        if (!logs[studentId]) logs[studentId] = [];
-        logs[studentId].push(data);
-      });
-      setFirestoreLogs(logs);
+    socket.on('gate_status_updated', (data) => {
+      const sid = data?.studentId;
+      const allTargetIds = data?.aliases || [sid].filter(Boolean);
+      if (allTargetIds.length > 0) {
+        setVdsGateStatus(prev => {
+          const next = { ...prev };
+          allTargetIds.forEach(id => {
+            next[id] = {
+              status: data.targetState || (data.status === 'entry' ? 'inside' : 'outside'),
+              date: todayKey,
+              timestamp: Date.now()
+            };
+          });
+          return next;
+        });
+      }
     });
-    return () => unsubFs();
-  }, [selectedDate]);
 
-  useEffect(() => {
-    const q = query(
-      collection(db, 'attendance'),
-      where('date', '==', selectedDate)
-    );
-    const unsubManual = onSnapshot(q, (snap) => {
-      const manual = {};
-      snap.forEach((d) => {
-        const data = d.data();
-        const studentId = data.studentId || d.id;
-        manual[studentId] = data;
-      });
-      setManualAttendance(manual);
-    });
-    return () => unsubManual();
-  }, [selectedDate]);
+    return () => socket.disconnect();
+  }, [todayKey]);
+
+  // Pure VDS: Firebase listeners completely removed to prevent quota errors & stale data leaks
 
   const analyzedStudents = useMemo(() => {
     const isClosed = isClosedDayFn(selectedDate, config);
@@ -233,11 +330,27 @@ const DailyAbsenceReportView = () => {
       : getMinutesInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul');
 
     return allStudents.map((student) => {
-      const rawScans = [
-        ...(rtdbLogs[student.id]?.scans ? Object.values(rtdbLogs[student.id].scans) : []),
-        ...(firestoreLogs[student.id] || [])
-      ];
-      const scans = sortAndDedupeScans(rawScans.map(normalizeScanRecord));
+      const studentAliases = [
+        student.id,
+        student.canonicalId,
+        student.schoolNumber,
+        student.schoolNumber ? `std_${student.schoolNumber}` : null,
+        student.tc,
+        student.firebaseUid,
+        student.uid
+      ].filter(Boolean);
+
+      let vdsStudentLogs = [];
+      if (isToday) {
+        for (const a of studentAliases) {
+          if (vdsLogs[a] && vdsLogs[a].length > 0) {
+            vdsStudentLogs = vdsLogs[a];
+            break;
+          }
+        }
+      }
+
+      const scans = sortAndDedupeScans(vdsStudentLogs.map(normalizeScanRecord));
 
       const evaluation = evaluatePersonDay({
         scans,
@@ -248,19 +361,27 @@ const DailyAbsenceReportView = () => {
       });
 
       const excuse = manualAttendance[student.id];
-      const gateStatus = rtdbGateStatus[student.id] || gateStatusMap[student.id];
+
+      // STRICT DATE CHECK: Dünden kalma veriyi bugüne ASLA karıştırma!
+      let rawVdsStatus = null;
+      for (const a of studentAliases) {
+        if (vdsGateStatus[a]) {
+          rawVdsStatus = vdsGateStatus[a];
+          break;
+        }
+      }
+      const validVdsStatus = (rawVdsStatus && (rawVdsStatus.date === selectedDate || (!rawVdsStatus.date && isToday))) ? rawVdsStatus : null;
+      const gateStatus = validVdsStatus;
       const liveGateStatus = gateStatus?.status || '';
       const isTurnstileIn = liveGateStatus === 'entry' || liveGateStatus === 'inside' || liveGateStatus === 'in' || scans.some((s) => s.direction === 'in' || s.action === 'entry');
 
-      const morningSummary = rtdbLogs[student.id]?.morning;
       const morningPresent = Boolean(
-        morningSummary?.present ||
         gateStatus?.morningPresent ||
         evaluation.morning?.present ||
         scans.some(s => (s.direction === 'in' || s.action === 'entry') && (s.minutes || 0) <= 730)
       );
 
-      const isGateAbsent = liveGateStatus === 'absent' || morningSummary?.absent === true;
+      const isGateAbsent = liveGateStatus === 'absent';
 
       let manualWeight = 0;
       if (excuse) {
@@ -325,10 +446,14 @@ const DailyAbsenceReportView = () => {
         }
       }
 
-      const morningEntry = morningSummary?.entryTime || (morningPresent ? (gateStatus?.morningEntryTime || '09:00') : null);
-      const morningExit = morningSummary?.exitTime || (gateStatus?.lunchExitTime || (liveGateStatus === 'exit' ? '12:10' : null));
+      const studentScans = vdsStudentLogs;
+      const firstEntryScan = studentScans.find(s => s.action === 'entry' || s.direction === 'in');
+      const lastExitScan = studentScans.find(s => s.action === 'exit' || s.direction === 'out');
+
+      const morningEntry = firstEntryScan?.time || (morningPresent ? (gateStatus?.morningEntryTime || gateStatus?.time || '09:00') : null);
+      const morningExit = lastExitScan?.time || (gateStatus?.lunchExitTime || (liveGateStatus === 'exit' ? '12:10' : null));
       const afternoonEntry = evaluation.afternoon?.entryTime || '—';
-      const staffEntryTime = evaluation.day?.entryTime || gateStatus?.time || (liveGateStatus === 'entry' ? '09:00' : null);
+      const staffEntryTime = evaluation.day?.entryTime || firstEntryScan?.time || gateStatus?.time || (liveGateStatus === 'entry' ? '09:00' : null);
 
       return {
         ...student,
@@ -336,8 +461,8 @@ const DailyAbsenceReportView = () => {
         statusLabel: statusInfo.label,
         statusTone: statusInfo.tone,
         morningStatus: student.isStaff
-          ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : 'Giriş Yok')
-          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : 'Giriş Yok (Devamsız)'),
+          ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : (isToday ? 'Giriş Bekleniyor' : 'Giriş Yok'))
+          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : (isToday && nowMinutes < ((timeToMinutes(config.morningEntryHour) || 540) + (Number(config.morningGraceMinutes) || 11)) ? 'Giriş Bekleniyor' : 'Giriş Yok (Devamsız)')),
         afternoonStatus: student.isStaff
           ? '—'
           : (afternoonEntry !== '—' ? `Giriş: ${afternoonEntry}` : (nowMinutes < 810 ? 'Öğle Arası (Giriş: 13:30)' : 'Giriş Bekleniyor')),
@@ -346,7 +471,7 @@ const DailyAbsenceReportView = () => {
         isPresent: isTurnstileIn || status === 'present' || status === 'late'
       };
     });
-  }, [allStudents, rtdbLogs, firestoreLogs, manualAttendance, gateStatusMap, rtdbGateStatus, selectedDate, todayKey, config]);
+  }, [allStudents, vdsLogs, vdsGateStatus, rtdbLogs, firestoreLogs, manualAttendance, gateStatusMap, rtdbGateStatus, selectedDate, todayKey, isToday, config]);
 
   // Sayaclar yalnizca secili rolu kapsar; ogrenci ile personel karismaz.
   const scopedPeople = useMemo(
@@ -539,7 +664,7 @@ const DailyAbsenceReportView = () => {
     printWindow.document.close();
   };
 
-  if (loading) {
+  if (loading && allStudents.length === 0) {
     return (
       <div className="w-full flex flex-col gap-5 animate-pulse">
         <div className="h-9 w-64 rounded-lg bg-slate-200/70 dark:bg-white/[0.06]" />
@@ -561,6 +686,10 @@ const DailyAbsenceReportView = () => {
             {isToday && (
               <Badge tone="success">Canlı Gün</Badge>
             )}
+            <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+              <span className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              {socketConnected ? 'VDS Gerçek Zamanlı Akış Aktif' : 'VDS Bağlanıyor...'}
+            </span>
           </div>
           <p className="m-0 mt-2 text-[12.5px] text-slate-500 dark:text-slate-400">
             {new Date(selectedDate).toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · Turnike, karekod ve izinlerin anlık çizelgesi
@@ -576,6 +705,15 @@ const DailyAbsenceReportView = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {!isToday && (
+            <button
+              type="button"
+              onClick={() => setSelectedDate(todayKey)}
+              className="h-9 px-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 text-[12.5px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+            >
+              Bugüne Dön
+            </button>
+          )}
           <input
             type="date"
             value={selectedDate}

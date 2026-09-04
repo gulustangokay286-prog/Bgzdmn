@@ -31,6 +31,8 @@ import {
 } from '../components/ui/panel';
 import { cx, eyebrow, hairline, divider } from '../components/ui/tokens';
 
+import { vdsUserService } from '../services/vdsUserService';
+
 const toMillis = (timestamp) => {
   if (timestamp?.seconds) return timestamp.seconds * 1000;
   if (typeof timestamp === 'number') return timestamp;
@@ -95,11 +97,10 @@ const AttendanceLiveView = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const snap = await getDocs(collection(db, 'users'));
+        const users = await vdsUserService.fetchAllUsers();
         const map = {};
-        snap.forEach((docSnap) => {
-          const data = docSnap.data();
-          const id = docSnap.id;
+        (users || []).forEach((data) => {
+          const id = data._id || data.id;
           const tc = String(data.tc_kimlik || data.tc || data.tcNo || data.identityNumber || '').trim();
           const schoolNo = String(data.school_number || data.schoolNumber || '').trim();
           const fullName =
@@ -131,10 +132,27 @@ const AttendanceLiveView = () => {
         });
         setUsersMap(map);
       } catch (error) {
-        console.error('Kullanıcı verileri çekilemedi', error);
+        console.error('VDS Kullanıcı verileri çekilemedi', error);
       }
     };
     fetchUsers();
+
+    const fetchVdsLiveLogs = async () => {
+      try {
+        const res = await fetch('http://213.142.159.36:8080/api/attendance/live');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.logs) && data.logs.length > 0) {
+            mergeRecords(data.logs);
+          }
+        }
+      } catch (err) {
+        console.warn('VDS live logs notice:', err?.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVdsLiveLogs();
 
     const socket = io('http://213.142.159.36:8080', {
       reconnectionAttempts: 5,

@@ -272,8 +272,36 @@ const DashboardView = () => {
   const teachers = countByPool(POOL.TEACHER);
   const parents = countByPool(POOL.PARENT);
   const personnel = countByPool(POOL.ADMIN);
-  const totalCount = visibleUsers.length;
-  const share = (n) => (totalCount > 0 ? Math.round((n / totalCount) * 100) : 0);
+  const shares = useMemo(() => {
+    const raw = [
+      { key: 'student', count: students },
+      { key: 'teacher', count: teachers },
+      { key: 'personnel', count: personnel },
+      { key: 'parent', count: parents }
+    ];
+    const total = raw.reduce((sum, item) => sum + item.count, 0);
+    if (total === 0) return { student: 0, teacher: 0, personnel: 0, parent: 0 };
+
+    const exact = raw.map(item => (item.count / total) * 100);
+    const floored = exact.map(Math.floor);
+    let remainder = 100 - floored.reduce((a, b) => a + b, 0);
+
+    const decimals = exact
+      .map((e, i) => ({ i, dec: e - floored[i] }))
+      .sort((a, b) => b.dec - a.dec);
+
+    const result = [...floored];
+    for (let k = 0; k < remainder; k++) {
+      result[decimals[k].i] += 1;
+    }
+
+    return {
+      student: result[0],
+      teacher: result[1],
+      personnel: result[2],
+      parent: result[3]
+    };
+  }, [students, teachers, personnel, parents]);
 
   const balance = useMemo(() => financeService.calculateBalance(financeRecords), [financeRecords]);
   const income = useMemo(
@@ -354,10 +382,10 @@ const DashboardView = () => {
           'bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 rounded-xl'
         )}
       >
-        <MetricCell icon={GraduationCap} label="Öğrenci" value={students} share={share(students)} />
-        <MetricCell icon={UserSquare} label="Öğretmen" value={teachers} share={share(teachers)} />
-        <MetricCell icon={Briefcase} label="Yönetici & Personel" value={personnel} share={share(personnel)} />
-        <MetricCell icon={Users} label="Veli" value={parents} share={share(parents)} last />
+        <MetricCell icon={GraduationCap} label="Öğrenci" value={students} share={shares.student} />
+        <MetricCell icon={UserSquare} label="Öğretmen" value={teachers} share={shares.teacher} />
+        <MetricCell icon={Briefcase} label="Yönetici & Personel" value={personnel} share={shares.personnel} />
+        <MetricCell icon={Users} label="Veli" value={parents} share={shares.parent} last />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
