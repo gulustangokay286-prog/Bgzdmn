@@ -65,9 +65,9 @@ const StudentGateAdminView = () => {
   const mergeAndSetStatuses = useCallback(() => {
     const combined = {};
     const apply = (source) => {
-      Object.entries(source).forEach(([k, v]) => {
-        if (v?.status === 'entry') combined[k] = 'inside';
-        else if (v?.status === 'exit') combined[k] = 'outside';
+      Object.entries(source || {}).forEach(([k, v]) => {
+        if (v?.status === 'entry' || v?.status === 'inside' || v?.status === 'present') combined[k] = 'inside';
+        else if (v?.status === 'exit' || v?.status === 'outside') combined[k] = 'outside';
       });
     };
     apply(statusFromFirestoreRef.current);
@@ -86,33 +86,66 @@ const StudentGateAdminView = () => {
     const unsub = vdsUserService.subscribe((userList) => {
       try {
         const rawList = (userList || []).map((data) => {
-          const role = (data.role || '').toLowerCase();
+          if (!data) return null;
+          const role = (data.role || data.fields?.role?.stringValue || '').toLowerCase();
           const staff = isStaffRole(role);
           const isParent = role === 'parent' || role === 'veli';
 
+          const resolvedName = (
+            data.full_name ||
+            data.fullName ||
+            data.displayName ||
+            (typeof data.name === 'string' && !data.name.startsWith('projects/') ? data.name : '') ||
+            data.fields?.full_name?.stringValue ||
+            data.fields?.fullName?.stringValue ||
+            data.fields?.displayName?.stringValue ||
+            (data.fields?.name?.stringValue && !data.fields.name.stringValue.startsWith('projects/') ? data.fields.name.stringValue : '') ||
+            (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : '') ||
+            ''
+          ).trim() || (staff ? 'İsimsiz Personel' : isParent ? 'İsimsiz Veli' : 'İsimsiz Öğrenci');
+
+          const id = String(data.id || data._id || data.canonical_id || data.firebase_uid ||
+            (typeof data.name === 'string' && data.name.startsWith('projects/') ? data.name.split('/').pop() : '') ||
+            '').trim() || String(Math.random());
+
+          const aliases = Array.from(new Set([
+            ...(Array.isArray(data.aliases) ? data.aliases : []),
+            id,
+            data._id,
+            data.id,
+            data.canonical_id,
+            data.firebase_uid
+          ].filter(Boolean)));
+
+          const tc = (data.tc_kimlik || data.tcKimlik || data.tc || data.fields?.tc_kimlik?.stringValue || '').trim();
+          const schoolNumber = (data.school_number || data.schoolNumber || data.fields?.school_number?.stringValue || '').trim();
+          const branch = (data.branch || data.class_id || data.fields?.branch?.stringValue || data.fields?.class_id?.stringValue || '').trim();
+
           return {
-            id: data._id || data.id,
-            aliases: data.aliases || [data._id, data.id].filter(Boolean),
+            id,
+            aliases,
             role: role || 'student',
             isStaff: staff,
             isParent,
-            name: data.full_name || data.fullName || data.name || data.displayName
-              || (staff ? 'İsimsiz Personel' : isParent ? 'İsimsiz Veli' : 'İsimsiz Öğrenci'),
-            tc: data.tc_kimlik || data.tcKimlik || data.tc || '',
-            schoolNumber: data.school_number || data.schoolNumber || '',
+            name: resolvedName,
+            tc,
+            schoolNumber,
             group: staff
-              ? (data.branch || data.department || 'Personel')
+              ? (data.branch || data.department || data.fields?.branch?.stringValue || 'Personel')
               : isParent
-              ? (data.child_name ? `Veli (${data.child_name})` : 'Veli')
-              : (data.branch || (data.class_id ? `${data.class_id}/${data.section || 'A'}` : 'Öğrenci')),
+              ? (data.child_name || data.fields?.child_name?.stringValue ? `Veli (${data.child_name || data.fields?.child_name?.stringValue})` : 'Veli')
+              : (branch || (data.class_id ? `${data.class_id}/${data.section || 'A'}` : data.fields?.branch?.stringValue || 'Öğrenci')),
             profileImage: data.profile_image || data.profileImageUrl || data.profileImage || null
           };
-        });
+        }).filter(Boolean);
 
         // Kesin tekilleştirme: TC, okul no veya (isim+rol) bazında tekil kayıt
         const seen = new Set();
         const list = [];
         for (const p of rawList) {
+          if (!p) continue;
+          if (p.role === 'patron' || (p.name && p.name.toLowerCase().includes('patron')) || p.name === 'Super Admin') continue;
+
           const tc = (p.tc || '').trim();
           const sch = (p.schoolNumber || '').trim();
           const nm = (p.name || '').trim().toLowerCase();
@@ -135,7 +168,7 @@ const StudentGateAdminView = () => {
           }
         }
 
-        list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
         if (!cancelled) {
           setPeople(list);
           setLoading(false);
@@ -145,6 +178,8 @@ const StudentGateAdminView = () => {
         if (!cancelled) setLoading(false);
       }
     });
+
+    vdsUserService.fetchAllUsers().catch(() => {});
 
     return () => {
       cancelled = true;
@@ -250,6 +285,8 @@ const StudentGateAdminView = () => {
         if (statusMap[a]) return statusMap[a];
       }
     }
+    if (person.tc && statusMap[person.tc]) return statusMap[person.tc];
+    if (person.schoolNumber && statusMap[person.schoolNumber]) return statusMap[person.schoolNumber];
     return 'outside';
   }, [statusMap]);
 
@@ -291,7 +328,7 @@ const StudentGateAdminView = () => {
       }).catch(e => console.warn('VDS manual attendance log:', e?.message));
 
       // 2. Firestore ve RTDB birincil garantili kayıt (web ve diğer cihazlarda asla aksamaz)
-      await Promise.all([
+      const writePromises = [
         setDoc(doc(db, 'gate_status', person.id), {
           status: nextAction,
           lastAction: nextAction,
@@ -321,7 +358,27 @@ const StudentGateAdminView = () => {
           sessionId: 'manual_admin',
           config
         }).catch(() => {})
-      ]);
+      ];
+
+      if (Array.isArray(person.aliases)) {
+        person.aliases.forEach(aliasId => {
+          if (aliasId && aliasId !== person.id) {
+            writePromises.push(
+              setDoc(doc(db, 'gate_status', aliasId), {
+                status: nextAction,
+                lastAction: nextAction,
+                date: dateKey,
+                time: nowTime,
+                studentName: person.name,
+                role: person.role,
+                timestamp: serverTimestamp()
+              }).catch(() => {})
+            );
+          }
+        });
+      }
+
+      await Promise.all(writePromises);
 
       flash('success', nextAction === 'entry'
         ? `${person.name} — kuruma giriş yaptı (Rapor güncellendi).`
@@ -370,17 +427,22 @@ const StudentGateAdminView = () => {
   };
 
   const filteredPeople = useMemo(() => {
-    const q = searchText.trim().toLocaleLowerCase('tr');
+    const q = (searchText || '').trim().toLocaleLowerCase('tr');
     return people.filter(p => {
+      if (!p) return false;
       if (roleFilter === 'student' && (p.isStaff || p.isParent)) return false;
       if (roleFilter === 'staff' && !p.isStaff) return false;
       if (roleFilter === 'parent' && !p.isParent) return false;
       if (!q) return true;
+      const pName = String(p.name || '').toLocaleLowerCase('tr');
+      const pSch = String(p.schoolNumber || '');
+      const pTc = String(p.tc || '');
+      const pGroup = String(p.group || '').toLocaleLowerCase('tr');
       return (
-        p.name.toLocaleLowerCase('tr').includes(q) ||
-        (p.schoolNumber || '').includes(q) ||
-        (p.tc || '').includes(q) ||
-        (p.group || '').toLocaleLowerCase('tr').includes(q)
+        pName.includes(q) ||
+        pSch.includes(q) ||
+        pTc.includes(q) ||
+        pGroup.includes(q)
       );
     });
   }, [people, searchText, roleFilter]);

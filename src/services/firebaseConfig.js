@@ -46,7 +46,9 @@ const storage = getStorage(app);
 const rtdb = getDatabase(app);
 
 export const mapSdkToRest = (docSnapshot) => {
-  const data = docSnapshot.data();
+  const data = (docSnapshot && typeof docSnapshot.data === 'function') ? docSnapshot.data() : (docSnapshot || {});
+  const id = docSnapshot.id || data.id || data._id || '';
+  const docPath = (docSnapshot.ref && docSnapshot.ref.path) ? docSnapshot.ref.path : `users/${id}`;
   const fields = {};
   
   for (const [key, value] of Object.entries(data)) {
@@ -70,7 +72,12 @@ export const mapSdkToRest = (docSnapshot) => {
   }
 
   return {
-    name: `projects/bgz-mobil/databases/(default)/documents/${docSnapshot.ref.path}`,
+    ...data,
+    id,
+    _id: id,
+    canonical_id: data.canonical_id || id,
+    firebase_uid: data.firebase_uid || id,
+    name: `projects/bgz-mobil/databases/(default)/documents/${docPath}`,
     fields
   };
 };

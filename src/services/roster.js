@@ -40,18 +40,32 @@ export const normalizeName = (s = '') => String(s || '')
   .replace(/\s+/g, ' ')
   .trim();
 
-const NAME_KEYS = ['full_name', 'fullName', 'name', 'displayName', 'display_name'];
+const NAME_KEYS = ['full_name', 'fullName', 'displayName', 'display_name'];
 
 export const nameOf = (u) => {
+  if (u?.full_name && typeof u.full_name === 'string') return u.full_name;
+  if (u?.fullName && typeof u.fullName === 'string') return u.fullName;
+  if (u?.displayName && typeof u.displayName === 'string') return u.displayName;
+  if (u?.name && typeof u.name === 'string' && !u.name.startsWith('projects/')) return u.name;
+
   for (const k of NAME_KEYS) {
     const v = u?.fields?.[k]?.stringValue;
-    if (v) return v;
+    if (v && typeof v === 'string' && !v.startsWith('projects/')) return v;
   }
+  const fName = u?.fields?.name?.stringValue;
+  if (fName && typeof fName === 'string' && !fName.startsWith('projects/')) return fName;
+
+  if (u?.first_name) return `${u.first_name} ${u.last_name || ''}`.trim();
+
   return '';
 };
 
-const str = (u, k) => u?.fields?.[k]?.stringValue || '';
-const phoneOf = (u) => String(str(u, 'phone') || str(u, 'telefon') || '').replace(/\D/g, '').slice(-10);
+const str = (u, k) => {
+  if (u?.[k] !== undefined && u?.[k] !== null && typeof u?.[k] !== 'object') return String(u[k]);
+  return u?.fields?.[k]?.stringValue || '';
+};
+
+const phoneOf = (u) => String(str(u, 'phone') || str(u, 'telefon') || str(u, 'student_phone') || str(u, 'parent_phone') || '').replace(/\D/g, '').slice(-10);
 
 /** Kurumdan ayrilanlar ve gizli hesaplar: listelerde ve sayimlarda asla gorunmez. */
 const DEPARTED = ['kantemir', 'patron', 'bogazici yonetim'];
@@ -85,7 +99,7 @@ const basePoolOf = (u) => {
   if (ADMIN_ROLES.includes(r)) return POOL.ADMIN;
   if (PARENT_ROLES.includes(r)) return POOL.PARENT;
   if (STUDENT_ROLES.includes(r)) return POOL.STUDENT;
-  return str(u, 'school_number') || str(u, 'schoolNumber') ? POOL.STUDENT : null;
+  return str(u, 'school_number') || str(u, 'schoolNumber') || u?.school_number || u?.schoolNumber ? POOL.STUDENT : null;
 };
 
 const makeStaffDoc = (s) => ({
@@ -127,6 +141,11 @@ const mergeInto = (target, source) => {
   for (const [k, v] of Object.entries(source.fields || {})) {
     if (!target.fields[k]?.stringValue && v?.stringValue) target.fields[k] = v;
   }
+  for (const [k, v] of Object.entries(source)) {
+    if (k !== 'fields' && k !== '_pools' && k !== '_legacyIds' && target[k] === undefined && v !== undefined) {
+      target[k] = v;
+    }
+  }
   target._pools = [...new Set([...(target._pools || []), ...(source._pools || [])])];
   target._legacyIds = [...new Set([...(target._legacyIds || []), ...(source._legacyIds || [])])];
   // Okunakli yazimi tercih et: "MESUT ÇOLAK" yerine "Mesut Çolak".
@@ -134,6 +153,8 @@ const mergeInto = (target, source) => {
   const s = nameOf(source);
   if (t && s && t === t.toUpperCase() && s !== s.toUpperCase()) {
     NAME_KEYS.forEach((k) => { if (target.fields[k]) target.fields[k] = { stringValue: s }; });
+    target.full_name = s;
+    target.fullName = s;
   }
 };
 
@@ -276,7 +297,7 @@ export const buildRoster = (docs = []) => {
     doc.role = doc._primaryPool;
   }
 
-  list.sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'tr'));
+  list.sort((a, b) => (nameOf(a) || '').localeCompare(nameOf(b) || '', 'tr'));
   return list;
 };
 

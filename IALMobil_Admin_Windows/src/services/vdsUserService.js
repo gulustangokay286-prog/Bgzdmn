@@ -12,7 +12,17 @@ class VDSUserService {
         const saved = window.localStorage.getItem('vds_cached_users');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) cached = this.deduplicateUsers(parsed).map(u => this.wrapUser(u));
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const hasHealthyNames = parsed.every(u => {
+              const nm = u.full_name || u.fullName || u.fields?.full_name?.stringValue || '';
+              return nm && !nm.startsWith('projects/');
+            });
+            if (hasHealthyNames) {
+              cached = this.deduplicateUsers(parsed).map(u => this.wrapUser(u));
+            } else {
+              window.localStorage.removeItem('vds_cached_users');
+            }
+          }
         }
       }
     } catch (e) {}
@@ -48,7 +58,17 @@ class VDSUserService {
       const email = (u.email || (u.fields?.email?.stringValue) || '').trim().toLowerCase();
       if (email && email.includes('@')) return `email:${email}`;
 
-      const name = (u.full_name || u.fullName || u.name || (u.fields?.full_name?.stringValue) || '').trim().toLowerCase();
+      const name = (
+        u.full_name ||
+        u.fullName ||
+        u.displayName ||
+        (typeof u.name === 'string' && !u.name.startsWith('projects/') ? u.name : '') ||
+        u.fields?.full_name?.stringValue ||
+        u.fields?.fullName?.stringValue ||
+        u.fields?.displayName?.stringValue ||
+        (u.fields?.name?.stringValue && !u.fields.name.stringValue.startsWith('projects/') ? u.fields.name.stringValue : '') ||
+        ''
+      ).trim().toLowerCase();
       return `name_role:${name}:${role}`;
     };
 
@@ -61,12 +81,18 @@ class VDSUserService {
         mergedMap.set(key, { ...u, aliases: [...aliases] });
       } else {
         const existing = mergedMap.get(key);
-        const combinedAliases = new Set([...(existing.aliases || []), ...aliases]);
+        const combinedAliases = new Set([...(existing.aliases || []), ...(u.aliases || []), ...aliases]);
 
         const merged = { ...u, ...existing };
         for (const [k, v] of Object.entries(u)) {
           if (v !== null && v !== undefined && v !== '' && (merged[k] === null || merged[k] === undefined || merged[k] === '')) {
             merged[k] = v;
+          }
+        }
+        if (u.fields && typeof u.fields === 'object') {
+          merged.fields = { ...(merged.fields || {}) };
+          for (const [fk, fv] of Object.entries(u.fields)) {
+            if (!merged.fields[fk]) merged.fields[fk] = fv;
           }
         }
         merged.aliases = [...combinedAliases];
@@ -134,19 +160,90 @@ class VDSUserService {
 
   wrapUser(u) {
     if (!u) return u;
-    const id = u._id || u.id;
-    const fields = {};
-    for (const [k, v] of Object.entries(u)) {
-      if (typeof v === 'string') fields[k] = { stringValue: v };
-      else if (typeof v === 'number') fields[k] = { integerValue: String(v) };
-      else if (typeof v === 'boolean') fields[k] = { booleanValue: v };
+
+    const id = String(u.id || u._id || u.canonical_id || u.firebase_uid ||
+      (typeof u.name === 'string' && u.name.startsWith('projects/') ? u.name.split('/').pop() : '') ||
+      '').trim();
+
+    const personName = (
+      u.full_name ||
+      u.fullName ||
+      u.displayName ||
+      (typeof u.name === 'string' && !u.name.startsWith('projects/') ? u.name : '') ||
+      (u.fields?.full_name?.stringValue) ||
+      (u.fields?.fullName?.stringValue) ||
+      (u.fields?.displayName?.stringValue) ||
+      (u.fields?.name?.stringValue && !u.fields.name.stringValue.startsWith('projects/') ? u.fields.name.stringValue : '') ||
+      (u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : '') ||
+      ''
+    ).trim();
+
+    const role = (
+      u.role ||
+      (u.fields?.role?.stringValue) ||
+      (u.school_number || u.fields?.school_number?.stringValue ? 'student' : '') ||
+      'student'
+    ).toLowerCase().trim();
+
+    const tc = (u.tc_kimlik || u.tcKimlik || u.tc || u.fields?.tc_kimlik?.stringValue || '').trim();
+    const schoolNumber = (u.school_number || u.schoolNumber || u.fields?.school_number?.stringValue || '').trim();
+    const branch = (u.branch || u.class_id || u.fields?.branch?.stringValue || u.fields?.class_id?.stringValue || '').trim();
+    const phone = (u.phone || u.student_phone || u.parent_phone || u.fields?.phone?.stringValue || '').trim();
+    const email = (u.email || u.fields?.email?.stringValue || '').trim().toLowerCase();
+    const status = (u.status || u.fields?.status?.stringValue || 'approved').trim();
+
+    const fields = { ...(u.fields || {}) };
+
+    if (personName) {
+      fields.full_name = { stringValue: personName };
+      fields.fullName = { stringValue: personName };
+      fields.displayName = { stringValue: personName };
+      if (!fields.name || (fields.name.stringValue && fields.name.stringValue.startsWith('projects/'))) {
+        fields.name = { stringValue: personName };
+      }
     }
+    if (role) fields.role = { stringValue: role };
+    if (tc) fields.tc_kimlik = { stringValue: tc };
+    if (schoolNumber) fields.school_number = { stringValue: schoolNumber };
+    if (branch) fields.branch = { stringValue: branch };
+    if (phone) fields.phone = { stringValue: phone };
+    if (email) fields.email = { stringValue: email };
+    if (status) fields.status = { stringValue: status };
+
+    for (const [k, v] of Object.entries(u)) {
+      if (k === 'fields' || k === 'name' || k === 'aliases' || k === '_pools' || k === '_legacyIds') continue;
+      if (!fields[k] && v !== null && v !== undefined && v !== '') {
+        if (typeof v === 'string') fields[k] = { stringValue: v };
+        else if (typeof v === 'number') fields[k] = { integerValue: String(v) };
+        else if (typeof v === 'boolean') fields[k] = { booleanValue: v };
+      }
+    }
+
+    const aliases = Array.from(new Set([
+      ...(Array.isArray(u.aliases) ? u.aliases : []),
+      id,
+      u._id,
+      u.id,
+      u.canonical_id,
+      u.firebase_uid
+    ].filter(Boolean)));
+
     return {
       ...u,
       id,
       _id: id,
-      aliases: u.aliases || [id],
-      name: 'projects/bgz-mobil/databases/(default)/documents/users/' + id,
+      aliases,
+      name: `projects/bgz-mobil/databases/(default)/documents/users/${id}`,
+      full_name: personName,
+      fullName: personName,
+      displayName: personName,
+      role,
+      tc_kimlik: tc,
+      school_number: schoolNumber,
+      branch,
+      phone,
+      email,
+      status,
       fields
     };
   }
