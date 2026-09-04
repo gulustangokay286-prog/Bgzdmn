@@ -1,4 +1,6 @@
 import { io } from 'socket.io-client';
+import { db, mapSdkToRest } from './firebaseConfig';
+import { collection, getDocs } from 'firebase/firestore';
 
 const VDS_BASE_URL = 'http://213.142.159.36:8080';
 
@@ -181,23 +183,47 @@ class VDSUserService {
 
     this.isFetching = true;
     this.fetchPromise = (async () => {
+      let loaded = false;
       try {
-        const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data && Array.isArray(data.users) && data.users.length > 0) {
-          const deduped = this.deduplicateUsers(data.users);
-          this.users = deduped.map(u => this.wrapUser(u));
-          this.hasFetched = true;
-          this.saveToStorage();
-          this.notify();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.users) && data.users.length > 0) {
+            const deduped = this.deduplicateUsers(data.users);
+            this.users = deduped.map(u => this.wrapUser(u));
+            this.hasFetched = true;
+            this.saveToStorage();
+            this.notify();
+            loaded = true;
+          }
         }
       } catch (err) {
-        console.error('[VDSUserService] Fetch Error:', err);
-      } finally {
-        this.isFetching = false;
-        this.fetchPromise = null;
+        console.warn('[VDSUserService] VDS fetch notice (falling back to Firestore):', err.message);
       }
+
+      // VDS yanıt vermediyse veya web mixed-content engeli varsa anında Firestore yedeğine geç
+      if (!loaded && (!this.users || this.users.length === 0 || force)) {
+        try {
+          const snap = await getDocs(collection(db, 'users'));
+          if (!snap.empty) {
+            const fbUsers = snap.docs.map(docSnap => mapSdkToRest(docSnap));
+            const deduped = this.deduplicateUsers(fbUsers);
+            this.users = deduped.map(u => this.wrapUser(u));
+            this.hasFetched = true;
+            this.saveToStorage();
+            this.notify();
+            loaded = true;
+          }
+        } catch (fsErr) {
+          console.error('[VDSUserService] Firestore Fallback Error:', fsErr);
+        }
+      }
+
+      this.isFetching = false;
+      this.fetchPromise = null;
       return this.users;
     })();
 

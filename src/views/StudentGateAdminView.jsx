@@ -40,7 +40,7 @@ const StudentGateAdminView = () => {
   const [statusMap, setStatusMap] = useState({});
   const [searchText, setSearchText] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(vdsUserService.users && vdsUserService.users.length > 0));
   const [processingId, setProcessingId] = useState(null);
   const [lateRequests, setLateRequests] = useState([]);
   const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
@@ -78,6 +78,10 @@ const StudentGateAdminView = () => {
   // VDS Kullanıcı Listesi Dinleyicisi
   useEffect(() => {
     let cancelled = false;
+
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 2500);
 
     const unsub = vdsUserService.subscribe((userList) => {
       try {
@@ -144,6 +148,7 @@ const StudentGateAdminView = () => {
 
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimer);
       try { unsub(); } catch { /* dinleyici kapalı */ }
     };
   }, []);
@@ -269,8 +274,8 @@ const StudentGateAdminView = () => {
     try {
       const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-      // 1. VDS Birincil Otoriter Kayıt (Yoklama logu, anlık soket yayını ve gerçek zamanlı veli SMS'i)
-      const res = await fetch('http://213.142.159.36:8080/api/attendance/manual', {
+      // 1. VDS Kaydı (erişilebiliyorsa)
+      fetch('http://213.142.159.36:8080/api/attendance/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -283,48 +288,44 @@ const StudentGateAdminView = () => {
           tc: person.tc,
           method: 'manual_admin'
         })
-      });
+      }).catch(e => console.warn('VDS manual attendance log:', e?.message));
 
-      if (!res.ok) {
-        throw new Error(`VDS Sunucu Hatası: HTTP ${res.status}`);
-      }
-
-      // Arka plan yedeklemeleri (asla işlemi aksatmaz veya hata fırlatmaz)
-      setDoc(doc(db, 'gate_status', person.id), {
-        status: nextAction,
-        lastAction: nextAction,
-        date: dateKey,
-        time: nowTime,
-        studentName: person.name,
-        role: person.role,
-        timestamp: serverTimestamp()
-      }).catch(() => {});
-
-      update(ref(rtdb), {
-        [`qr_system/gate_status/${person.id}`]: {
+      // 2. Firestore ve RTDB birincil garantili kayıt (web ve diğer cihazlarda asla aksamaz)
+      await Promise.all([
+        setDoc(doc(db, 'gate_status', person.id), {
           status: nextAction,
           lastAction: nextAction,
           date: dateKey,
           time: nowTime,
-          name: person.name,
+          studentName: person.name,
           role: person.role,
-          timestamp: rtdbServerTimestamp()
-        }
-      }).catch(() => {});
-
-      recordGatePassage({
-        student: person,
-        action: nextAction,
-        method: 'manual_admin',
-        isManualApproval: nextAction === 'entry',
-        approvedBy: 'Görevli Öğretmen (Panel)',
-        sessionId: 'manual_admin',
-        config
-      }).catch(() => {});
+          timestamp: serverTimestamp()
+        }),
+        update(ref(rtdb), {
+          [`qr_system/gate_status/${person.id}`]: {
+            status: nextAction,
+            lastAction: nextAction,
+            date: dateKey,
+            time: nowTime,
+            name: person.name,
+            role: person.role,
+            timestamp: rtdbServerTimestamp()
+          }
+        }),
+        recordGatePassage({
+          student: person,
+          action: nextAction,
+          method: 'manual_admin',
+          isManualApproval: nextAction === 'entry',
+          approvedBy: 'Görevli Öğretmen (Panel)',
+          sessionId: 'manual_admin',
+          config
+        }).catch(() => {})
+      ]);
 
       flash('success', nextAction === 'entry'
-        ? `${person.name} — kuruma giriş yaptı (SMS ve Rapor güncellendi).`
-        : `${person.name} — kurumdan çıkış yaptı (SMS ve Rapor güncellendi).`);
+        ? `${person.name} — kuruma giriş yaptı (Rapor güncellendi).`
+        : `${person.name} — kurumdan çıkış yaptı (Rapor güncellendi).`);
     } catch (err) {
       console.error('Geçiş kaydedilemedi:', err);
       setStatusMap(prev => {
