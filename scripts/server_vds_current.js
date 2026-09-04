@@ -623,9 +623,13 @@ app.get('/api/gate-status/:id', async (req, res) => {
         res.json({
             success: true,
             exists: true,
-            status: (status.status === 'entry' || status.status === 'inside') ? 'entry' : 'outside',
+            status: status.status === 'absent' ? 'absent' : ((status.status === 'entry' || status.status === 'inside') ? 'entry' : 'outside'),
             date: status.date,
-            timestamp: status.timestamp
+            timestamp: status.timestamp,
+            session: status.session,
+            absenceWeight: status.absenceWeight,
+            reason: status.reason,
+            note: status.note
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -638,10 +642,17 @@ app.get('/api/gate-status', async (req, res) => {
         const map = {};
         statuses.forEach(s => {
             const sid = s._id || s.studentId;
+            let statusVal = 'outside';
+            if (s.status === 'absent') statusVal = 'absent';
+            else if (s.status === 'entry' || s.status === 'inside') statusVal = 'inside';
             map[sid] = {
-                status: s.status === 'entry' || s.status === 'inside' ? 'inside' : 'outside',
+                status: statusVal,
                 date: s.date,
-                timestamp: s.timestamp
+                timestamp: s.timestamp,
+                session: s.session,
+                absenceWeight: s.absenceWeight,
+                reason: s.reason,
+                note: s.note
             };
         });
         res.json({ success: true, statuses, map });

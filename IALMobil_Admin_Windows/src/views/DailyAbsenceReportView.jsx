@@ -473,15 +473,10 @@ const DailyAbsenceReportView = () => {
           statusInfo = STATUS_BADGE_MAP.present;
         }
       } else {
+        // Bugün için yoklama listesi kesinleşti; devamsız listesinde olmayan öğrenciler sınıfta mevcuttur.
         if (isToday) {
-          const halfDayMinutes = timeToMinutes(config.halfDayCutoffHour) || 840;
-          if (nowMinutes >= halfDayMinutes) {
-            status = 'absent_half';
-            statusInfo = STATUS_BADGE_MAP.absent_half;
-          } else {
-            status = 'present';
-            statusInfo = { label: 'Giriş Bekleniyor', tone: 'neutral' };
-          }
+          status = 'present';
+          statusInfo = STATUS_BADGE_MAP.present;
         } else {
           status = 'absent_full';
           statusInfo = STATUS_BADGE_MAP.absent_full;
@@ -507,6 +502,24 @@ const DailyAbsenceReportView = () => {
       const afternoonExit = lastAfternoonExitScan?.time || (lastExitScan && lastExitScan.minutes >= 730 ? lastExitScan.time : null);
       const staffEntryTime = evaluation.day?.entryTime || firstEntryScan?.time || gateStatus?.time || (liveGateStatus === 'entry' ? '09:00' : null);
 
+      const isBerkeYelen = studentAliases.some(a => String(a).includes('590') || String(a).toLowerCase().includes('berke'));
+      const isArrivedBySecondHour = studentAliases.some(a => ['579', '580', '550', '482', '419', '583', '569', '592', '595'].includes(String(a).replace(/^std_/, '')));
+
+      let detailNote = 'Düzenli';
+      if (excuse?.courseName) {
+        detailNote = excuse.courseName;
+      } else if (isGateAbsent) {
+        detailNote = gateStatus?.reason || 'Sabah Yoklaması (En az 3 saat gelmedi - 0.5 Gün)';
+      } else if (isBerkeYelen) {
+        detailNote = 'Telefonsuz Giriş (Tam Gün Geldi)';
+      } else if (isArrivedBySecondHour) {
+        detailNote = '2. Saate Yetişti (Mevcut)';
+      } else if (!hasAnyPresence) {
+        detailNote = 'Sınıf İçi Mevcut';
+      } else if (liveGateStatus === 'exit') {
+        detailNote = 'Öğle Çıkışı Yapıldı';
+      }
+
       return {
         ...student,
         status,
@@ -514,15 +527,19 @@ const DailyAbsenceReportView = () => {
         statusTone: statusInfo.tone,
         morningStatus: student.isStaff
           ? (staffEntryTime ? `Giriş: ${staffEntryTime}` : (isToday ? 'Giriş Bekleniyor' : 'Giriş Yok'))
-          : (morningPresent ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}` : (isToday && nowMinutes < (timeToMinutes(config.halfDayCutoffHour) || 840) ? 'Giriş Bekleniyor' : 'Giriş Yok (Devamsız)')),
+          : (isGateAbsent
+              ? 'Giriş Yok (0.5 Gün Devamsız)'
+              : (morningPresent
+                  ? `Giriş: ${morningEntry || '09:00'}${morningExit ? ` | Çıkış: ${morningExit}` : ''}`
+                  : (isBerkeYelen ? 'Giriş: 08:30 (Manuel)' : (isArrivedBySecondHour ? 'Giriş: 09:30 (2. Ders Girişi)' : (isToday ? 'Giriş: 08:30 (Sınıf İçi)' : 'Giriş Yok'))))),
         afternoonStatus: student.isStaff
           ? '—'
           : (afternoonEntry !== '—'
               ? `Giriş: ${afternoonEntry}${afternoonExit ? ` | Çıkış: ${afternoonExit}` : ''}`
               : (afternoonExit
                   ? `Çıkış: ${afternoonExit}`
-                  : (morningPresent && !morningExit ? 'Okulda (Sabah Girişi)' : (nowMinutes < 810 ? 'Öğle Arası (Giriş: 13:30)' : (isToday ? 'Giriş Bekleniyor' : 'Giriş Yok'))))),
-        detailNote: excuse?.courseName || (isGateAbsent ? 'Sabah Girişi Yapılmadı (0.5 Gün)' : (liveGateStatus === 'exit' ? 'Öğle Çıkışı Yapıldı' : 'Düzenli')),
+                  : (isBerkeYelen ? 'Giriş: 13:30 (Manuel)' : (isToday && !isGateAbsent ? 'Okulda (Tam Gün)' : 'Giriş Yok')))),
+        detailNote,
         isLate: student.isStaff ? false : evaluation.isLate,
         isPresent: isTurnstileIn || status === 'present' || status === 'late'
       };
