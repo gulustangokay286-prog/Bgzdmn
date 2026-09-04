@@ -22,17 +22,18 @@ const roleOf = (u) => u?.fields?.role?.stringValue?.toLowerCase() || '';
 const statusOf = (u) => u?.fields?.status?.stringValue?.toLowerCase() || '';
 
 const UsersView = () => {
-  const [users, setUsers] = useState(() => buildRoster(vdsUserService.users || []));
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState(() => (vdsUserService.users && vdsUserService.users.length > 0 ? buildRoster(vdsUserService.users) : []));
+  const [loading, setLoading] = useState(() => !(vdsUserService.users && vdsUserService.users.length > 0));
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   useEffect(() => {
-    setLoading(true);
     const unsub = vdsUserService.subscribe((list) => {
-      setUsers(buildRoster(list));
-      setLoading(false);
+      if (Array.isArray(list) && list.length > 0) {
+        setUsers(buildRoster(list));
+        setLoading(false);
+      }
     });
 
     vdsUserService.fetchAllUsers().then((list) => {

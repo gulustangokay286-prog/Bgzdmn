@@ -149,6 +149,9 @@ export const isStaff = (doc) => hasPool(doc, POOL.TEACHER) || hasPool(doc, POOL.
  * Her cikti dokumaninda `_pools` (tum roller) ve `_primaryPool` bulunur.
  */
 export const buildRoster = (docs = []) => {
+  if (!Array.isArray(docs) || docs.length === 0) {
+    return [];
+  }
   const byKey = new Map();
 
   for (const raw of docs) {

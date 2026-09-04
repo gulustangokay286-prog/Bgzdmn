@@ -68,34 +68,15 @@ const CLASS_OPTIONS = [
 const DailyAbsenceReportView = () => {
   const { config } = useAttendanceConfig();
 
-  const [selectedDate, setSelectedDate] = useState(() => getDateKeyInTimeZone(new Date(), 'Europe/Istanbul'));
-  const [allStudents, setAllStudents] = useState([]);
-  const [vdsGateStatus, setVdsGateStatus] = useState({});
-  const [vdsLogs, setVdsLogs] = useState({});
-  const [rtdbLogs, setRtdbLogs] = useState({});
-  const [rtdbGateStatus, setRtdbGateStatus] = useState({});
-  const [firestoreLogs, setFirestoreLogs] = useState({});
-  const [gateStatusMap, setGateStatusMap] = useState({});
-  const [manualAttendance, setManualAttendance] = useState({});
-  const [socketConnected, setSocketConnected] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [roleFilter, setRoleFilter] = useState('student');
-  const [selectedClassFilter, setSelectedClassFilter] = useState('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
-
-  const todayKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul'), [config.timeZone]);
-  const isToday = selectedDate === todayKey;
-
   const parseUser = (data) => {
     if (!data) return null;
-    const role = (data.role || '').toLowerCase();
+    const role = (data.role || data.fields?.role?.stringValue || '').toLowerCase().trim();
     const isStudent = role === 'student' || role === 'öğrenci';
     const staff = isStaffRole(role);
     if (!isStudent && !staff) return null;
 
-    const profileImage = data.profile_image || data.profileImageUrl || data.photo_url || null;
-    const tc = data.tc_kimlik || data.tcKimlik || data.tc || '';
+    const profileImage = data.profile_image || data.fields?.profile_image?.stringValue || data.profileImageUrl || data.photo_url || null;
+    const tc = data.tc_kimlik || data.fields?.tc_kimlik?.stringValue || data.tcKimlik || data.tc || '';
     const id = data.id || data._id;
 
     if (staff) {
@@ -105,25 +86,26 @@ const DailyAbsenceReportView = () => {
         role,
         isStaff: true,
         roleKind: isTeacherOrAdmin ? 'teacher' : 'personnel',
-        name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Personel',
+        name: data.full_name || data.fields?.full_name?.stringValue || data.fullName || (typeof data.name === 'string' && !data.name.startsWith('projects/') ? data.name : '') || data.displayName || 'İsimsiz Personel',
         tc,
         schoolNumber: '—',
         classGrade: '—',
-        branch: (data.branch || data.department || (isTeacherOrAdmin ? (data.branch || (['admin', 'yönetici'].includes(role) ? 'Yönetim / İdare' : 'Öğretmen')) : 'Departman belirtilmemiş')).toUpperCase(),
+        branch: (data.branch || data.fields?.branch?.stringValue || data.department || (isTeacherOrAdmin ? (['admin', 'yönetici'].includes(role) ? 'Yönetim / İdare' : 'Öğretmen') : 'Departman belirtilmemiş')).toUpperCase(),
         profileImage
       };
     }
 
-    let branch = data.branch || '';
-    let classGrade = '12';
-    if (!branch && data.class_id) {
-      branch = `${data.class_id}/${data.section || 'A'}`;
+    let branch = data.branch || data.fields?.branch?.stringValue || '';
+    let classGrade = String(data.class_id || data.fields?.class_id?.stringValue || data.grade || '').trim();
+    if (!branch && classGrade) {
+      branch = `${classGrade}/${data.section || data.fields?.section?.stringValue || data.sube || 'A'}`;
     }
     if (branch) {
       const match = branch.match(/\d+/);
       if (match) classGrade = match[0];
     } else {
       branch = '12/A';
+      classGrade = '12';
     }
 
     return {
@@ -131,22 +113,73 @@ const DailyAbsenceReportView = () => {
       role: role || 'student',
       isStaff: false,
       roleKind: 'student',
-      name: data.full_name || data.fullName || data.name || data.displayName || 'İsimsiz Öğrenci',
+      name: data.full_name || data.fields?.full_name?.stringValue || data.fullName || (typeof data.name === 'string' && !data.name.startsWith('projects/') ? data.name : '') || data.displayName || 'İsimsiz Öğrenci',
       tc,
-      schoolNumber: data.school_number || data.schoolNumber || data.no || '—',
+      schoolNumber: data.school_number || data.fields?.school_number?.stringValue || data.schoolNumber || data.no || '—',
       classGrade,
       branch: branch.toUpperCase(),
       profileImage
     };
   };
 
+  const [allStudents, setAllStudents] = useState(() => {
+    const initialList = vdsUserService.users || [];
+    if (initialList.length > 0) {
+      const seen = new Set();
+      const uniqueUsers = [];
+      for (const u of initialList) {
+        const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueUsers.push(u);
+        }
+      }
+      return uniqueUsers.map(parseUser).filter(Boolean);
+    }
+    return [];
+  });
+  const [vdsGateStatus, setVdsGateStatus] = useState({});
+  const [vdsLogs, setVdsLogs] = useState({});
+  const [rtdbLogs, setRtdbLogs] = useState({});
+  const [rtdbGateStatus, setRtdbGateStatus] = useState({});
+  const [firestoreLogs, setFirestoreLogs] = useState({});
+  const [gateStatusMap, setGateStatusMap] = useState({});
+  const [manualAttendance, setManualAttendance] = useState({});
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [loading, setLoading] = useState(() => allStudents.length === 0);
+  const [searchText, setSearchText] = useState('');
+  const [roleFilter, setRoleFilter] = useState('student');
+  const [selectedClassFilter, setSelectedClassFilter] = useState('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
+
+  const todayKey = useMemo(() => getDateKeyInTimeZone(new Date(), config.timeZone || 'Europe/Istanbul'), [config.timeZone]);
+  const isToday = selectedDate === todayKey;
+
   // 1. Load users primarily from VDS MongoDB
   useEffect(() => {
-    setLoading(allStudents.length === 0);
+    let isMounted = true;
+    const processUsers = (users) => {
+      if (!users || users.length === 0) return;
+      const seen = new Set();
+      const uniqueUsers = [];
+      for (const u of users) {
+        const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueUsers.push(u);
+        }
+      }
+      const parsed = uniqueUsers.map(parseUser).filter(Boolean);
+      parsed.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+      if (isMounted && parsed.length > 0) {
+        setAllStudents(parsed);
+        setLoading(false);
+      }
+    };
 
     const loadUsers = async () => {
       try {
-        let users = await vdsUserService.fetchAllUsers(true);
+        let users = await vdsUserService.fetchAllUsers();
         if (!users || users.length === 0) {
           const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`);
           if (res.ok) {
@@ -154,53 +187,21 @@ const DailyAbsenceReportView = () => {
             users = data.users || [];
           }
         }
-        if (users && users.length > 0) {
-          const seen = new Set();
-          const uniqueUsers = [];
-          for (const u of users) {
-            const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
-            if (!seen.has(key)) {
-              seen.add(key);
-              uniqueUsers.push(u);
-            }
-          }
-
-          const parsed = uniqueUsers.map(parseUser).filter(Boolean);
-          parsed.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-          setAllStudents(parsed);
-        }
+        processUsers(users);
       } catch (e) {
         console.warn('VDS Users fetch notice:', e?.message);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     loadUsers();
 
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1200);
-
     const unsubVds = vdsUserService.subscribe((users) => {
-      if (users && users.length > 0) {
-        const seen = new Set();
-        const uniqueUsers = [];
-        for (const u of users) {
-          const key = u.canonical_id || (u.school_number ? `std_${u.school_number}` : u._id || u.id);
-          if (!seen.has(key)) {
-            seen.add(key);
-            uniqueUsers.push(u);
-          }
-        }
-        const parsed = uniqueUsers.map(parseUser).filter(Boolean);
-        parsed.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-        setAllStudents(parsed);
-        setLoading(false);
-      }
+      processUsers(users);
     });
 
     return () => {
-      clearTimeout(timer);
+      isMounted = false;
       unsubVds();
     };
   }, []);

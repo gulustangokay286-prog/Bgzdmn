@@ -194,20 +194,26 @@ const SummaryRow = ({ label, value, tone = 'default' }) => (
 );
 
 const DashboardView = () => {
-  const [users, setUsers] = useState(() => buildRoster(vdsUserService.users || []));
+  const [users, setUsers] = useState(() => (vdsUserService.users && vdsUserService.users.length > 0 ? buildRoster(vdsUserService.users) : []));
   const [financeRecords, setFinanceRecords] = useState([]);
   const [studentPayments, setStudentPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(vdsUserService.users && vdsUserService.users.length > 0));
   const [refreshing, setRefreshing] = useState(false);
   const [syncedAt, setSyncedAt] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     const [fetchedUsers, fetchedFinance, fetchedPayments] = await Promise.all([
-      vdsUserService.fetchAllUsers().catch(() => []),
+      vdsUserService.fetchAllUsers(force).catch(() => []),
       financeService.getCashTransactions().catch(() => []),
       financeService.fetchStudentPayments().catch(() => [])
     ]);
-    setUsers(buildRoster(fetchedUsers || []));
+    const validUsers = (Array.isArray(fetchedUsers) && fetchedUsers.length > 0)
+      ? fetchedUsers
+      : (Array.isArray(vdsUserService.users) && vdsUserService.users.length > 0 ? vdsUserService.users : null);
+
+    if (validUsers && validUsers.length > 0) {
+      setUsers(buildRoster(validUsers));
+    }
     setFinanceRecords(fetchedFinance || []);
     setStudentPayments(fetchedPayments || []);
     setSyncedAt(new Date());
@@ -216,7 +222,7 @@ const DashboardView = () => {
   useEffect(() => {
     let cancelled = false;
     const unsub = vdsUserService.subscribe((userList) => {
-      if (!cancelled) {
+      if (!cancelled && Array.isArray(userList) && userList.length > 0) {
         setUsers(buildRoster(userList));
         setLoading(false);
       }
@@ -240,7 +246,7 @@ const DashboardView = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await load();
+      await load(true);
     } catch (err) {
       console.error('Dashboard yenileme hatası:', err);
     }

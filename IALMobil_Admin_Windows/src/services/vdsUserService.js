@@ -4,11 +4,31 @@ const VDS_BASE_URL = 'http://213.142.159.36:8080';
 
 class VDSUserService {
   constructor() {
-    this.users = [];
+    let cached = [];
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('vds_cached_users');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) cached = parsed;
+        }
+      }
+    } catch (e) {}
+
+    this.users = cached;
     this.subscribers = new Set();
     this.isFetching = false;
-    this.hasFetched = false;
+    this.hasFetched = this.users.length > 0;
+    this.fetchPromise = null;
     this.initSocket();
+  }
+
+  saveToStorage() {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage && Array.isArray(this.users) && this.users.length > 0) {
+        window.localStorage.setItem('vds_cached_users', JSON.stringify(this.users));
+      }
+    } catch (e) {}
   }
 
   initSocket() {
@@ -29,6 +49,7 @@ class VDSUserService {
         const exists = this.users.some(u => (u._id || u.id) === (mapped._id || mapped.id));
         if (!exists) {
           this.users = [mapped, ...this.users];
+          this.saveToStorage();
           this.notify();
         }
       });
@@ -37,6 +58,7 @@ class VDSUserService {
         console.log('[VDS Socket] User updated:', updatedUser._id || updatedUser.id);
         const mapped = this.wrapUser(updatedUser);
         this.users = this.users.map(u => (u._id || u.id) === (mapped._id || mapped.id) ? mapped : u);
+        this.saveToStorage();
         this.notify();
       });
 
@@ -44,6 +66,7 @@ class VDSUserService {
         const id = payload._id || payload.id;
         console.log('[VDS Socket] User deleted:', id);
         this.users = this.users.filter(u => (u._id || u.id) !== id);
+        this.saveToStorage();
         this.notify();
       });
     } catch (e) {
@@ -73,9 +96,9 @@ class VDSUserService {
     this.subscribers.add(callback);
     if (this.users.length > 0) {
       callback(this.users);
-    } else if (!this.hasFetched) {
-      this.fetchAllUsers();
     }
+    // Fetch users in background if not already fetching
+    this.fetchAllUsers();
     return () => {
       this.subscribers.delete(callback);
     };
@@ -95,24 +118,32 @@ class VDSUserService {
     if (this.hasFetched && !force && this.users.length > 0) {
       return this.users;
     }
-    if (this.isFetching) return this.users;
+    if (this.fetchPromise) {
+      return this.fetchPromise;
+    }
 
     this.isFetching = true;
-    try {
-      const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data && Array.isArray(data.users)) {
-        this.users = data.users.map(u => this.wrapUser(u));
-        this.hasFetched = true;
-        this.notify();
+    this.fetchPromise = (async () => {
+      try {
+        const res = await fetch(`${VDS_BASE_URL}/api/users?limit=1000`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data && Array.isArray(data.users) && data.users.length > 0) {
+          this.users = data.users.map(u => this.wrapUser(u));
+          this.hasFetched = true;
+          this.saveToStorage();
+          this.notify();
+        }
+      } catch (err) {
+        console.error('[VDSUserService] Fetch Error:', err);
+      } finally {
+        this.isFetching = false;
+        this.fetchPromise = null;
       }
-    } catch (err) {
-      console.error('[VDSUserService] Fetch Error:', err);
-    } finally {
-      this.isFetching = false;
-    }
-    return this.users;
+      return this.users;
+    })();
+
+    return this.fetchPromise;
   }
 
   async updateUser(id, updates) {
