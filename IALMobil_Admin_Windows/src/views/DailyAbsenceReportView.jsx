@@ -457,7 +457,7 @@ const DailyAbsenceReportView = () => {
         }
       } else {
         if (isToday) {
-          const halfDayMinutes = timeToMinutes(config.halfDayCutoffHour) || 730;
+          const halfDayMinutes = timeToMinutes(config.halfDayCutoffHour) || 840;
           if (nowMinutes >= halfDayMinutes) {
             status = 'absent_half';
             statusInfo = STATUS_BADGE_MAP.absent_half;

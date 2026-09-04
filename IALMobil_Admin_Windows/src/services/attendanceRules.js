@@ -12,11 +12,11 @@ export const DEFAULT_ATTENDANCE_CONFIG = {
   lunchExitGraceMinutes: 10,        
 
   afternoonEntryHour: '13:30',
-  afternoonGraceMinutes: 10,        
+  afternoonGraceMinutes: 30, // 14:00'e kadar serbest giriş        
 
   schoolExitHour: '15:20',
 
-  halfDayCutoffHour: '12:10',
+  halfDayCutoffHour: '14:00', // 14:00'dan sonra yok yazılır
 
   autoAttendanceEnabled: true,      
   autoLunchExitEnabled: false,       
