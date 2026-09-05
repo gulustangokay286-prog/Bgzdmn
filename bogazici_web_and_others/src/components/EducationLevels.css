@@ -1,0 +1,127 @@
+/* ===== PREMIUM REFINED EDUCATION BAR ===== */
+.edu-section {
+  padding: 45px 0 35px 0;
+  background: #F8FAFC;
+  position: relative;
+  z-index: 10;
+}
+
+.edu-top-bar {
+  display: flex;
+  align-items: stretch;
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+}
+
+.edu-info-box {
+  flex: 0 0 290px;
+  padding: 34px 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.edu-subtag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #DC2626;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.edu-info-box h2 {
+  font-size: 1.48rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0 0 6px 0;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.edu-info-box p {
+  color: #64748B;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.edu-cards-wrap {
+  display: flex;
+  flex: 1;
+}
+
+.edu-card-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  color: #FFFFFF !important;
+  text-decoration: none;
+  transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  min-height: 135px;
+}
+
+.edu-card-btn:hover {
+  filter: brightness(0.94);
+  transform: scale(1.03);
+  z-index: 3;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.edu-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.edu-card-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #FFFFFF !important;
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.edu-card-sub {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+
+@media (max-width: 992px) {
+  .edu-top-bar {
+    flex-direction: column;
+  }
+  .edu-info-box {
+    flex: none;
+    padding: 26px 24px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .edu-cards-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .edu-card-btn {
+    min-height: 105px;
+    padding: 20px 10px;
+  }
+  .edu-card-sub {
+    display: none;
+  }
+}

@@ -1,0 +1,337 @@
+/* ===== APPLE MINIMALIST CLEAN EGITIM DESIGN WITH PURE 3D TRANSPARENT ICONS ===== */
+.apple-egitim-root {
+  min-height: 100vh;
+  background: #F4F6F9;
+  color: #16233F;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Apple Floating/Sticky Subnav */
+.apple-subnav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(244, 246, 249, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 14px 0;
+}
+.apple-subnav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.apple-subnav-brand {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #16233F;
+  letter-spacing: -0.01em;
+}
+.apple-tab-group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.apple-tab-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #8A94A6;
+  cursor: pointer;
+  padding: 6px 0;
+  position: relative;
+  transition: color 0.2s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.apple-tab-btn:hover {
+  color: #16233F;
+}
+.apple-tab-btn.active {
+  color: #16233F;
+  font-weight: 700;
+}
+.apple-tab-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #16233F;
+  border-radius: 1px;
+}
+
+/* Editorial Hero */
+.apple-hero {
+  padding: 80px 0 60px 0;
+  text-align: center;
+  max-width: 860px;
+  margin: 0 auto;
+}
+.apple-eyebrow {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #F0444C;
+  margin-bottom: 14px;
+}
+.apple-headline {
+  font-size: 3.2rem !important;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #16233F !important;
+  line-height: 1.15;
+  margin-bottom: 18px;
+}
+.apple-subheadline {
+  font-size: 1.15rem;
+  font-weight: 400;
+  color: #8A94A6;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Clean Nude Branch Detail Section */
+.apple-branch-stage {
+  padding: 50px 0 90px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.apple-branch-header-wrap {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-bottom: 44px;
+}
+.clean-3d-slot {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.clean-3d-slot:hover {
+  transform: translateY(-4px) scale(1.08);
+}
+.apple-branch-header {
+  flex: 1;
+}
+.apple-branch-meta {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+.apple-branch-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #16233F;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+.apple-branch-tagline {
+  font-size: 1.15rem;
+  font-weight: 400;
+  color: #64748B;
+  line-height: 1.55;
+  max-width: 780px;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* Nude 3-Column Pure Typographic Grid */
+.apple-nude-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.9fr;
+  gap: 50px;
+  margin-bottom: 50px;
+}
+.apple-nude-col h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #16233F;
+  letter-spacing: -0.01em;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.apple-nude-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.apple-nude-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.apple-item-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #16233F;
+  line-height: 1.4;
+}
+.apple-item-desc {
+  font-size: 0.84rem;
+  color: #8A94A6;
+  line-height: 1.45;
+}
+
+/* Big Minimalist Number Widget */
+.apple-stat-block {
+  margin-bottom: 26px;
+}
+.apple-big-num {
+  font-size: 3.2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.apple-stat-label {
+  font-size: 0.82rem;
+  color: #8A94A6;
+  font-weight: 600;
+}
+
+/* Minimalist Link Action */
+.apple-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 26px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+.apple-action-text {
+  font-size: 0.92rem;
+  color: #64748B;
+}
+.apple-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #2F6BFF;
+  text-decoration: none;
+  transition: gap 0.2s ease, color 0.2s ease;
+}
+.apple-cta-link:hover {
+  color: #1a52e0;
+  gap: 10px;
+}
+
+/* Kademeler Pure Typographic Section */
+.apple-stages-section {
+  padding: 80px 0 100px 0;
+}
+.apple-section-header {
+  margin-bottom: 50px;
+}
+.apple-sec-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8A94A6;
+  display: block;
+  margin-bottom: 8px;
+}
+.apple-sec-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #16233F;
+}
+.apple-stages-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 36px;
+}
+.apple-stage-col {
+  display: flex;
+  flex-direction: column;
+}
+.apple-stage-age {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #F0444C;
+  margin-bottom: 6px;
+}
+.apple-stage-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #16233F;
+  margin-bottom: 10px;
+}
+.apple-stage-desc {
+  font-size: 0.88rem;
+  color: #64748B;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.apple-stage-bullets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.apple-bullet-row {
+  font-size: 0.8rem;
+  color: #8A94A6;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .apple-branch-header-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .apple-nude-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .apple-stages-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+}
+@media (max-width: 640px) {
+  .apple-headline {
+    font-size: 2.1rem !important;
+  }
+  .apple-branch-title {
+    font-size: 1.8rem;
+  }
+  .apple-tab-group {
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 4px;
+    gap: 16px;
+  }
+  .apple-stages-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,791 @@
+/* ============================================================================
+   GUVENLI GECIS
+
+   YERLESIM
+   --------
+   Iki bolum ve aralarinda bir yay:
+     ust   acik zemin (#f8fafc) — sayac, arma, kurum adi
+     yay   SVG egri; alt bolum ustteki bolumun icine dogru kavis yapar
+     alt   lacivert (#1e3a8a) — baslik ve eylem alani
+
+   PALET referans tasarimdan alinmistir: lacivert #1e3a8a, bordo #9f1239,
+   acik zemin #f8fafc, koyu metin #0f172a, ikincil metin #64748b.
+
+   KAYMA KILIDI
+   ------------
+   .gate yuksekligi `--gate-h` degiskeninden gelir; JS tarafi bunu
+   `visualViewport` olcusuyle yazar (Gate.jsx > useViewportLock). Belge asla
+   kaydirilmaz; kaydirilabilen tek sey .gate__scroll kutusudur.
+   ========================================================================== */
+
+.gate,
+.gate__splash {
+  --navy: #1e3a8a;
+  --wine: #9f1239;
+  --wine-soft: rgba(159, 18, 57, 0.1);
+  --paper: #f8fafc;
+  --ink: #0f172a;
+  --ink-2: #64748b;
+  --sky: #93c5fd;
+
+  --on-navy: rgba(255, 255, 255, 0.78);
+  --on-navy-3: rgba(255, 255, 255, 0.55);
+  --hair: rgba(255, 255, 255, 0.16);
+  --fill: rgba(255, 255, 255, 0.08);
+
+  --curve-h: 52px;          /* yayin yuksekligi — alt bosluk bundan turer */
+  --r-lg: 18px;
+  --r-md: 14px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --t: 220ms;
+
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * KUTU NEDEN SABIT DEGIL
+ *
+ * Onceki iki deneme de ayni kokten hataliydi: kutu `position: fixed` idi ve
+ * `top` degeri DUZEN gorunumune gore cozuluyordu. Safari'de duzen gorunumunun
+ * tepesi ekranin tepesiyle ayni oldugu icin sorun cikmiyor; Chrome/iOS'ta ise
+ * ust arac cubugu araya giriyor ve kutunun tepesi cubugun arkasinda kaliyordu.
+ * `visualViewport.offsetTop` ile telafi etmeyi denedim; Chrome'da o deger sifir
+ * geldigi icin ise yaramadi.
+ *
+ * Dogrusu telafi etmek degil, sorunun kaynagini kaldirmak: kutu artik akista
+ * duran siradan bir blok. Akistaki blogun tepesi govdenin tepesidir ve iki
+ * tarayici da govdeyi arac cubugunun ALTINDAN baslatir — tahmine gerek kalmaz.
+ *
+ * Yukseklik `100dvh`: arac cubuklari acilip kapandikca tarayici kendisi
+ * gunceller. Yalnizca klavye acikken JS devreye girer, cunku iOS'ta klavye
+ * `dvh` degerini kucultmez.
+ */
+.gate {
+  position: relative;
+  width: 100%;
+  /* Olculen gorunur yukseklik. `100dvh` yalnizca JS calisana kadarki yedek. */
+  height: var(--gate-h, 100dvh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper);
+  touch-action: manipulation;
+}
+@supports not (height: 100dvh) {
+  .gate { height: var(--gate-h, 100vh); }
+}
+/*
+ * TEK YUKSEKLIK KAYNAGI
+ *
+ * Onceden iki ayri olcu vardi: `html, body` duzen gorunumunun %100'u, `.gate`
+ * ise `100dvh` (gorunur alan). Chrome/iOS'ta arac cubugu yukleme sirasinda
+ * yerine otururken bu ikisi ayrisiyor; kutu govdeyi tasiriyor, belge
+ * kaydirilabilir hale geliyor ve tarayici sayfayi kaydirip tepesini kirpiyordu.
+ * Yeni bos sekmede sorun cikmamasinin sebebi de buydu: orada cubuk zaten
+ * oturmus oluyor ve iki olcu ayni cikiyor.
+ *
+ * Artik tek kaynak var — olculen gorsel gorunum yuksekligi. Kok, govde ve kutu
+ * ayni degeri kullanir; hicbir arac cubugu durumunda kaydirilacak alan olusmaz.
+ * Ayni deger klavye acikken de gecerli oldugu icin ayrica bir istisna gerekmez.
+ */
+html,
+body {
+  height: var(--gate-h, 100%) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.gate__scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.gate__scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ============================================================= UST ===== */
+
+.gate__top {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 34vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Alt bosluk yayi da kapsar; aksi hâlde kurum adi laciverdin altinda kalir. */
+  padding: calc(var(--safe-t) + 26px) 24px calc(var(--curve-h) + 12px);
+  text-align: center;
+}
+
+.gate__timer {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--safe-t) + 16px);
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--wine-soft);
+  color: var(--wine);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--t) var(--ease);
+}
+/* Son on saniye: nabiz yalnizca burada, baska hicbir yerde hareket yok. */
+.gate__timer--urgent { animation: gate-pulse 1.5s ease-out infinite; }
+@keyframes gate-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(159, 18, 57, 0.35); }
+  70%  { box-shadow: 0 0 0 13px rgba(159, 18, 57, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(159, 18, 57, 0); }
+}
+
+.gate__brand {
+  margin: 16px 0 5px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.gate__brand em { font-style: normal; color: var(--wine); }
+.gate__tagline {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ============================================================== YAY ==== */
+
+.gate__bottom {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--navy);
+  padding: 34px 24px calc(var(--safe-b) + 24px);
+}
+/* Egri, alt bolumun ustune tasarak acik zeminin icine oturur. */
+.gate__curve {
+  position: absolute;
+  bottom: 99.5%;
+  left: 0;
+  width: 100%;
+  height: var(--curve-h);
+  fill: var(--navy);
+  pointer-events: none;
+}
+
+.gate__panel {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+/* Form da sutun olsun ki icindeki "Geri" dugmesi sola yaslanabilsin. */
+.gate__panel form { display: flex; flex-direction: column; }
+
+/* ============================================================ METIN ==== */
+
+.gate__title {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+.gate__lead {
+  margin: 0 0 26px;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--on-navy);
+}
+.gate__lead strong { color: #ffffff; font-weight: 700; }
+
+/* ============================================================= ROL ===== */
+/* Dort secenek 2x2 duzende. Kart degil dugme: dolgu yok, ince kontur var. */
+
+.gate__roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.gate__role {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 88px;
+  padding: 16px 10px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--fill);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease),
+              transform var(--t) var(--ease);
+}
+.gate__role:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.3); }
+.gate__role:active { transform: scale(0.97); }
+.gate__role svg { opacity: 0.85; }
+
+/* ============================================================ EYLEM ==== */
+
+.gate__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 15px 20px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: #ffffff;
+  color: var(--navy);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t) var(--ease), opacity var(--t) var(--ease),
+              transform var(--t) var(--ease);
+}
+.gate__btn:active { transform: scale(0.985); }
+.gate__btn:disabled {
+  background: var(--fill);
+  border-color: var(--hair);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: default;
+  transform: none;
+}
+.gate__btn--ghost {
+  background: var(--fill);
+  border-color: var(--hair);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 15px;
+}
+.gate__btn--ghost:hover { background: rgba(255, 255, 255, 0.14); }
+
+.gate__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 auto;
+  padding: 12px 8px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  color: var(--sky);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.gate__link--app { margin-top: 16px; }
+.gate__link--quiet { color: var(--on-navy-3); text-decoration: none; }
+.gate__link--quiet:hover { color: #ffffff; }
+
+/* ============================================================ FORM ===== */
+
+.gate__formbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+/* Secilen rol: kaldirilan "… girisi" basligiinin yerini tutar, yer kaplamaz. */
+.gate__rol {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px 7px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.gate__rol svg { opacity: 0.9; }
+
+.gate__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 8px 8px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--on-navy);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--t) var(--ease), background var(--t) var(--ease);
+}
+.gate__back:hover { color: #ffffff; background: rgba(255, 255, 255, 0.14); }
+
+/* -------------------------------------------------------------- pin --- */
+/* Okul numarasi SMS kodu gibi ayri kutulara girilir. Kutu sayisi numaranin
+   uzunlugu kadardir; veri tarafinda tum numaralar uc hanelidir. */
+
+.gate__pin {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/*
+   Kutu uc durumu ayri ayri anlatir:
+     bos    — soluk dolgu, ince kontur
+     aktif  — beyaz kontur, hafif buyume, yanip sonen imlec
+     dolu   — DOLU BEYAZ zemin ve lacivert rakam
+
+   Dolu hanenin tersine donmesi ilerlemeyi bir bakista okutur; hepsi ayni renk
+   kaldiginda kacinci hanede oldugunuz ancak imlece bakarak anlasiliyordu.
+*/
+.gate__pin-slot {
+  position: relative;
+  width: 52px;
+  height: 62px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.07);
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease),
+              transform var(--t) var(--ease);
+}
+.gate__pin-slot[data-aktif='true'] {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+.gate__pin-slot[data-filled='true'] {
+  background: #ffffff;
+  border-color: #ffffff;
+  transform: none;
+}
+
+/* Girdinin kendi metni saydam: rakami ustteki katman cizer. */
+.gate__pin-cell {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  text-align: center;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.gate__pin-cell::-webkit-outer-spin-button,
+.gate__pin-cell::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.gate__pin-cell::selection { background: transparent; }
+
+/* Rakam asagidan gelip hafif tasarak yerine oturur — kutu kipirdamaz. */
+.gate__pin-digit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+  pointer-events: none;
+  animation: gate-pin-pop 280ms cubic-bezier(0.2, 1.25, 0.4, 1) both;
+}
+@keyframes gate-pin-pop {
+  0%   { transform: translateY(8px) scale(0.45); opacity: 0; }
+  55%  { transform: translateY(0) scale(1.16); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+
+/* Sirasi gelen bos kutuda yanip sonen imlec. */
+.gate__pin-caret {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 26px;
+  margin: -13px 0 0 -1px;
+  border-radius: 2px;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+}
+.gate__pin-slot[data-aktif='true'] .gate__pin-caret {
+  animation: gate-caret 1.1s steps(1, end) infinite;
+}
+@keyframes gate-caret { 0%, 50% { opacity: 0.9; } 50.01%, 100% { opacity: 0; } }
+
+/* ------------------------------------------------------------ metin --- */
+
+.gate__input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 56px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1.5px solid var(--hair);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease);
+}
+.gate__input::placeholder { color: var(--on-navy-3); font-weight: 400; }
+.gate__input:focus { border-color: #ffffff; background: rgba(255, 255, 255, 0.12); }
+.gate__input:focus-visible { outline: none; }
+
+.gate__hint {
+  margin: 0 0 20px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--on-navy-3);
+}
+
+/* ====================================================== KISI SATIRI ==== */
+
+.gate__person {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--fill);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease);
+}
+.gate__person:hover { border-color: rgba(255, 255, 255, 0.32); background: rgba(255, 255, 255, 0.13); }
+.gate__person-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gate__person-name {
+  font-size: 15px; font-weight: 600; color: #ffffff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gate__person-meta { font-size: 12.5px; color: var(--on-navy-3); }
+.gate__avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* =========================================================== DURUM ===== */
+
+.gate__note {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--fill);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--on-navy);
+  text-align: center;
+}
+.gate__note--danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+}
+
+.gate__spinner {
+  width: 22px; height: 22px;
+  border: 2.5px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: gate-spin 700ms linear infinite;
+}
+@keyframes gate-spin { to { transform: rotate(360deg); } }
+
+.gate__footer {
+  margin: 22px 0 0;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+/* =========================================================== SONUC ===== */
+/* Sonuc ekrani tek parca lacivert; ust/alt bolunmesi yok. */
+
+.gate--solid { background: var(--navy); }
+.gate--solid .gate__scroll { background: var(--navy); }
+.gate__solid-stage {
+  margin: auto;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: calc(var(--safe-t) + 26px) 24px calc(var(--safe-b) + 26px);
+  box-sizing: border-box;
+}
+.gate__portrait {
+  width: 108px; height: 108px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.12);
+}
+.gate__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 11px 20px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.gate__badge--ok   { background: #ffffff; color: var(--navy); }
+.gate__badge--exit { background: transparent; border-color: rgba(255, 255, 255, 0.5); color: #ffffff; }
+.gate__badge--warn { background: var(--wine); color: #ffffff; }
+
+.gate__icon-ring {
+  display: grid;
+  place-items: center;
+  width: 76px; height: 76px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  color: #ffffff;
+}
+.gate__icon-ring--danger { border-color: rgba(239, 68, 68, 0.55); color: #fca5a5; }
+
+.gate__result-title {
+  margin: 22px 0 4px;
+  font-size: 26px; font-weight: 800; letter-spacing: -0.025em;
+  color: #ffffff;
+}
+.gate__result-name { margin: 0; font-size: 16px; font-weight: 500; color: var(--on-navy); }
+.gate__result-text { margin: 18px 0 0; font-size: 14.5px; line-height: 1.6; color: var(--on-navy); }
+.gate__meta { margin: 18px 0 0; font-size: 13px; color: var(--on-navy-3); font-variant-numeric: tabular-nums; }
+
+/* =========================================================== GIRIS ===== */
+
+.gate-in {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: gate-in 420ms var(--ease) forwards;
+}
+.gate-in--1 { animation-delay: 40ms; }
+.gate-in--2 { animation-delay: 100ms; }
+.gate-in--3 { animation-delay: 160ms; }
+.gate-in--4 { animation-delay: 220ms; }
+.gate-in--5 { animation-delay: 280ms; }
+@keyframes gate-in { to { opacity: 1; transform: none; } }
+
+/* ========================================================== ACILIS ===== */
+
+.gate__splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  animation: gate-splash-out 360ms var(--ease) 1200ms forwards;
+}
+@keyframes gate-splash-out { to { opacity: 0; visibility: hidden; } }
+
+.gate__splash-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Arma yerine oturur. */
+.gate__splash-arma {
+  position: relative;
+  display: grid;
+  place-items: center;
+  animation: gate-arma-in 720ms cubic-bezier(0.2, 1.1, 0.35, 1) both;
+}
+@keyframes gate-arma-in {
+  from { opacity: 0; transform: scale(0.62) translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Armanin arkasindan disari acilan iki halka. */
+.gate__splash-halka {
+  position: absolute;
+  width: 104px;
+  height: 104px;
+  border: 1.5px solid rgba(30, 58, 138, 0.35);
+  border-radius: 50%;
+  opacity: 0;
+  animation: gate-halka 1900ms var(--ease) 420ms infinite;
+}
+.gate__splash-halka--2 { animation-delay: 1020ms; }
+@keyframes gate-halka {
+  0%   { transform: scale(0.9); opacity: 0.5; }
+  70%  { opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+/* Yazi harf araligini toplayarak netlesir. */
+.gate__splash-yazi {
+  margin-top: 30px;
+  animation: gate-yazi 760ms var(--ease) 260ms both;
+}
+@keyframes gate-yazi {
+  from { opacity: 0; letter-spacing: 0.22em; }
+  to   { opacity: 1; letter-spacing: -0.03em; }
+}
+
+.gate__splash-alt { animation: gate-alt 620ms var(--ease) 480ms both; }
+@keyframes gate-alt {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Sureyi dolduran ince cizgi. */
+.gate__splash-cizgi {
+  width: 96px;
+  height: 2px;
+  margin-top: 26px;
+  border-radius: 2px;
+  background: rgba(30, 58, 138, 0.15);
+  overflow: hidden;
+}
+.gate__splash-cizgi i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  background: var(--navy);
+  animation: gate-cizgi 1200ms var(--ease) both;
+}
+@keyframes gate-cizgi { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ========================================================= KLAVYE ====== */
+/*
+   iOS'ta klavye acilinca gorunur alan yariya iner; arma ve kurum adi yer
+   kaplayip formu klavyenin altina itiyordu. Klavye acikken ust bolum tek
+   satira toplanir, yalnizca sayac kalir — geri sayim her an gorunmeli.
+
+   `data-kb` bayragini Gate.jsx > useViewportLock yazar.
+*/
+/* Acik zeminli ust bolum bastan asagi kalkar: geride ince beyaz bir serit
+   birakmak, klavye acildiginda ekranin tepesinde rahatsiz edici bir dikdortgen
+   olusturuyordu. Ekran bastan sona lacivert olur. */
+[data-kb='1'] .gate__top,
+[data-kb='1'] .gate__curve { display: none; }
+
+/* Sayac yerinde kalir ama artik lacivertin uzerinde: acik zemin rozeti yerine
+   saydam beyaz bir hap. */
+[data-kb='1'] .gate__timer {
+  top: calc(var(--safe-t) + 10px);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+/*
+   Ust bolumu toplamak yetmiyordu: alt bolumun icerigi 413px, gorunur alan ise
+   336px kaliyor, "Girisi tamamla" klavyenin arkasina dusuyor ve altinda
+   erisilemeyen bir lacivert alan olusuyordu.
+
+   Yazarken gerekli olan yalnizca sunlar: geri donus, ne yazilacagi, kutular ve
+   dugme. Baslik, ipucu ve imza o an gurultu — gizlenir, bosluklar daraltilir.
+*/
+[data-kb='1'] .gate__title,
+[data-kb='1'] .gate__hint,
+[data-kb='1'] .gate__footer { display: none; }
+[data-kb='1'] .gate__bottom { padding: 14px 24px calc(var(--safe-b) + 12px); }
+[data-kb='1'] .gate__formbar { margin-bottom: 14px; }
+/* Sayac klavye acikken sag ust koseye iniyor; rol rozeti ayni yeri isteyip
+   ustune biniyordu. O an sayac oncelikli — rozet gizlenir, rol zaten saniyeler
+   once secildi. */
+[data-kb='1'] .gate__rol { display: none; }
+[data-kb='1'] .gate__lead { margin-bottom: 14px; }
+[data-kb='1'] .gate__pin { margin-bottom: 14px; }
+[data-kb='1'] .gate__input { margin-bottom: 12px; }
+
+/* ================================================ ERISILEBILIRLIK ====== */
+
+.gate :focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+.gate__pin-cell:focus-visible,
+.gate__input:focus-visible { outline: none; }
+
+/* Ikisi de kendi hareketini tasiyor; ustlerine baska bir hareket binmez. */
+.gate__logo { display: block; width: auto; object-fit: contain; }
+.gate__utya { display: block; object-fit: contain; }
+.gate__top :focus-visible { outline-color: var(--navy); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate *, .gate *::before, .gate *::after,
+  .gate__splash, .gate__splash * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .gate-in { opacity: 1; transform: none; }
+}
+
+/* Kisa ekranlar: ust bolum kisilir, olculer daralir. */
+@media (max-height: 700px) {
+  .gate__top { --curve-h: 38px; min-height: 0; padding-top: calc(var(--safe-t) + 10px); }
+  .gate__bottom { --curve-h: 38px; padding-top: 20px; }
+  .gate__logo { height: 60px !important; }
+  .gate__brand { margin-top: 4px; font-size: 21px; }
+  .gate__tagline { font-size: 11.5px; }
+  .gate__lead { margin-bottom: 14px; }
+  .gate__link--app { margin-top: 8px; }
+  .gate__footer { margin-top: 12px; }
+  .gate__role { min-height: 74px; gap: 6px; }
+  .gate__pin-slot { width: 48px; height: 56px; }
+  .gate__pin-cell, .gate__pin-digit { font-size: 24px; }
+  .gate__pin-caret { height: 24px; margin-top: -12px; }
+  .gate__portrait { width: 88px; height: 88px; }
+}

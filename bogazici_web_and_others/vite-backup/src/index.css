@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --blue-dark: #0a1e3d;
+  --blue-main: #103A69;
+  --blue-mid: #1c528f;
+  --blue-light: #e8f0fe;
+  --red-main: #E6332A;
+  --red-dark: #c41e17;
+  --red-light: #fce8e7;
+  --white: #ffffff;
+  --gray-50: #f8f9fa;
+  --gray-100: #f1f3f5;
+  --gray-200: #e9ecef;
+  --gray-300: #dee2e6;
+  --gray-400: #ced4da;
+  --gray-500: #adb5bd;
+  --gray-600: #6c757d;
+  --gray-700: #495057;
+  --gray-800: #343a40;
+  --gray-900: #212529;
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-cursive: 'Dancing Script', cursive;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: var(--font-body);
+  color: var(--gray-800);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); color: var(--gray-900); line-height: 1.2; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+img { max-width: 100%; height: auto; display: block; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+
+.container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.text-center { text-align: center; }
+.cursive { font-family: var(--font-cursive); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.25s ease;
+  border: 2px solid transparent;
+}
+.btn-red { background: var(--red-main); color: var(--white); border-color: var(--red-main); }
+.btn-red:hover { background: var(--red-dark); border-color: var(--red-dark); }
+.btn-blue { background: var(--blue-main); color: var(--white); border-color: var(--blue-main); }
+.btn-blue:hover { background: var(--blue-mid); border-color: var(--blue-mid); }
+.btn-outline-white { background: transparent; color: var(--white); border-color: var(--white); }
+.btn-outline-white:hover { background: var(--white); color: var(--blue-main); }
+
+.section-header { text-align: center; margin-bottom: 50px; }
+.section-header h2 { font-size: 2rem; color: var(--blue-dark); margin-bottom: 12px; font-weight: 700; }
+.section-header .subtitle { color: var(--gray-600); font-size: 1.05rem; max-width: 550px; margin: 0 auto; }
+

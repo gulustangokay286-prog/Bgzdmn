@@ -59,3 +59,7 @@ capture/
 *.pak
 *.bin
 IALMobil_Native/build_test/
+
+# Firebase dagitim onbellegi — 568 MB, tamami yeniden uretilebilir.
+# (`firebase deploy` bunu kendisi olusturur.)
+.firebase/

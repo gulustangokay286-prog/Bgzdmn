@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "attendance": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "qr_system": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "chats": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    ".read": true,
+    ".write": true
+  }
+}
