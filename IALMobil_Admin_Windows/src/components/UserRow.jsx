@@ -7,12 +7,14 @@ import {
   User,
   Save,
   RefreshCw,
-  Smartphone
+  Smartphone,
+  KeyRound
 } from 'lucide-react';
-import { firebaseService } from '../services/firebase';
+import { kullaniciServisi } from '../services/kullaniciServisi';
+import { api } from '../services/api';
 import { vdsUserService } from '../services/vdsUserService';
-import { db } from '../services/firebaseConfig';
-import { doc, updateDoc } from 'firebase/firestore';
+import { modul, ayar, webAyar } from '../services/veri';
+import { normalizeUserRole } from '../services/userRoles';
 import { Modal, Button, IconButton, Badge, Field, FieldRows, Input, Select } from './ui/panel';
 import { cx, eyebrow, hairline } from './ui/tokens';
 
@@ -32,9 +34,13 @@ export const UserTableHeader = () => (
 
 const BRANCH_LIST = [
   'Matematik', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Tarih', 'Coğrafya',
-  'Felsefe', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Almanca', 'Beden Eğitimi',
+  'Felsefe', 'Din Kültürü', 'İngilizce', 'Almanca', 'Beden Eğitimi',
   'Müzik', 'Görsel Sanatlar', 'Rehberlik', 'Bilişim'
 ];
+
+// Eski kayıtlarda uzun yazılan branş adlarını kısa gösterime çevirir.
+const normalizeBranch = (branch) =>
+  branch === 'Din Kültürü ve Ahlak Bilgisi' ? 'Din Kültürü' : branch;
 
 const CLASS_LIST = ['9', '10', '11', '12'];
 const SECTION_LIST = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -45,10 +51,17 @@ const DEPARTMENT_LIST = [
 
 const ROLE_LABELS = {
   student: 'Öğrenci',
+  ogrenci: 'Öğrenci',
+  'öğrenci': 'Öğrenci',
   teacher: 'Öğretmen',
+  ogretmen: 'Öğretmen',
+  'öğretmen': 'Öğretmen',
   parent: 'Veli',
+  veli: 'Veli',
   personnel: 'Personel',
-  admin: 'Yönetici'
+  personel: 'Personel',
+  admin: 'Yönetici',
+  idare: 'Yönetici'
 };
 
 const VerifiedMark = () => (
@@ -62,18 +75,43 @@ const VerifiedMark = () => (
   </span>
 );
 
-const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
+/**
+ * Bir satir hem KAYITLI KULLANICIYI hem de ONAY BEKLEYEN KAYIT TALEBINI
+ * gosterebilir. Ikisinin onay islemi farklidir:
+ *   kullanici -> durumu guncellenir
+ *   talep     -> onaylaninca gercek kisi + kimlik + rol olusturulur
+ * `onIslem` verildiginde onay/red disariya birakilir.
+ */
+const UserRow = ({ document, showApprovalActions = false, onUpdate, onIslem }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  /* Panelden sifre sifirlama kodu gonderme.
+     Kullanici giris ekranindaki "sifremi unuttum"a ulasamiyorsa idareci ayni
+     kodu buradan yollar; akis ve sure aynidir. */
+  const [kodGonderiliyor, setKodGonderiliyor] = useState(false);
+
+  const sifreKoduGonder = async () => {
+    if (kodGonderiliyor) return;
+    setKodGonderiliyor(true);
+    try {
+      const y = await api.post('/api/auth/reset/gonder', { kisiId: document?.kisi_id || document?.id || userId });
+      window.alert(`${y.kisi} adresine şifre sıfırlama kodu gönderildi:\n\n${y.eposta}\n\n` +
+                   `Kod ${y.dakika} dakika geçerli. E-posta gelmezse spam klasörüne baktırın.`);
+    } catch (e) {
+      window.alert('Kod gönderilemedi: ' + (e?.mesaj || e?.message || 'bağlantı hatası'));
+    } finally {
+      setKodGonderiliyor(false);
+    }
+  };
   const [imgError, setImgError] = useState(false);
 
   const fields = document?.fields || {};
   const userId = document?.name ? document.name.split('/').pop() : document?.id;
 
   const rawRole = fields.role?.stringValue || document?.role || 'student';
-  const roleKey = rawRole.toLowerCase();
-  const isAdmin = ['admin', 'yönetici'].includes(roleKey);
+  const roleKey = normalizeUserRole(rawRole);
+  const isAdmin = roleKey === 'admin';
 
   const name =
     fields.full_name?.stringValue ||
@@ -86,40 +124,68 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
   const email = fields.email?.stringValue || document?.email || '—';
   const tc = fields.tc_kimlik?.stringValue || fields.tcKimlik?.stringValue || document?.tc || '—';
   const phone = fields.phone?.stringValue || document?.phone || '';
+  const additionalPhone = fields.additional_phone?.stringValue || document?.additionalPhones?.[0] || '';
   const status = (fields.status?.stringValue || document?.status || 'pending').toLowerCase();
   const pp = fields.profile_image?.stringValue || fields.photoURL?.stringValue || document?.photoURL || null;
   const registeredDevice = fields.registered_device?.stringValue || fields.deviceId?.stringValue || null;
+  const hasParentRole = roleKey === 'parent' || document?._pools?.includes('parent');
+
+  const storedBranch = normalizeBranch(fields.branch?.stringValue) || '';
+  const storedDepartment = fields.department?.stringValue || (roleKey === 'personnel' ? storedBranch : '') || 'İdari İşler';
 
   const [editName, setEditName] = useState(name);
   const [editRole, setEditRole] = useState(roleKey);
   const [editPhone, setEditPhone] = useState(phone);
+  const [editAdditionalPhone, setEditAdditionalPhone] = useState(additionalPhone);
   const [editStatus, setEditStatus] = useState(status);
-  const [editBranch, setEditBranch] = useState(fields.branch?.stringValue || 'Matematik');
+  const [editBranch, setEditBranch] = useState(roleKey === 'teacher' ? storedBranch : '');
   const [editClassId, setEditClassId] = useState(fields.class_id?.stringValue || '12');
   const [editSection, setEditSection] = useState(fields.section?.stringValue || fields.sube?.stringValue || 'A');
   const [editSchoolNumber, setEditSchoolNumber] = useState(fields.school_number?.stringValue || '');
-  const [editDepartment, setEditDepartment] = useState(fields.department?.stringValue || 'İdari İşler');
+  const [editDepartment, setEditDepartment] = useState(storedDepartment);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     setEditName(name);
     setEditRole(roleKey);
     setEditPhone(phone);
+    setEditAdditionalPhone(additionalPhone);
     setEditStatus(status);
-    setEditBranch(fields.branch?.stringValue || 'Matematik');
+    setEditBranch(roleKey === 'teacher' ? storedBranch : '');
     setEditClassId(fields.class_id?.stringValue || '12');
     setEditSection(fields.section?.stringValue || fields.sube?.stringValue || 'A');
     setEditSchoolNumber(fields.school_number?.stringValue || '');
-    setEditDepartment(fields.department?.stringValue || 'İdari İşler');
-  }, [document, name, roleKey, phone, status]);
+    setEditDepartment(storedDepartment);
+    setSaveError('');
+  }, [document, name, roleKey, phone, additionalPhone, status, storedBranch, storedDepartment]);
+
+  const handleRoleChange = (value) => {
+    const nextRole = normalizeUserRole(value);
+    if (nextRole === editRole) return;
+
+    // Brans ile personel birimi ayni DB kolonunda tutulsa da ayni kavram
+    // degildir. Tur degisince eski degeri yeni role tasimiyoruz.
+    if (nextRole === 'teacher') setEditBranch('');
+    if (nextRole === 'personnel') setEditDepartment('İdari İşler');
+    setEditRole(nextRole);
+    setSaveError('');
+  };
 
   const handleProcess = async (newStatus) => {
     setIsProcessing(true);
     let success = false;
-    if (newStatus === 'rejected') {
-      success = await firebaseService.deleteUser(document.name || userId);
-    } else {
-      success = await firebaseService.updateUserStatus(userId, newStatus);
+    try {
+      if (onIslem) {
+        // Kayit talebi: onay/red cagiran ekranin sorumlulugunda.
+        success = await onIslem(newStatus, document);
+      } else if (newStatus === 'rejected') {
+        success = await kullaniciServisi.deleteUser(document.name || userId);
+      } else {
+        success = await kullaniciServisi.updateUserStatus(userId, newStatus);
+      }
+    } catch (err) {
+      setSaveError(err?.message || 'İşlem tamamlanamadı.');
     }
     if (success && onUpdate) onUpdate();
     setIsProcessing(false);
@@ -128,8 +194,15 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
   const handleDelete = async () => {
     setConfirmAction(null);
     setIsProcessing(true);
-    const success = await firebaseService.deleteUser(document.name || userId);
-    if (success && onUpdate) onUpdate();
+    setSaveError('');
+    try {
+      // Kalici silme; sunucu reddederse sebebi ayrinti panelinde gosterilir.
+      await kullaniciServisi.deleteUser(document.name || userId);
+      if (onUpdate) onUpdate();
+    } catch (err) {
+      setSaveError(err?.message || 'Kullanıcı silinemedi.');
+      setShowDetails(true);
+    }
     setIsProcessing(false);
   };
 
@@ -137,7 +210,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
     setConfirmAction(null);
     setIsProcessing(true);
     try {
-      await firebaseService.resetDeviceLock(userId);
+      await kullaniciServisi.resetDeviceLock(userId);
       if (onUpdate) onUpdate();
     } catch (err) {
       console.error('Cihaz kilidi sıfırlanamadı:', err);
@@ -150,6 +223,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
     if (!userId) return;
     setIsProcessing(true);
     setSaveSuccess(false);
+    setSaveError('');
 
     try {
       const payload = {
@@ -159,9 +233,14 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
         status: editStatus
       };
 
-      if (editRole === 'teacher' || editRole === 'öğretmen') {
-        payload.branch = editBranch;
-      } else if (editRole === 'student' || editRole === 'öğrenci') {
+      if (hasParentRole || editRole === 'parent') {
+        payload.additional_phone = editAdditionalPhone.trim();
+      }
+
+      if (editRole === 'teacher') {
+        payload.branch = editBranch || null;
+        if (roleKey !== 'teacher') payload.teacherTitle = 'Ders Öğretmeni';
+      } else if (editRole === 'student') {
         payload.class_id = editClassId;
         payload.section = editSection;
         payload.sube = editSection;
@@ -169,11 +248,14 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
         if (editSchoolNumber.trim()) {
           payload.school_number = editSchoolNumber.trim();
         }
-      } else if (editRole === 'personnel' || editRole === 'personel') {
+      } else if (editRole === 'personnel') {
         payload.department = editDepartment;
+        payload.branch = editDepartment;
+        if (roleKey !== 'personnel') payload.teacherTitle = 'Personel';
       }
 
-      await vdsUserService.updateUser(userId, payload);
+      const saved = await vdsUserService.updateUser(userId, payload);
+      if (!saved) throw new Error('VDS güncellemeyi kabul etmedi.');
       setSaveSuccess(true);
       if (onUpdate) onUpdate();
       setTimeout(() => {
@@ -182,6 +264,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
       }, 700);
     } catch (err) {
       console.error('Kullanıcı güncellenemedi:', err);
+      setSaveError(err?.message || 'Kullanıcı güncellenemedi.');
     } finally {
       setIsProcessing(false);
     }
@@ -200,17 +283,19 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
   const studentNo = fields.school_number?.stringValue;
 
   const roleDetail =
-    roleKey === 'student' || roleKey === 'öğrenci'
+    roleKey === 'student' || roleKey === 'öğrenci' || roleKey === 'ogrenci'
       ? studentClass
-      : roleKey === 'teacher' || roleKey === 'öğretmen'
-      ? fields.branch?.stringValue
+      : roleKey === 'teacher' || roleKey === 'öğretmen' || roleKey === 'ogretmen'
+      ? normalizeBranch(fields.branch?.stringValue) || 'Atanmamış'
       : roleKey === 'personnel' || roleKey === 'personel'
-      ? fields.department?.stringValue
+      ? fields.department?.stringValue || normalizeBranch(fields.branch?.stringValue) || 'Atanmamış'
       : null;
 
   const statusBadge =
     status === 'approved' ? (
       <Badge tone="success">Onaylı</Badge>
+    ) : status === 'passive' || status === 'inactive' ? (
+      <Badge>Pasif</Badge>
     ) : status === 'rejected' ? (
       <Badge tone="danger">Reddedildi</Badge>
     ) : (
@@ -316,6 +401,12 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
               <div className="absolute inset-0 flex items-center justify-start gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
                 <IconButton label="Düzenle" icon={Pencil} onClick={() => setShowDetails(true)} />
                 <IconButton
+                  label={kodGonderiliyor ? 'Gönderiliyor…' : 'Şifre sıfırlama kodu gönder'}
+                  icon={KeyRound}
+                  disabled={kodGonderiliyor}
+                  onClick={sifreKoduGonder}
+                />
+                <IconButton
                   label="Kullanıcıyı Sil"
                   icon={Trash2}
                   variant="quiet"
@@ -340,6 +431,11 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
             {saveSuccess && (
               <span className="mr-auto text-[12.5px] font-medium text-emerald-600 dark:text-emerald-400">
                 Kaydedildi
+              </span>
+            )}
+            {saveError && (
+              <span className="mr-auto text-[12.5px] font-medium text-rose-600 dark:text-rose-400">
+                {saveError}
               </span>
             )}
             <Button type="button" onClick={() => setShowDetails(false)}>
@@ -372,7 +468,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
 
             <Field label="Rol ve durum">
               <div className="grid grid-cols-2 gap-2.5">
-                <Select value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                <Select value={editRole} onChange={(e) => handleRoleChange(e.target.value)}>
                   <option value="student">Öğrenci</option>
                   <option value="teacher">Öğretmen</option>
                   <option value="personnel">Personel</option>
@@ -381,15 +477,17 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
                 </Select>
                 <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
                   <option value="approved">Onaylı</option>
+                  <option value="passive">Pasif</option>
                   <option value="pending">Onay bekliyor</option>
                   <option value="rejected">Reddedildi</option>
                 </Select>
               </div>
             </Field>
 
-            {(editRole === 'teacher' || editRole === 'öğretmen') && (
+            {editRole === 'teacher' && (
               <Field label="Branş" hint="Öğretmenin zümresi.">
                 <Select value={editBranch} onChange={(e) => setEditBranch(e.target.value)}>
+                  <option value="">Atanmamış</option>
                   {BRANCH_LIST.map((b) => (
                     <option key={b} value={b}>{b}</option>
                   ))}
@@ -397,7 +495,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
               </Field>
             )}
 
-            {(editRole === 'student' || editRole === 'öğrenci') && (
+            {editRole === 'student' && (
               <Field label="Sınıf bilgileri" hint="Sınıf, şube ve okul numarası.">
                 <div className="grid grid-cols-3 gap-2.5">
                   <Select value={editClassId} onChange={(e) => setEditClassId(e.target.value)}>
@@ -421,7 +519,7 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
               </Field>
             )}
 
-            {(editRole === 'personnel' || editRole === 'personel') && (
+            {editRole === 'personnel' && (
               <Field label="Departman">
                 <Select value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)}>
                   {DEPARTMENT_LIST.map((d) => (
@@ -441,7 +539,19 @@ const UserRow = ({ document, showApprovalActions = false, onUpdate }) => {
               />
             </Field>
 
-            {(editRole === 'student' || editRole === 'öğrenci') && registeredDevice && (
+            {(hasParentRole || editRole === 'parent') && (
+              <Field label="Ek telefon" hint="Farklı bir numaraysa veli bildirimleri iki telefona da gönderilir.">
+                <Input
+                  type="tel"
+                  value={editAdditionalPhone}
+                  onChange={(e) => setEditAdditionalPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="05XX XXX XX XX"
+                  className="tnum"
+                />
+              </Field>
+            )}
+
+            {editRole === 'student' && registeredDevice && (
               <Field label="Kayıtlı cihaz" hint="Öğrenci yeni bir telefona geçtiyse kilidi sıfırlayın.">
                 <div className={cx('flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border', hairline)}>
                   <div className="flex items-center gap-2.5 min-w-0">
