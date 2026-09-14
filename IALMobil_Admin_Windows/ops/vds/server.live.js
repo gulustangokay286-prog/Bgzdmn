@@ -905,7 +905,6 @@ app.get('/api/yoklama/gun/:kisiId', verifyAuth, async (req, res) => {
 
 require('./web')(app, { verifyAdmin });   // web sitesi: ayarlar, formlar, magaza
 require('./moduller')(app, { verifyAdmin });   // panel modulleri: finans, notlar, saglik...
-require('./kursVakitleri')(app, { verifyAdmin, verifyAuth, yoklama, denemeGunleri }); // Kurs gruplari ve ozel vakitler
 
 /* --- Ortak hata yakalayici: rotalardaki next(e) buraya duser ------------- */
 /**

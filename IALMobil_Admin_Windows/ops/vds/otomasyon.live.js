@@ -5,11 +5,6 @@
    iceride gorunen herkesin kaydi sistem tarafindan kapatilir. Gun bitince de
    devamsizlik herkes icin yeniden turetilir.
 
-   Uc gorev vardir ve her biri GUNDE BIR kez calisir:
-     ogle        -> ogle cikisi + musaade  (varsayilan 12:25)
-     gun_sonu    -> okul cikisi            (varsayilan 15:20)
-     devamsizlik -> gun sonu               (varsayilan 15:30)
-
    "Gunde bir" garantisi `ayarlar` tablosundaki `otomasyon` anahtarinda
    tutulur; sunucu yeniden baslasa da gorev tekrar etmez. Sunucu tetikleme
    aninda kapaliysa gorev sonradan calisir ama kayda TETIKLEME SAATI yazilir,
@@ -42,15 +37,27 @@ async function isaretleriOku(gun) {
     return Array.isArray(d[gun]) ? d[gun] : [];
 }
 
-async function isaretYaz(gun, gorev) {
+async function isaretleriYaz(gun, yeniGorevler) {
+    if (!yeniGorevler || !yeniGorevler.length) return;
     const yapilan = await isaretleriOku(gun);
-    if (yapilan.includes(gorev)) return;
-    // Yalnizca BUGUNU sakla; tablo gunlerle sismesin.
-    const yeni = { [gun]: [...yapilan, gorev] };
+    const set = new Set(yapilan);
+    let changed = false;
+    for (const g of yeniGorevler) {
+        if (!set.has(g)) {
+            set.add(g);
+            changed = true;
+        }
+    }
+    if (!changed) return;
+    const yeni = { [gun]: Array.from(set) };
     await sorgu(
         `INSERT INTO ayarlar (anahtar, deger) VALUES ('otomasyon', $1)
          ON CONFLICT (anahtar) DO UPDATE SET deger = $1, guncellendi = now()`,
         [JSON.stringify(yeni)]);
+}
+
+async function isaretYaz(gun, gorev) {
+    await isaretleriYaz(gun, [gorev]);
 }
 
 /** Su an iceride gorunen herkes (bugune ait acik giris). */
@@ -91,18 +98,34 @@ async function otomatikCikisBildir(kisiId, dakika, gun) {
     }
 }
 
-async function topluCikis(gun, dakika, not) {
+/**
+ * Tarihe ozel kurali (tatil/deneme/ozel program) dikkate alan toplu cikis.
+ */
+async function topluCikis(gun, dakika, not, cfg, tip) {
     const kisiler = await iceridekiler(gun);
+    let count = 0;
     for (const k of kisiler) {
         try {
+            if (cfg && tip) {
+                const kisi = await tek('SELECT * FROM api_users WHERE kisi_id = $1', [k.kisi_id]);
+                const resolved = denemeGunleri.resolveForPerson(cfg, gun, kisi || { kisi_id: k.kisi_id, role: 'ogrenci' });
+                const p = yoklama.pencereler(resolved.config);
+                if (tip === 'ogle') {
+                    if (dakika < p.ogleCikisSonu || dakika >= p.ogledenSonra) continue;
+                } else if (tip === 'gun_sonu') {
+                    const cikisSiniri = p.kesilmeSaati || p.okulCikis;
+                    if (dakika < cikisSiniri) continue;
+                }
+            }
             await cikisYaz(k.kisi_id, gun, dakika, not);
-            await yoklama.devamsizligiYaz(k.kisi_id, gun);
+            await yoklama.devamsizligiYaz(k.kisi_id, gun, cfg);
             await otomatikCikisBildir(k.kisi_id, dakika, gun);
+            count++;
         } catch (e) {
             console.error('[OTOMASYON] cikis yazilamadi', k.kisi_id, e.message);
         }
     }
-    return kisiler.length;
+    return count;
 }
 
 /**
@@ -166,10 +189,62 @@ async function ozelProgramTopluCikis(gun, cfg, dakika, not) {
     return count;
 }
 
-async function devamsizligiTamamla(gun, cfg) {
+/**
+ * Devamsizligi tamamla ve veli bildirimlerini yonet.
+ * Kisinin kesilme saati (suAnDk >= kesilme)
+ * gelmeden devamsizlik sonlandirilmaz ve veli bildirimi uretilmez.
+ */
+/** Idarenin elle girdigi (ya da kilitledigi) 'izinli' kaydi varsa veliye eksik mesaji gitmez. */
+async function izinliMi(kisiId, gun) {
+    const r = await tek(
+        `SELECT 1 FROM devamsizlik WHERE ogrenci_id=$1 AND tarih=$2::date AND NOT otomatik AND durum='izinli'
+         UNION ALL
+         SELECT 1 FROM yoklama_uzlastirma WHERE kisi_id=$1 AND tarih=$2::date AND kilitli AND durum='izinli'
+         LIMIT 1`, [kisiId, gun]);
+    return Boolean(r);
+}
+
+/**
+ * 13:00 OGLE BILDIRIMI (ogrenci). Sabah oturumu ogle cikisinda biter; o anda:
+ *   sabah hic giris yok              -> sabah_gelmedi
+ *   giris var ama son giristen sonra -> sabah_gec (saat = ilk giris)
+ * Gunde bir kez (ogle_sms_<id> isareti). Tatil / ozel program / izinli korunur.
+ */
+async function ogleBildirimi(gun, cfg) {
+    const ogrenciler = await hepsi(
+        `SELECT DISTINCT k.id AS kisi_id, k.tam_ad FROM kisiler k JOIN kisi_rolleri r ON r.kisi_id = k.id
+          WHERE k.aktif AND r.rol = 'ogrenci'`);
+    const yapilan = await isaretleriOku(gun);
+    const yeni = [];
+    let gonderilen = 0;
+    for (const o of ogrenciler) {
+        const isaret = `ogle_sms_${o.kisi_id}`;
+        if (yapilan.includes(isaret)) continue;
+        try {
+            const kisi = await tek('SELECT * FROM api_users WHERE kisi_id = $1', [o.kisi_id]);
+            const politika = denemeGunleri.resolveForPerson(cfg, gun, kisi || { kisi_id: o.kisi_id, role: 'ogrenci', roles: ['ogrenci'] });
+            yeni.push(isaret);
+            if (politika.excluded || politika.closed) continue;
+            const h = await yoklama.devamsizligiYaz(o.kisi_id, gun, politika.config);
+            if (h.durum === 'kapali') continue;
+            const sb = h.oturumBilgi?.sabah || {};
+            const tur = !sb.giris ? 'sabah_gelmedi' : (!sb.kazandi ? 'sabah_gec' : null);
+            if (!tur) continue;
+            if (await izinliMi(o.kisi_id, gun)) continue;
+            await veliBildirim.veliyeBildir(kisi || { kisi_id: o.kisi_id, full_name: o.tam_ad, roles: ['ogrenci'] },
+                { tur, saat: sb.giris || '', tarih: gun, kind: 'absence' });
+            gonderilen++;
+        } catch (e) {
+            console.error('[OTOMASYON] ogle bildirimi', o.kisi_id, e.message);
+        }
+    }
+    if (yeni.length) await isaretleriYaz(gun, yeni);
+    return gonderilen;
+}
+
+async function devamsizligiTamamla(gun, cfg, suAnDk) {
     /* OGRENCI + PERSONEL. Personel de devamsizlik alir; kurali farklidir
-       (gun icinde okutma yoksa personel devamsizlik saatinden sonra yok).
-       Onceden yalnizca ogrenciler taraniyordu. */
+       (gun icinde okutma yoksa personel devamsizlik saatinden sonra yok). */
     const kisiler = await hepsi(
         `SELECT DISTINCT k.id AS kisi_id, k.tam_ad,
                 EXISTS (SELECT 1 FROM kisi_rolleri x
@@ -177,62 +252,65 @@ async function devamsizligiTamamla(gun, cfg) {
            FROM kisiler k JOIN kisi_rolleri r ON r.kisi_id = k.id
           WHERE k.aktif AND r.rol IN ('ogrenci', 'ogretmen', 'idare', 'personel')`);
 
+    const yapilan = await isaretleriOku(gun);
+    const yeniIsaretler = [];
+
     let n = 0;
     const gelmeyen = [];
     for (const o of kisiler) {
         try {
-            const h = await yoklama.devamsizligiYaz(o.kisi_id, gun);
+            const isaretKey = `devamsizlik_${o.kisi_id}`;
+            if (yapilan.includes(isaretKey)) continue;
+
+            const kisi = await tek('SELECT * FROM api_users WHERE kisi_id = $1', [o.kisi_id]);
+            const politika = denemeGunleri.resolveForPerson(cfg, gun,
+                kisi || { kisi_id: o.kisi_id, role: o.ogrenci ? 'ogrenci' : 'personel', roles: [o.ogrenci ? 'ogrenci' : 'personel'] });
+            
+            const p = yoklama.pencereler(politika.config);
+            const kesilme = p.kesilmeSaati || p.okulCikis || p.gunSonu;
+
+            // Su anki saat bu kisinin kesilme saatinden onceyse henuz vakti gelmemistir
+            if (suAnDk !== undefined && suAnDk < kesilme) continue;
+
+            const h = await yoklama.devamsizligiYaz(o.kisi_id, gun, politika.config);
             n++;
-            /* "Bugun okula GELMEDI" mesaji yalnizca o gun HIC okutmasi
-               olmayana gider. `durum === 'yok'` yarim gunu de kapsiyor:
-               sabah gelip ogleden sonra donmeyen ogrencinin velisine
-               "gelmemistir" yazmak yanlis olurdu. */
-            if (o.ogrenci && h.durum === 'yok' && (h.oturumlar || []).length === 0
-                && !h.oturumBilgi?.sabah?.giris && !h.oturumBilgi?.ogleden_sonra?.giris) {
-                const kisi = await tek('SELECT * FROM api_users WHERE kisi_id = $1', [o.kisi_id]);
-                const politika = denemeGunleri.resolveForPerson(cfg, gun,
-                    kisi || { kisi_id: o.kisi_id, role: 'ogrenci', roles: ['ogrenci'] });
-                gelmeyen.push({ ...o, smsAllowed: politika.smsAllowed !== false });
+            yeniIsaretler.push(isaretKey);
+
+            /* GUN SONU VELI BILDIRIMI (ogrenci). Sabahin eksigi 13:00'te bildirildi;
+               burada ogleden sonra ve tam gun degerlendirilir:
+                 hic giris yok               -> tam_gun_gelmedi (birlesik mesaj)
+                 sabah var, ogleden sonra yok-> ogleden_sonra_gelmedi
+                 ogleden sonra 15:00 sonrasi -> ogleden_sonra_gec
+                 sabah yok, ogleden sonra var-> mesaj yok (13:00'te bildirildi) */
+            if (o.ogrenci && h.durum !== 'kapali') {
+                const sb = h.oturumBilgi?.sabah || {};
+                const os = h.oturumBilgi?.ogleden_sonra || {};
+                const tur = !sb.giris && !os.giris ? 'tam_gun_gelmedi'
+                    : sb.giris && !os.giris ? 'ogleden_sonra_gelmedi'
+                    : os.giris && !os.kazandi ? 'ogleden_sonra_gec'
+                    : null;
+                if (tur) gelmeyen.push({ ...o, kisi, tur, saat: os.giris || '' });
             }
         } catch (e) {
             console.error('[OTOMASYON] devamsizlik', o.kisi_id, e.message);
         }
     }
 
-    /* VELIYE "GELMEDI" BILDIRIMI.
-       Gunde BIR kez calisir: bu gorev `otomasyon` isaretiyle korunuyor, ikinci
-       tur mesaj uretmez. Yalnizca ogrenciler; personelin velisi yoktur. */
+    if (yeniIsaretler.length > 0) {
+        await isaretleriYaz(gun, yeniIsaretler);
+    }
+
+    /* VELIYE GUN SONU BILDIRIMI.
+       Gunde BIR kez calisir (yukaridaki devamsizlik_ ogrenci isaretiyle korunur).
+       Alici cozumu, tatil/ozel program politikasi, sablon ve audit tek yerde:
+       veliBildirim. Gonderim NetGSM tarafindaki SMS_GONDERIM_ACIK kilidinden gecer. */
     for (const o of gelmeyen) {
-        const recipients = await hepsi(`
-            SELECT DISTINCT v.veli_id, phones.telefon
-              FROM veli_ogrenci v
-              JOIN kisiler kv ON kv.id=v.veli_id
-         LEFT JOIN LATERAL (
-                SELECT candidate.telefon
-                  FROM (
-                    SELECT NULLIF(btrim(kv.telefon::text), '') AS telefon
-                    UNION
-                    SELECT btrim(kt.telefon::text) AS telefon
-                      FROM kisi_telefonlari kt
-                     WHERE kt.kisi_id = kv.id
-                  ) candidate
-                 WHERE candidate.telefon IS NOT NULL
-              ) phones ON true
-             WHERE v.ogrenci_id=$1
-          ORDER BY v.veli_id, phones.telefon`, [o.kisi_id]);
-        for (const parent of recipients.length ? recipients : [{}]) {
-            const body = o.tam_ad + ' bugün kuruma gelmemiştir. (' + gun + ')';
-            /* Gonderim NetGSM tarafindaki SMS_GONDERIM_ACIK kilidinden gecer.
-               Telefon yoksa provider'a istek atilmaz; audit kaydi sebebiyle
-               birlikte yazilir, gecmis teslimat verisi uydurulmaz. */
-            const result = !o.smsAllowed
-                ? { success: false, blocked: true,
-                    error: 'Tatil/kapalı gün veya özel program — öğrenci SMS bildirimi kapalı.' }
-                : parent.telefon
-                ? await netgsm.sendSms({ to: parent.telefon, message: body })
-                : { success: false, error: 'Veli telefonu bulunamadı.' };
-            await smsAudit.recordDelivery({ studentId: o.kisi_id, parentId: parent.veli_id,
-                phone: parent.telefon, kind: 'absence', body, result });
+        try {
+            if (await izinliMi(o.kisi_id, gun)) continue;
+            await veliBildirim.veliyeBildir(o.kisi || { kisi_id: o.kisi_id, full_name: o.tam_ad, roles: ['ogrenci'] },
+                { tur: o.tur, saat: o.saat, tarih: gun, kind: 'absence' });
+        } catch (e) {
+            console.error('[OTOMASYON] gun sonu veli bildirimi', o.kisi_id, e.message);
         }
     }
     return n;
@@ -262,9 +340,7 @@ async function tur() {
     const dk = yoklama.dakikaDilimde(simdi, cfg.saatDilimi);
     const yapilan = await isaretleriOku(gun);
 
-    /* Tarihe ozel deneme programi normal ogle/gun sonu saatlerini ezer.
-       Etut yoksa tek cikis sinav sonrasi ayarlanan saattir (varsayilan
-       13:15); etut varsa sinav cikisi ve etut cikisi ayri otomasyonlardir. */
+    /* Tarihe ozel deneme programi normal ogle/gun sonu saatlerini ezer. */
     if (deneme) {
         const sinavBitis = denemeGunleri.dakika(deneme.sinavBitisSaati);
         const otomatikCikis = denemeGunleri.dakika(deneme.otomatikCikisSaati);
@@ -328,26 +404,24 @@ async function tur() {
         return;
     }
 
-    const t = tetikler(cfg);
+    // 13:00 — sabah oturumu kapandi: ogleden once gelmeyen / gec gelen veliye bildirilir.
+    if (cfg.autoAttendanceEnabled && dk >= yoklama.pencereler(cfg).ogleCikis && !yapilan.includes('ogle_sms_tamam')) {
+        const n = await ogleBildirimi(gun, cfg);
+        console.log(`[OTOMASYON] ${gun} öğle veli bildirimi: ${n} mesaj`);
+        await isaretYaz(gun, 'ogle_sms_tamam');
+    }
 
-    for (const gorev of GOREVLER) {
-        if (yapilan.includes(gorev)) continue;
-        if (dk < t[gorev]) continue;
+    // Ogle ve gun sonu otomatik cikislari
+    if (cfg.autoLunchExitEnabled) {
+        await topluCikis(gun, dk, 'Öğle çıkışı — otomatik', cfg, 'ogle');
+    }
+    if (cfg.autoSchoolExitEnabled) {
+        await topluCikis(gun, dk, 'Gün sonu çıkışı — otomatik', cfg, 'gun_sonu');
+    }
 
-        if (gorev === 'ogle') {
-            if (!cfg.autoLunchExitEnabled) { await isaretYaz(gun, gorev); continue; }
-            const n = await topluCikis(gun, t.ogle, 'Öğle çıkışı — otomatik');
-            console.log(`[OTOMASYON] ${gun} öğle çıkışı: ${n} kişi`);
-        } else if (gorev === 'gun_sonu') {
-            if (!cfg.autoSchoolExitEnabled) { await isaretYaz(gun, gorev); continue; }
-            const n = await topluCikis(gun, t.gun_sonu, 'Gün sonu çıkışı — otomatik');
-            console.log(`[OTOMASYON] ${gun} gün sonu çıkışı: ${n} kişi`);
-        } else {
-            if (!cfg.autoAttendanceEnabled) { await isaretYaz(gun, gorev); continue; }
-            const n = await devamsizligiTamamla(gun, cfg);
-            console.log(`[OTOMASYON] ${gun} devamsızlık tamamlandı: ${n} öğrenci`);
-        }
-        await isaretYaz(gun, gorev);
+    // Devamsizlik sonlandirma
+    if (cfg.autoAttendanceEnabled) {
+        await devamsizligiTamamla(gun, cfg, dk);
     }
 }
 
@@ -365,4 +439,4 @@ function baslat() {
     console.log('[OTOMASYON] gunluk gorevler etkin (30 sn aralikla denetim)');
 }
 
-module.exports = { baslat, tur, tetikler };
+module.exports = { baslat, tur, tetikler, devamsizligiTamamla, topluCikis };

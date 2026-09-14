@@ -275,62 +275,15 @@ function resolveForPerson(baseConfig, date, person) {
         && (customRule ? customIncluded && customRule.ogrenciSms : !closed)
     );
 
-    // --- Kurs Merkezi Vardiya & Ozel Vakit Cozumlemesi ---
-    const kisiId = person?.kisi_id ? String(person.kisi_id) : (person?.id ? String(person.id).replace(/^usr_/, '') : null);
-    const shifts = baseConfig?.shifts || {};
-    const studentSchedules = baseConfig?.studentSchedules || {};
-    const ozelVakit = (kisiId && studentSchedules[kisiId]) || person?.vakit || null;
-
-    let vardiyaGiris = baseConfig.sabahGiris;
-    let vardiyaMusaadeDk = baseConfig.sabahMusaadeDk;
-    let vardiyaOgleCikis = baseConfig.ogleCikis;
-    let vardiyaOgleMusaadeDk = baseConfig.ogleCikisMusaadeDk;
-    let vardiyaOgledenSonraGiris = baseConfig.ogledenSonraGiris;
-    let vardiyaOgledenSonraMusaadeDk = baseConfig.ogledenSonraMusaadeDk;
-    let vardiyaOkulCikis = baseConfig.okulCikis;
-    let vardiyaKesilme = baseConfig.staffAbsenceCutoffHour || baseConfig.okulCikis;
-    let vardiyaTuru = 'sabah';
-    let vardiyaAdi = 'Sabah Grubu';
-
-    if (ogrenci) {
-        if (ozelVakit && ozelVakit.bireysel_aktif && ozelVakit.ozel_giris) {
-            vardiyaGiris = ozelVakit.ozel_giris;
-            vardiyaMusaadeDk = ozelVakit.ozel_tolerans_dk != null ? Number(ozelVakit.ozel_tolerans_dk) : 15;
-            vardiyaOkulCikis = ozelVakit.ozel_cikis || baseConfig.okulCikis;
-            vardiyaOgleCikis = ozelVakit.ozel_mola_baslangic || baseConfig.ogleCikis;
-            vardiyaOgledenSonraGiris = ozelVakit.ozel_mola_bitis || baseConfig.ogledenSonraGiris;
-            vardiyaKesilme = ozelVakit.ozel_kesilme_saati || vardiyaOkulCikis;
-            vardiyaTuru = 'bireysel';
-            vardiyaAdi = 'Bireysel Özel Saat';
-        } else {
-            const vid = (ozelVakit && ozelVakit.vardiya_id) || person?.vardiya_id || 'sabah';
-            const sh = shifts[vid] || shifts['sabah'];
-            if (sh) {
-                vardiyaGiris = sh.sabah_giris || vardiyaGiris;
-                vardiyaMusaadeDk = sh.sabah_musaade_dk != null ? Number(sh.sabah_musaade_dk) : vardiyaMusaadeDk;
-                vardiyaOgleCikis = sh.ogle_cikis || vardiyaOgleCikis;
-                vardiyaOgleMusaadeDk = sh.ogle_musaade_dk != null ? Number(sh.ogle_musaade_dk) : vardiyaOgleMusaadeDk;
-                vardiyaOgledenSonraGiris = sh.ogleden_sonra_giris || sh.ogledenSonra_giris || vardiyaOgledenSonraGiris;
-                vardiyaOgledenSonraMusaadeDk = sh.ogleden_sonra_musaade_dk != null ? Number(sh.ogleden_sonra_musaade_dk) : vardiyaOgledenSonraMusaadeDk;
-                vardiyaOkulCikis = sh.okul_cikis || vardiyaOkulCikis;
-                vardiyaKesilme = sh.kesilme_saati || vardiyaOkulCikis;
-                vardiyaTuru = sh.id || vid;
-                vardiyaAdi = sh.ad || (vid === 'aksam' ? 'Akşam Grubu' : 'Sabah Grubu');
-            }
-        }
-    }
+    /* Saatler dogrudan Kurum Kurallari'ndan gelir; kisiye ozel grup/saat yoktur.
+       Gun sonu kesimi: ogrenci kurumun kesilmeSaati'ni (otomatik cikis),
+       personel kendi devamsizlik saatini kullanir. */
+    const kesilmeSaati = ogrenci
+        ? (baseConfig.kesilmeSaati || baseConfig.okulCikis)
+        : (baseConfig.staffAbsenceCutoffHour || baseConfig.okulCikis);
     const ortakConfig = {
         ...baseConfig,
-        sabahGiris: vardiyaGiris,
-        sabahMusaadeDk: vardiyaMusaadeDk,
-        ogleCikis: vardiyaOgleCikis,
-        ogleCikisMusaadeDk: vardiyaOgleMusaadeDk,
-        ogledenSonraGiris: vardiyaOgledenSonraGiris,
-        ogledenSonraMusaadeDk: vardiyaOgledenSonraMusaadeDk,
-        okulCikis: vardiyaOkulCikis,
-        kesilmeSaati: vardiyaKesilme,
-        vardiyaTuru,
-        vardiyaAdi,
+        kesilmeSaati,
         kapaliGunEngelle: closed && transitionAllowed ? false : baseConfig.kapaliGunEngelle,
         tatilGunu: closed,
         tatilKural: holidayRule,

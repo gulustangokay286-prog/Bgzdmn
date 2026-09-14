@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { app } from './services/firebaseConfig';
+import { oturumDinle, oturumKapat } from './services/api';
 import LoginView from './views/LoginView';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import {
-  LayoutDashboard, BrainCircuit, QrCode, RadioTower, DoorOpen, CalendarX2, ClipboardList,
-  UserSquare, FileEdit, HeartHandshake, Users, UserCheck, Megaphone, BellRing, MessageSquare,
+  Building2,
+  LayoutDashboard, BrainCircuit, QrCode, RadioTower, DoorOpen, CalendarX2, ClipboardList, UserX,
+  UserSquare, Briefcase, FileEdit, HeartHandshake, Users, UserCheck, Megaphone, BellRing, MessageSquare,
   CalendarClock, Bus, Coffee, Globe, Inbox, ShieldAlert, Smartphone, HeartPulse,
   Settings, Building, Key, LogOut, ChevronDown, Moon, Sun, Menu, X
 } from 'lucide-react';
@@ -20,6 +20,7 @@ import UsersView from './views/UsersView';
 import GradesAdminView from './views/GradesAdminView';
 import AttendanceAdminView from './views/AttendanceAdminView';
 import DailyAbsenceReportView from './views/DailyAbsenceReportView';
+import NonAttendersView from './views/NonAttendersView';
 import EbosPortalView from './views/EbosPortalView';
 import QRGeneratorAdminView from './views/QRGeneratorAdminView';
 import QRCodeRedirect from './views/QRCodeRedirect';
@@ -44,9 +45,9 @@ import PushNotificationAdminView from './views/PushNotificationAdminView';
 import StudentGateAdminView from './views/StudentGateAdminView';
 import ProfileView from './views/ProfileView';
 import CheatLogsAdminView from './views/CheatLogsAdminView';
+import BireyCenterAdminView from './views/BireyCenterAdminView';
 import DeviceManagementView from './views/DeviceManagementView';
 import HealthAndSafetyAdminView from './views/HealthAndSafetyAdminView';
-import useAttendanceAutomation from './hooks/useAttendanceAutomation';
 
 const NavItem = ({ to, icon: Icon, label, onClick }) => (
   <NavLink
@@ -71,7 +72,9 @@ const NAV_GROUPS = [
     title: 'Genel',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/nova-ai', icon: BrainCircuit, label: 'Yapay Zeka Merkezi' }
+      { to: '/nova-ai', icon: BrainCircuit, label: 'Yapay Zeka Merkezi' },
+      /* Bagli kurum izleme — yalnizca Bogazici panelinde bulunur. */
+      { to: '/birey', icon: Building2, label: 'Birey Kurs Merkezi' }
     ]
   },
   {
@@ -79,6 +82,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/qr', icon: QrCode, label: 'QR Geçiş Sistemi' },
       { to: '/live-attendance', icon: RadioTower, label: 'Canlı Geçiş Takibi' },
+      { to: '/non-attenders', icon: UserX, label: 'Geçiş Yapmayanlar' },
       { to: '/student-gate', icon: DoorOpen, label: 'Manuel Geçiş' },
       { to: '/health-safety', icon: HeartPulse, label: 'Revir & Güvenlik Masası' },
       { to: '/attendance', icon: CalendarX2, label: 'Devamsızlık' },
@@ -89,6 +93,7 @@ const NAV_GROUPS = [
     title: 'Akademik',
     items: [
       { to: '/teachers', icon: UserSquare, label: 'Öğretmenler' },
+      { to: '/personnel', icon: Briefcase, label: 'Personeller' },
       { to: '/grades', icon: FileEdit, label: 'Not Yönetimi' },
       { to: '/counseling', icon: HeartHandshake, label: 'Rehberlik & Psikoloji' }
     ]
@@ -199,7 +204,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       </div>
       <div className="sidebar-footer">
         <button
-          onClick={() => getAuth().signOut()}
+          onClick={() => oturumKapat()}
           className="w-full h-9 px-2.5 flex items-center gap-2.5 rounded-lg text-[13px] font-medium text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
         >
           <LogOut size={16} className="shrink-0" />
@@ -209,11 +214,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     </div>
     </>
   );
-};
-
-const AttendanceAutomationRunner = () => {
-  useAttendanceAutomation(true);
-  return null;
 };
 
 const App = () => {
@@ -228,12 +228,11 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const birak = oturumDinle((kullanici) => {
+      setUser(kullanici);
       setLoadingAuth(false);
     });
-    return () => unsubscribe();
+    return birak;
   }, []);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -258,7 +257,7 @@ const App = () => {
     <ThemeProvider>
       <Router>
         <div className="app-container">
-          <AttendanceAutomationRunner />
+          {/* Attendance automation runs on VDS. Opening a panel must not write gate/absence records. */}
           <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
           <div className="main-content bg-[var(--bg-base)] flex flex-col relative w-full">
             <div className="drag-region-top hidden md:block" />
@@ -284,6 +283,7 @@ const App = () => {
               <Route path="/grades" element={<RequireLicense requiredPath="/grades"><GradesAdminView /></RequireLicense>} />
               <Route path="/attendance" element={<RequireLicense requiredPath="/attendance"><AttendanceAdminView /></RequireLicense>} />
               <Route path="/daily-absences" element={<RequireLicense requiredPath="/attendance"><DailyAbsenceReportView /></RequireLicense>} />
+              <Route path="/non-attenders" element={<RequireLicense requiredPath="/attendance"><NonAttendersView /></RequireLicense>} />
               <Route path="/ebos" element={<RequireLicense requiredPath="/finance"><EbosPortalView /></RequireLicense>} />
 
               <Route path="/nova-ai" element={<RequireLicense requiredPath="/nova-ai"><NovaAIAdminView /></RequireLicense>} />
@@ -291,6 +291,7 @@ const App = () => {
               <Route path="/qr-generator" element={<RequireLicense requiredPath="/qr"><QRGeneratorAdminView /></RequireLicense>} />
               <Route path="/live-attendance" element={<RequireLicense requiredPath="/live-attendance"><AttendanceLiveView /></RequireLicense>} />
               <Route path="/teachers" element={<RequireLicense requiredPath="/teachers"><TeacherManagementAdminView /></RequireLicense>} />
+              <Route path="/personnel" element={<RequireLicense requiredPath="/teachers"><TeacherManagementAdminView staffType="personnel" /></RequireLicense>} />
               <Route path="/teachers/ai-analysis/:teacherId" element={<RequireLicense requiredPath="/teachers"><TeacherAIAnalysisView /></RequireLicense>} />
               
               <Route path="/announcements" element={<RequireLicense requiredPath="/announcements"><AnnouncementsAdminView /></RequireLicense>} />
@@ -311,6 +312,7 @@ const App = () => {
               <Route path="/health-safety" element={<RequireLicense requiredPath="/student-gate"><HealthAndSafetyAdminView /></RequireLicense>} />
               <Route path="/profile" element={<RequireLicense requiredPath="/profile"><ProfileView /></RequireLicense>} />
               <Route path="/cheats" element={<RequireLicense requiredPath="/cheats"><CheatLogsAdminView /></RequireLicense>} />
+              <Route path="/birey" element={<BireyCenterAdminView />} />
               <Route path="*" element={
                 <div style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   <h2>Geçersiz Bağlantı</h2>

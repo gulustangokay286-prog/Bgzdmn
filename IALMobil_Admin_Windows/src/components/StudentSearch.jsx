@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Check, X, UserCircle } from 'lucide-react';
 import { Input, Select, EmptyState } from './ui/panel';
 import { cx, eyebrow, hairline } from './ui/tokens';
+import { matchesSearchQuery } from '../services/search';
 
 const CLASS_OPTIONS = ['Tümü', '9. Sınıf', '10. Sınıf', '11. Sınıf', '12. Sınıf'];
 
@@ -10,16 +11,15 @@ const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) =>
   const [selectedClass, setSelectedClass] = useState('Tümü');
 
   const filteredUsers = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
     return users.filter((u) => {
       if (viewMode === 'student' && selectedClass !== 'Tümü') {
         const branchStr = u.fields?.branch?.stringValue || '';
         if (!branchStr.includes(selectedClass.replace('. Sınıf', ''))) return false;
       }
-      if (!query) return true;
-      const name = (u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue || '').toLowerCase();
-      const no = (u.fields?.school_number?.stringValue || u.fields?.schoolNumber?.stringValue || '').toLowerCase();
-      return name.includes(query) || no.includes(query);
+      return matchesSearchQuery(searchText, {
+        text: [u.fields?.full_name?.stringValue || u.fields?.fullName?.stringValue],
+        identifiers: [u.fields?.school_number?.stringValue || u.fields?.schoolNumber?.stringValue]
+      });
     });
   }, [users, searchText, selectedClass, viewMode]);
 
@@ -85,7 +85,7 @@ const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) =>
                 className={cx(
                   'w-full text-left flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg transition-colors',
                   isSelected
-                    ? 'bg-[#991b1b]/[0.08] dark:bg-rose-500/10'
+                    ? 'bg-[#D94300]/[0.08] dark:bg-rose-500/10'
                     : 'hover:bg-slate-100 dark:hover:bg-white/[0.05]'
                 )}
               >
@@ -93,7 +93,7 @@ const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) =>
                   <span
                     className={cx(
                       'block text-[13px] font-medium truncate',
-                      isSelected ? 'text-[#991b1b] dark:text-rose-300' : 'text-slate-800 dark:text-slate-100'
+                      isSelected ? 'text-[#D94300] dark:text-rose-300' : 'text-slate-800 dark:text-slate-100'
                     )}
                   >
                     {name}
@@ -102,7 +102,7 @@ const StudentSearch = ({ users, selectedId, onSelect, viewMode = 'student' }) =>
                     {viewMode === 'student' ? `No ${no} · ${branch}` : role}
                   </span>
                 </span>
-                {isSelected && <Check size={15} className="shrink-0 text-[#991b1b] dark:text-rose-300" />}
+                {isSelected && <Check size={15} className="shrink-0 text-[#D94300] dark:text-rose-300" />}
               </button>
             );
           })
