@@ -143,7 +143,7 @@ const DusuncePaneli = ({ metin, akiyor, sure }) => {
           ref={kutuRef}
           className={cx(
             'nova-ac mt-2 max-h-52 overflow-y-auto custom-scrollbar pl-3 border-l-2',
-            'border-[#6BA539]/25 text-[12.5px] leading-relaxed whitespace-pre-wrap',
+            'border-[#1e3a8a]/25 text-[12.5px] leading-relaxed whitespace-pre-wrap',
             'text-slate-500 dark:text-slate-400'
           )}
         >
@@ -360,13 +360,13 @@ const NovaAIAdminView = () => {
   );
 
   return (
-    <div className="absolute -inset-x-4 -top-4 -bottom-6 md:relative md:inset-auto md:w-full md:flex-1 md:h-full flex bg-white dark:bg-[#171C13] overflow-hidden text-slate-800 dark:text-slate-200 font-sans md:rounded-[32px] md:shadow-sm md:border md:border-slate-200 dark:md:border-white/10 z-10 rounded-none border-none">
+    <div className="absolute -inset-x-4 -top-4 -bottom-6 md:relative md:inset-auto md:w-full md:flex-1 md:h-full flex bg-white dark:bg-[#0f172a] overflow-hidden text-slate-800 dark:text-slate-200 font-sans md:rounded-[32px] md:shadow-sm md:border md:border-slate-200 dark:md:border-white/10 z-10 rounded-none border-none">
 
       {mobilePortalContainer && createPortal(mobileSidebarButton, mobilePortalContainer)}
 
       {/* Sol sutun — sohbet gecmisi */}
       <div className={cx(
-        'absolute md:relative z-40 shrink-0 bg-slate-50 dark:bg-[#12160F] border-r transition-all duration-300 ease-in-out overflow-hidden h-full',
+        'absolute md:relative z-40 shrink-0 bg-slate-50 dark:bg-[#0b1120] border-r transition-all duration-300 ease-in-out overflow-hidden h-full',
         hairline,
         isSidebarOpen ? 'w-[264px]' : 'w-0'
       )}>
@@ -375,14 +375,14 @@ const NovaAIAdminView = () => {
             <button
               onClick={handleNewChat}
               className={cx(
-                'w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border bg-white dark:bg-[#171C13]',
+                'w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border bg-white dark:bg-[#0f172a]',
                 hairline,
                 'text-[13.5px] font-medium text-slate-700 dark:text-slate-200',
-                'hover:border-[#6BA539]/40 hover:text-[#4F7D2A] dark:hover:text-[#A7CE7C] transition-colors cursor-pointer'
+                'hover:border-[#1e3a8a]/40 hover:text-[#0f172a] dark:hover:text-[#93c5fd] transition-colors cursor-pointer'
               )}
             >
               <span className="flex items-center gap-2.5">
-                <span className={cx('w-6 h-6 rounded-full border flex items-center justify-center overflow-hidden bg-white dark:bg-[#232A1D] p-[3px]', hairline)}>
+                <span className={cx('w-6 h-6 rounded-full border flex items-center justify-center overflow-hidden bg-white dark:bg-[#1e293b] p-[3px]', hairline)}>
                   <img src={novaAiIcon} alt="" className="w-full h-full object-contain dark:brightness-0 dark:invert" />
                 </span>
                 Yeni sohbet
@@ -404,14 +404,14 @@ const NovaAIAdminView = () => {
                     className={cx(
                       'group flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-[13px] cursor-pointer transition-colors mb-0.5',
                       activeChatId === chat.id
-                        ? 'bg-[#6BA539]/10 text-[#4F7D2A] dark:text-[#A7CE7C] font-medium'
+                        ? 'bg-[#1e3a8a]/10 text-[#0f172a] dark:text-[#93c5fd] font-medium'
                         : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                     )}
                   >
                     <span className="truncate">{chat.title || chat.baslik}</span>
                     <button
                       onClick={(e) => sohbetSil(e, chat.id)}
-                      className="shrink-0 p-1 -mr-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-[#D94300] hover:bg-white dark:hover:bg-white/10 transition-all"
+                      className="shrink-0 p-1 -mr-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-[#991b1b] hover:bg-white dark:hover:bg-white/10 transition-all"
                       title="Sohbeti sil"
                     >
                       <Trash2 size={13} />
@@ -429,14 +429,14 @@ const NovaAIAdminView = () => {
 
           <div className={cx('p-3 border-t', hairline)}>
             <div className="flex items-center gap-2.5 px-1 py-1">
-              <div className="w-8 h-8 rounded-full bg-[#6BA539] text-white flex items-center justify-center font-semibold text-[12px] shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#1e3a8a] text-white flex items-center justify-center font-semibold text-[12px] shrink-0">
                 {(ilkAd || 'NA').substring(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 flex items-center gap-1.5">
                 <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200 truncate">
                   {kullaniciAdi || 'Kullanıcı'}
                 </span>
-                <BadgeCheck size={15} className="text-[#6BA539] shrink-0" />
+                <BadgeCheck size={15} className="text-[#1e3a8a] shrink-0" />
               </div>
             </div>
           </div>
@@ -444,7 +444,7 @@ const NovaAIAdminView = () => {
       </div>
 
       {/* Sag sutun — sohbet */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#171C13] h-full transition-all relative min-w-0">
+      <div className="flex-1 flex flex-col bg-white dark:bg-[#0f172a] h-full transition-all relative min-w-0">
 
         <div className="hidden md:block absolute top-0 left-0 p-3 z-50 pointer-events-none">
           <div
@@ -490,7 +490,7 @@ const NovaAIAdminView = () => {
                       'px-3.5 py-2 rounded-full border bg-transparent cursor-pointer transition-colors',
                       hairline,
                       'text-[12.5px] text-slate-600 dark:text-slate-300',
-                      'hover:border-[#6BA539]/45 hover:text-[#4F7D2A] dark:hover:text-[#A7CE7C]'
+                      'hover:border-[#1e3a8a]/45 hover:text-[#0f172a] dark:hover:text-[#93c5fd]'
                     )}
                   >
                     {g.ad}
@@ -503,7 +503,7 @@ const NovaAIAdminView = () => {
               {messages.map((msg, idx) => (
                 msg.role === 'user' ? (
                   <div key={idx} className="flex w-full justify-end">
-                    <div className="bg-slate-100 dark:bg-[#232A1D] text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-2xl max-w-[75%] text-[14.5px] leading-relaxed break-words">
+                    <div className="bg-slate-100 dark:bg-[#1e293b] text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-2xl max-w-[75%] text-[14.5px] leading-relaxed break-words">
                       {msg.content}
                     </div>
                   </div>
@@ -540,7 +540,7 @@ const NovaAIAdminView = () => {
         </div>
 
         {/* Yazma alani */}
-        <div className="shrink-0 bg-white dark:bg-[#171C13] pt-2 pb-7 px-6 md:px-8 mt-auto">
+        <div className="shrink-0 bg-white dark:bg-[#0f172a] pt-2 pb-7 px-6 md:px-8 mt-auto">
           <div className="max-w-3xl mx-auto">
             <form
               onSubmit={handleSend}
@@ -548,8 +548,8 @@ const NovaAIAdminView = () => {
                 'rounded-[20px] border px-4 pt-3.5 pb-2.5 transition-colors',
                 // Odakta zemin beyaza donuyordu ve kutu kayboluyordu; yuzey
                 // rengi korunur, yalnizca kenar markaya gecer.
-                'bg-[#F3F5F0] dark:bg-[#1B2117] border-slate-200/90 dark:border-white/10',
-                'focus-within:border-[#6BA539]/60'
+                'bg-[#F1F5F9] dark:bg-[#111a2e] border-slate-200/90 dark:border-white/10',
+                'focus-within:border-[#1e3a8a]/60'
               )}
             >
               <textarea
@@ -582,7 +582,7 @@ const NovaAIAdminView = () => {
                     'w-9 h-9 rounded-full flex items-center justify-center shrink-0 border-none outline-none transition-colors overflow-hidden',
                     !prompt.trim() || akiyor
                       ? 'bg-slate-100 dark:bg-white/10 text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                      : 'bg-[#6BA539] text-white hover:bg-[#4F7D2A] cursor-pointer'
+                      : 'bg-[#1e3a8a] text-white hover:bg-[#0f172a] cursor-pointer'
                   )}
                 >
                   <ArrowUp size={18} strokeWidth={2.5} className={gonderAnim ? 'nova-gonder-anim' : undefined} />
