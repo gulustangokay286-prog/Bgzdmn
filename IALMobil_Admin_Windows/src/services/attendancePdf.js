@@ -161,7 +161,7 @@ export function devamsizlikRaporuHtml({ ad, okulNo, sinif, donem, referans, gunl
 ${satirlar.length ? `<table><thead><tr>
   <th>Tarih</th><th>Sabah</th><th>Öğleden sonra</th><th>Durum</th><th>Açıklama</th><th>Veliye SMS</th>
 </tr></thead><tbody>${govde}</tbody></table>` : '<div class="bos">Bu dönemde kayıt yok.</div>'}
-<div class="foot"><span>Kaynak: VDS yoklama motoru · günlük raporla aynı hesap</span><span>Üretim: ${esc(uretim)} · ${satirlar.length} gün</span></div>
+<div class="foot"><span>Kaynak: Akıllı Geçiş Sistemi</span><span>Üretim: ${esc(uretim)} · ${satirlar.length} gün</span></div>
 <script>window.onload = function () { window.print(); };</script>
 </body></html>`;
 }

@@ -13,6 +13,7 @@ import {
 import logo from './assets/logo.png';
 
 import RequireLicense from './components/RequireLicense';
+import RouteSkeleton from './components/RouteSkeleton';
 
 import DashboardView from './views/DashboardView';
 import RegistrationApprovalView from './views/RegistrationApprovalView';
@@ -275,6 +276,7 @@ const App = () => {
             </div>
 
             <div className="relative px-4 pt-4 pb-6 md:p-8 flex-1 flex flex-col box-border min-h-0" onClick={() => setMobileMenuOpen(false)}>
+            <RouteSkeleton>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<RequireLicense requiredPath="/dashboard"><DashboardView /></RequireLicense>} />
@@ -319,6 +321,7 @@ const App = () => {
                 </div>
               } />
             </Routes>
+            </RouteSkeleton>
           </div>
         </div>
       </div>

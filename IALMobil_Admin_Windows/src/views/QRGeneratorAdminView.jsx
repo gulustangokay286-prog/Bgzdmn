@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { RefreshCcw, ShieldCheck, DoorOpen, GraduationCap, Maximize, Minimize, QrCode, Clock, ShieldBan, Sun, Moon } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { v4 as uuidv4 } from 'uuid';
-import { doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebaseConfig';
+import { modul, ayar, webAyar } from '../services/veri';
 
 const QRGeneratorAdminView = () => {
   const [qrTheme, setQrTheme] = useState('dark');
@@ -24,11 +23,12 @@ const QRGeneratorAdminView = () => {
   const cycleStartRef = useRef(Date.now());
   const isRefreshingRef = useRef(false);
 
-  const CYCLE_DURATION = 3500;
-  // Karekod 3,5 saniyede bir doner ama okutulan kod, telefon tarayiciyi acip
-  // sayfayi yukleyene kadar gecerli kalmali. Son N nonce kabul edilir:
-  // 60 x 3,5sn = ~3,5 dakikalik kabul penceresi.
-  const NONCE_HISTORY = 60;
+  /* Karekod 15 saniyede bir doner. Onceden 3,5 saniyeydi: telefon kamerasi
+     kodu cozup baglantiyi gosterene kadar kod degisiyor, kullanici "link
+     bazen cikiyor bazen cikmiyor" diyordu. Guvenlik donusten degil,
+     sunucudaki tek kullanimlik nonce + 5 dk tazelik kontrolunden gelir. */
+  const CYCLE_DURATION = 15000;
+  const NONCE_HISTORY = 20;
   const isDark = qrTheme === 'dark';
 
   useEffect(() => { isRefreshingRef.current = isRefreshing; }, [isRefreshing]);
@@ -62,21 +62,20 @@ const QRGeneratorAdminView = () => {
       if (!isRefreshingRef.current && secondsTextRef.current) {
         const elapsed = Date.now() - cycleStartRef.current;
         const remaining = Math.max(0, 1 - elapsed / CYCLE_DURATION);
-        const secs = (remaining * (CYCLE_DURATION / 1000)).toFixed(1);
+        const kalan = remaining * (CYCLE_DURATION / 1000);
+        const secs = kalan >= 10 ? String(Math.ceil(kalan)) : kalan.toFixed(1);
         secondsTextRef.current.textContent = (secs === '0.0' ? '0' : secs) + ' saniye kaldı';
 
         if (remaining <= 0) {
           isRefreshingRef.current = true;
           setIsRefreshing(true);
+          setCurrentSessionId(uuidv4());
+          cycleStartRef.current = Date.now();
+          if (secondsTextRef.current) secondsTextRef.current.textContent = '15 saniye kaldı';
           setTimeout(() => {
-            setCurrentSessionId(uuidv4());
-            cycleStartRef.current = Date.now();
-            if (secondsTextRef.current) secondsTextRef.current.textContent = '3.5 saniye kaldı';
-            setTimeout(() => {
-              isRefreshingRef.current = false;
-              setIsRefreshing(false);
-            }, 50);
-          }, 300);
+            isRefreshingRef.current = false;
+            setIsRefreshing(false);
+          }, 150);
         }
       }
       updateClock();
@@ -86,47 +85,41 @@ const QRGeneratorAdminView = () => {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, 'security_logs'), orderBy('timestamp', 'desc'), limit(5));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const logData = change.doc.data();
-          if (logData.type === 'cheat_attempt') {
-            const logTime = logData.timestamp?.toDate ? logData.timestamp.toDate() : new Date(logData.timestamp);
-            const now = new Date();
-            if (now - logTime < 10000) {
-              setCheatAlert(logData);
-              setTimeout(() => setCheatAlert(null), 8000);
-            }
-          }
+    // Son kayitlari dinler; 10 saniyeden yeni bir kopya girisimi varsa uyarir.
+    let gorulen = new Set();
+    return modul('security_logs').dinle((kayitlar) => {
+      for (const k of (kayitlar || []).slice(0, 5)) {
+        if (gorulen.has(k.id)) continue;
+        gorulen.add(k.id);
+        const tip = k.olay ?? k.type;
+        if (tip !== 'cheat_attempt') continue;
+        const zaman = new Date(k.zaman ?? k.timestamp ?? 0);
+        if (Date.now() - zaman.getTime() < 10000) {
+          setCheatAlert({ ...k, type: tip, message: k.detay ?? k.message });
+          setTimeout(() => setCheatAlert(null), 8000);
         }
-      });
-    });
-    return () => unsubscribe();
+      }
+    }, { limit: 5 });
   }, []);
+
+  /* Karekodun isaret ettigi adres.
+     Site mevcut barindirmasindan tasinacagi icin sabit yazilmaz;
+     tasima tamamlaninca VITE_QR_TABAN_URL yeni alan adina ayarlanmalidir. */
+  const QR_TABAN = import.meta.env.VITE_QR_TABAN_URL || 'https://bogazicikoleji.chenki.net';
 
   const generateCode = useCallback(() => {
     const timestamp = Math.floor(Date.now() / 1000);
-    setQrData(`https://bgz-mobil.web.app/qr?type=${selectedType}&sessionId=${currentSessionId}&timestamp=${timestamp}`);
-    setQrDataEntry(`https://bgz-mobil.web.app/qr?type=${selectedType}&action=entry&sessionId=${currentSessionId}&timestamp=${timestamp}`);
-    setQrDataExit(`https://bgz-mobil.web.app/qr?type=${selectedType}&action=exit&sessionId=${currentSessionId}&timestamp=${timestamp}`);
+    setQrData(`${QR_TABAN}/qr?type=${selectedType}&sessionId=${currentSessionId}&timestamp=${timestamp}`);
+    setQrDataEntry(`${QR_TABAN}/qr?type=${selectedType}&action=entry&sessionId=${currentSessionId}&timestamp=${timestamp}`);
+    setQrDataExit(`${QR_TABAN}/qr?type=${selectedType}&action=exit&sessionId=${currentSessionId}&timestamp=${timestamp}`);
 
     recentNoncesRef.current = [currentSessionId, ...recentNoncesRef.current].slice(0, NONCE_HISTORY);
 
-    setDoc(doc(db, 'active_qr_nonce', 'current_entry'), {
-      nonce: currentSessionId,
-      validNonces: recentNoncesRef.current,
-      type: selectedType,
-      createdAt: serverTimestamp(),
-      timestampUnix: timestamp
-    }).catch(() => { });
-    setDoc(doc(db, 'active_qr_nonce', 'current_exit'), {
-      nonce: currentSessionId,
-      validNonces: recentNoncesRef.current,
-      type: selectedType,
-      createdAt: serverTimestamp(),
-      timestampUnix: timestamp
-    }).catch(() => { });
+    /* Gecerli karekod listesi ARTIK YAZILMIYOR.
+     * Jeton sunucuda kisi basina tuketiliyor: ayni karekodu ayni kisi iki
+     * kez kullanamaz, farkli kisiler kullanabilir. Eskiyen bir fotograf ise
+     * istemcideki zaman damgasi tazelik kontroluyle eleniyor. Bu yuzden
+     * onceden tutulan "gecerli nonce listesi" gereksiz kaldi. */
   }, [selectedType, currentSessionId]);
 
   useEffect(() => { generateCode(); }, [generateCode]);
@@ -134,12 +127,10 @@ const QRGeneratorAdminView = () => {
   const refreshQR = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    setTimeout(() => {
-      setCurrentSessionId(uuidv4());
-      cycleStartRef.current = Date.now();
-      if (secondsTextRef.current) secondsTextRef.current.textContent = '3.5 saniye kaldı';
-      setTimeout(() => setIsRefreshing(false), 50);
-    }, 300);
+    setCurrentSessionId(uuidv4());
+    cycleStartRef.current = Date.now();
+    if (secondsTextRef.current) secondsTextRef.current.textContent = '15 saniye kaldı';
+    setTimeout(() => setIsRefreshing(false), 150);
   };
 
   const toggleFullscreen = () => {
@@ -181,31 +172,31 @@ const QRGeneratorAdminView = () => {
           background: conic-gradient(from -90deg, var(--border-color) var(--progress-angle, 0deg), transparent 0deg);
         }
         .animating-border {
-          animation: sweep 3.5s linear forwards;
+          animation: sweep 15s linear forwards;
         }
       `}</style>
 
       <div className={`relative z-10 w-full flex flex-col items-center transition-all duration-500 ${isFullscreen ? 'max-w-[1280px]' : 'max-w-[1020px]'
         }`}>
 
-        <div className={`relative w-full flex flex-col md:flex-row justify-between items-center mb-6 px-5 py-3.5 border rounded-2xl gap-4 transition-colors duration-500 ${isDark ? 'bg-slate-900/80 border-slate-800 shadow-lg' : 'bg-white border-slate-200 shadow-md'
+        <div className={`relative w-full flex flex-col md:flex-row justify-between items-center mb-6 px-5 py-3.5 border rounded-2xl gap-4 md:gap-7 transition-colors duration-500 ${isDark ? 'bg-slate-900/80 border-slate-800 shadow-lg' : 'bg-white border-slate-200 shadow-md'
           }`}>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-1 min-w-0 items-center gap-2">
             <img
               src="/verified.png"
               alt="Sistem Güvende"
               className="w-7 h-7 object-contain saturate-200 contrast-150 brightness-75 hue-rotate-[90deg] shrink-0"
             />
             <div className="flex flex-col justify-center gap-0.5">
-              <h1 className={`text-[15px] font-extrabold leading-none translate-y-[4px] ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <h1 className={`text-[15px] font-extrabold leading-none translate-y-[4px] truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Sistem Güvende ve Aktif
               </h1>
               <span ref={clockDateRef} className="text-[10px] font-bold uppercase tracking-[1.6px] leading-none text-[#76859d]"></span>
             </div>
           </div>
 
-          <div className={`md:absolute md:left-1/2 md:-translate-x-1/2 flex items-center p-1 rounded-full border transition-all duration-300 ${isDark
+          <div className={`shrink-0 flex items-center p-1 rounded-full border transition-all duration-300 ${isDark
             ? 'bg-slate-800/60 border-slate-700/60'
             : 'bg-slate-100/80 border-slate-200/80 shadow-inner'
             }`}>
@@ -229,20 +220,20 @@ const QRGeneratorAdminView = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="shrink-0 flex items-center justify-end gap-4">
             <div className="flex items-center gap-2">
               <Clock size={16} className={isDark ? 'text-indigo-400' : 'text-indigo-600'} />
-              <span ref={clockTimeRef} className={`text-[22px] font-extrabold tracking-tight tabular-nums ${isDark ? 'text-white' : 'text-slate-800'
+              <span ref={clockTimeRef} className={`text-[20px] font-extrabold tracking-tight tabular-nums w-[94px] text-right ${isDark ? 'text-white' : 'text-slate-800'
                 }`}>
               </span>
             </div>
 
-            <div className="h-6 w-[1px] bg-slate-700/30" />
+            <div className={`h-6 w-[1px] ${isDark ? 'bg-slate-700/40' : 'bg-slate-300/70'}`} />
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setQrTheme(t => t === 'dark' ? 'light' : 'dark')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[12px] border transition-all ${isDark
+                className={`flex items-center justify-center gap-1.5 w-[104px] px-2.5 py-1.5 rounded-full font-bold text-[12px] border transition-all ${isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
                   : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
                   }`}
@@ -252,7 +243,7 @@ const QRGeneratorAdminView = () => {
               </button>
               <button
                 onClick={toggleFullscreen}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[12px] border transition-all ${isDark
+                className={`flex items-center justify-center gap-1.5 w-[116px] px-2.5 py-1.5 rounded-full font-bold text-[12px] border transition-all ${isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
                   : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
                   }`}
@@ -282,7 +273,7 @@ const QRGeneratorAdminView = () => {
             )}
 
             {selectedType === 'institution_gate' ? (
-              <div className={`flex flex-col sm:flex-row items-center w-full py-4 transition-all justify-evenly ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'px-2 sm:px-4 gap-4 sm:gap-6'
+              <div className={`flex flex-wrap items-center justify-center w-full max-w-full py-4 transition-all ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-6 sm:gap-8' : 'px-2 sm:px-4 gap-4 sm:gap-6'
                 }`}>
                 
                 <div className="relative flex flex-col items-center justify-center">
@@ -295,16 +286,16 @@ const QRGeneratorAdminView = () => {
                     }`}>
                     <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-emerald-500 uppercase`}>GİRİŞ YAP</span>
                     <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
-                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-90' : 'opacity-100'}`}>
                         {qrDataEntry ? (
-                          <QRCode value={qrDataEntry} size={isFullscreen ? 255 : 175} level="H" fgColor="#0f172a" bgColor="#ffffff" />
+                          <QRCode value={qrDataEntry} size={isFullscreen ? 255 : 175} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
                           <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[175px] h-[175px]'}`}>
                             <RefreshCcw className="animate-spin text-emerald-600" size={32} />
                           </div>
                         )}
                       </div>
-                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 ${isRefreshing ? 'opacity-100 z-10' : 'opacity-0 -z-10 pointer-events-none'}`}>
+                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 opacity-0 -z-10 pointer-events-none`}>
                         <RefreshCcw className="animate-spin text-emerald-600" size={32} />
                       </div>
                     </div>
@@ -356,7 +347,7 @@ const QRGeneratorAdminView = () => {
                   >
                     <RefreshCcw size={13} className={`transition-transform ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
                     <span ref={selectedType === 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums tracking-wide">
-                      3.5 saniye kaldı
+                      15 saniye kaldı
                     </span>
                   </button>
                 </div>
@@ -371,16 +362,16 @@ const QRGeneratorAdminView = () => {
                     }`}>
                     <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-rose-500 uppercase`}>ÇIKIŞ YAP</span>
                     <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
-                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-90' : 'opacity-100'}`}>
                         {qrDataExit ? (
-                          <QRCode value={qrDataExit} size={isFullscreen ? 255 : 175} level="H" fgColor="#0f172a" bgColor="#ffffff" />
+                          <QRCode value={qrDataExit} size={isFullscreen ? 255 : 175} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
                           <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[175px] h-[175px]'}`}>
                             <RefreshCcw className="animate-spin text-rose-600" size={32} />
                           </div>
                         )}
                       </div>
-                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 ${isRefreshing ? 'opacity-100 z-10' : 'opacity-0 -z-10 pointer-events-none'}`}>
+                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 opacity-0 -z-10 pointer-events-none`}>
                         <RefreshCcw className="animate-spin text-rose-600" size={32} />
                       </div>
                     </div>
@@ -398,16 +389,16 @@ const QRGeneratorAdminView = () => {
                   }`}>
                   <span className="text-[20px] font-black tracking-widest text-indigo-500 mb-5 uppercase">YOKLAMA</span>
                   <div className="relative p-5 bg-white rounded-[26px] shadow-md flex items-center justify-center overflow-hidden">
-                    <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+                    <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-90' : 'opacity-100'}`}>
                       {qrData ? (
-                        <QRCode value={qrData} size={isFullscreen ? 300 : 210} level="H" fgColor="#0f172a" bgColor="#ffffff" />
+                        <QRCode value={qrData} size={isFullscreen ? 300 : 210} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                       ) : (
                         <div className={`flex items-center justify-center ${isFullscreen ? 'w-[300px] h-[300px]' : 'w-[210px] h-[210px]'}`}>
                           <RefreshCcw className="animate-spin text-indigo-600" size={36} />
                         </div>
                       )}
                     </div>
-                    <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[26px] transition-all duration-500 ${isRefreshing ? 'opacity-100 z-10' : 'opacity-0 -z-10 pointer-events-none'}`}>
+                    <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[26px] transition-all duration-500 opacity-0 -z-10 pointer-events-none`}>
                       <RefreshCcw className="animate-spin text-indigo-600" size={36} />
                     </div>
                   </div>
@@ -427,7 +418,7 @@ const QRGeneratorAdminView = () => {
               >
                 <RefreshCcw size={13} className={`transition-transform ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
                 <span ref={selectedType !== 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums tracking-wide">
-                  3.5 saniye kaldı
+                  15 saniye kaldı
                 </span>
               </button>
             </div>
