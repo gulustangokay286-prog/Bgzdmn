@@ -181,7 +181,7 @@ const QRGeneratorAdminView = () => {
           .qr-grid .qr-kutu { padding: 12px !important; border-radius: 22px; }
           .qr-grid .qr-beyaz { padding: 8px !important; border-radius: 16px; }
         }
-        @container (min-width: 1040px) {
+        @container (min-width: 880px) {
           .qr-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr); }
           .qr-grid > .qr-baslik { grid-column: auto; order: 0; }
         }
