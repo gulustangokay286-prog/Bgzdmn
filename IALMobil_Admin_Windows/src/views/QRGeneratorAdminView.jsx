@@ -181,9 +181,14 @@ const QRGeneratorAdminView = () => {
           .qr-grid .qr-kutu { padding: 12px !important; border-radius: 22px; }
           .qr-grid .qr-beyaz { padding: 8px !important; border-radius: 16px; }
         }
-        @container (min-width: 880px) {
-          .qr-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr); }
-          .qr-grid > .qr-baslik { grid-column: auto; order: 0; }
+        @container (min-width: 720px) {
+          .qr-grid { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 16px; }
+          .qr-grid > .qr-baslik { grid-column: auto; order: 0; padding: 0 4px; }
+          .qr-grid > .qr-baslik h2 { font-size: clamp(18px, 3.4cqw, 30px) !important; }
+          .qr-grid > .qr-baslik p { font-size: clamp(11px, 1.6cqw, 13px) !important; }
+        }
+        @container (min-width: 1000px) {
+          .qr-grid { column-gap: 32px; }
         }
         @property --progress-angle {
           syntax: '<angle>';
