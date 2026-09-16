@@ -276,8 +276,10 @@ const QRGeneratorAdminView = () => {
               </div>
             )}
 
+            {/* Genis ekranda: Giris | baslik | Cikis. Dar pencerede baslik uste,
+                iki karekod altta yan yana TAM boy (ucuncu sutun icin sikismaz). */}
             {selectedType === 'institution_gate' ? (
-              <div className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)] items-center w-full min-w-0 py-4 transition-all ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-4 sm:gap-8' : 'px-2 sm:px-4 gap-3 sm:gap-6'
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)] items-center w-full min-w-0 py-4 transition-all ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-4 sm:gap-8' : 'px-2 sm:px-4 gap-4 sm:gap-6'
                 }`}>
                 
                 <div className="relative flex flex-col items-center justify-center min-w-0 max-w-full">
@@ -306,7 +308,7 @@ const QRGeneratorAdminView = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center justify-center my-auto text-center min-w-0 w-full mx-auto" style={{ maxWidth: isFullscreen ? '470px' : '300px', padding: isFullscreen ? '30px 10px' : '10px 5px' }}>
+                <div className="flex flex-col items-center justify-center my-auto text-center min-w-0 w-full mx-auto sm:col-span-2 lg:col-span-1 order-first lg:order-none" style={{ maxWidth: isFullscreen ? '470px' : '300px', padding: isFullscreen ? '30px 10px' : '10px 5px' }}>
 
                   <h2 className={`font-black leading-[1.12] pb-1 ${isFullscreen ? 'text-[clamp(26px,3.2vw,48px)]' : 'text-[clamp(18px,2.4vw,30px)]'}`}
                     style={{ letterSpacing: '-1.5px', color: isDark ? '#f7f9fc' : '#0f172a', textShadow: isDark ? '0 5px 28px rgba(0,0,0,.28)' : 'none' }}
