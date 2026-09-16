@@ -6,15 +6,13 @@ const boundStudentTcMismatch = (bTc, sTc) => {
 };
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, push, update, get, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
-import { db, rtdb } from '../firebase';
-import { sendWhatsAppNotification } from '../services/whatsappService';
+import { vds } from '../services/vds';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 import { detectIncognito as detectIncognitoLib } from 'detectincognitojs';
 import {
   GateShell, GateSolid, GateHeader, Button, FormBar, RoleGrid,
-  PinInput, NameInput, PersonCard, Note, IconRing, Footer, GateSplash, Utya
+  PinInput, NameInput, PersonCard, Note, IconRing, Footer, GateSplash,
+  DogrulamaAnimasyonu, EngelAnimasyonu
 } from './qr/Gate';
 import {
   IconAlert, IconClock, IconPin, IconExternal, IconCheck, IconExit,
@@ -433,30 +431,8 @@ const idbGet = async (key) => {
   } catch { return null; }
 };
 
-/* ---------------------------------------------------------------------------
-   KULLANICI LISTESI ONBELLEGI
-
-   Liste su ana kadar yalnizca React durumunda tutuluyordu; her acilista bastan
-   cekiliyor, sebeke yavassa geciste bekleme olusuyordu. Artik ayni IndexedDB
-   kasasina yazilir ve acilista ONCE onbellekten okunur, ardindan arka planda
-   tazelenir (stale-while-revalidate).
-
-   Auto-login kaydi ayri anahtarda durur; buraya dokunulmaz.
---------------------------------------------------------------------------- */
-const USERS_CACHE_KEY = 'users_v1';
-const USERS_CACHE_TTL = 24 * 60 * 60 * 1000;   // bir gun
-
-const saveUsersCache = async (users) => {
-  if (!Array.isArray(users) || users.length === 0) return;
-  await idbSet(USERS_CACHE_KEY, { users, ts: Date.now() });
-};
-
-const readUsersCache = async () => {
-  const kayit = await idbGet(USERS_CACHE_KEY);
-  if (!kayit || !Array.isArray(kayit.users) || kayit.users.length === 0) return null;
-  if (Date.now() - (kayit.ts || 0) > USERS_CACHE_TTL) return null;
-  return kayit.users;
-};
+/* Kullanici listesi onbellegi KALDIRILDI: liste artik hic indirilmiyor,
+   eslestirme sunucuda yapiliyor. Auto-login kaydi ayri anahtarda durur. */
 
 const saveAutoLogin = async (studentData, hardwareId) => {
   const payload = {
@@ -731,6 +707,78 @@ const havuzEtiketi = (havuz) => {
   return '';
 };
 
+/**
+ * Sonuc ekrani.
+ *
+ * BILESEN DISARIDA TANIMLI OLMALI. Icinde tanimlandiginda her cizimde YENI
+ * bir bilesen tipi olusuyor; React eskisini sokup yenisini kuruyor, giris
+ * animasyonlari bastan basliyor ve ekran saniyede bir yanip sonuyordu
+ * (geri sayim her saniye yeniden cizime yol aciyor).
+ */
+const DurumEkrani = ({ ikon, baslik, metin, cocuk, perde }) => (
+  <>
+    <GateSolid>
+      <div className="gate-in gate-in--1"><IconRing tone="danger">{ikon}</IconRing></div>
+      <h1 className="gate__result-title gate-in gate-in--2">{baslik}</h1>
+      {metin && <p className="gate__result-text gate-in gate-in--3" style={{ maxWidth: 300 }}>{metin}</p>}
+      {cocuk}
+      <Footer />
+    </GateSolid>
+    {perde}
+  </>
+);
+
+/**
+ * Sunucunun sordugu onay penceresi.
+ * DISARIDA tanimli: icinde tanimlandiginda her cizimde yeniden kuruluyor,
+ * kutunun isareti kayboluyor ve pencere yanip sonuyordu.
+ */
+const OnayPenceresi = ({ onaySorusu, kabul, setKabul, kapat, devamEt }) => {
+    if (!onaySorusu) return null;
+    /* Erken cikista kullanici ACIKCA kabul etmeli: tek dokunusla gecilmesin,
+       "erken ciktigimi kabul ediyorum" isaretlenmeden dugme acilmaz. */
+    const kabulGerek = onaySorusu.kod === 'ERKEN_CIKIS_ONAY';
+    /* Saatle ilgili sorularda saat ikonu, digerlerinde uyari ikonu.
+       Emoji kullanilmiyor: ekranin geri kalani 2px cizgi ikon dilinde. */
+    const saatSorusu = /CIKIS|GIRIS|SAAT/.test(String(onaySorusu.kod || ''));
+    return (
+      <div className="gate__onay-perde" role="dialog" aria-modal="true"
+           aria-labelledby="gate-onay-baslik">
+        <div className="gate__onay">
+          <div className={`gate__onay-ikon${saatSorusu ? '' : ' gate__onay-ikon--uyari'}`}>
+            {saatSorusu ? <IconClock size={28} /> : <IconAlert size={28} />}
+          </div>
+
+          <h3 id="gate-onay-baslik" className="gate__onay-baslik">{onaySorusu.baslik}</h3>
+          <p className="gate__onay-mesaj">{onaySorusu.mesaj}</p>
+          {onaySorusu.ayrinti && (
+            <p className="gate__onay-ayrinti">{onaySorusu.ayrinti}</p>
+          )}
+
+          {kabulGerek && (
+            <label className={`gate__onay-kabul${kabul ? ' gate__onay-kabul--acik' : ''}`}>
+              <input type="checkbox" checked={kabul}
+                     onChange={(e) => setKabul(e.target.checked)} />
+              <span>Okul çıkış saatinden önce ayrıldığımı kabul ediyorum.</span>
+            </label>
+          )}
+
+          <div className="gate__onay-dugmeler">
+            <button type="button" className="gate__onay-dugme gate__onay-dugme--vazgec"
+                    onClick={kapat}>
+              Vazgeç
+            </button>
+            <button type="button" className="gate__onay-dugme gate__onay-dugme--onay"
+                    disabled={kabulGerek && !kabul} onClick={devamEt}>
+              {kabulGerek ? 'Çıkışı onayla' : 'Evet, devam et'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+};
+
+
 const QRCodeRedirect = () => {
   const [params, setParams] = useState('');
   const [storeLink, setStoreLink] = useState('#');
@@ -739,6 +787,7 @@ const QRCodeRedirect = () => {
   // Security
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
+  const sayacRef = useRef(null);
   const [pageError, setPageError] = useState("");
   const [isLinkValidated, setIsLinkValidated] = useState(true);
 
@@ -765,6 +814,18 @@ const QRCodeRedirect = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [student, setStudent] = useState(null);
   const [successMessage, setSuccessMessage] = useState("Yoklamanız başarıyla alındı.");
+  // Sunucunun "emin misin" sorusu ve gecis ayrintisi
+  const [onaySorusu, setOnaySorusu] = useState(null);
+  const [kabul, setKabul] = useState(false);
+  const [gecisAyrinti, setGecisAyrinti] = useState(null);
+
+  /* Sonuc ya da hata ekrani acilinca geri sayimi durdur: ekran sabit kalsin. */
+  useEffect(() => {
+    if ((student || pageError) && sayacRef.current) {
+      clearInterval(sayacRef.current);
+      sayacRef.current = null;
+    }
+  }, [student, pageError]);
   const [isFocused, setIsFocused] = useState(false);
 
   const inputRef = useRef(null);
@@ -796,7 +857,6 @@ const QRCodeRedirect = () => {
     return 'Web Kurum Giriş Ekranı';
   }, []);
 
-  const [cachedStudents, setCachedStudents] = useState([]);
 
   // ============================================================
   // INITIALIZATION
@@ -851,10 +911,16 @@ const QRCodeRedirect = () => {
       } catch { /* silent */ }
       
       // 2. FingerprintJS (ana sinyal)
+      /* Zaman asimi SART: kutuphane CDN'den yuklenirken zayif baglantida
+         takilirsa parmak izi hic uretilemiyor ve ekran "İşleminiz
+         gerçekleştiriliyor" adiminda asili kaliyordu. Takilirsa gecici bir
+         kimlikle devam edilir; gecis engellenmez. */
       try {
-        const fp = await fpPromise.load();
-        const result = await fp.get();
-        fpId = result.visitorId;
+        const fp = await Promise.race([
+          (async () => { const f = await fpPromise.load(); return (await f.get()).visitorId; })(),
+          new Promise((_, red) => setTimeout(() => red(new Error('fp-timeout')), 12000)),
+        ]);
+        fpId = fp;
       } catch {
         fpId = 'fp_error_' + Math.random().toString(36).substring(2, 10);
       }
@@ -878,23 +944,22 @@ const QRCodeRedirect = () => {
       setIncognitoScore(incognito.score);
       setIncognitoFlags(incognito.flags);
       
+      /* GIZLI SEKME KORUMASI KAPALI (idare karari, 16 Eylul 2026).
+         Tespit yanlis pozitif veriyor ve ogrenciler kapida kaliyordu; skor
+         yalnizca kayit amacli tutulur, gecisi ENGELLEMEZ. */
       if (incognito.isIncognito) {
-        setPageError("Güvenlik İhlali: Tarayıcınızın Gizli Sekme (Incognito/Private) modunda olduğu tespit edildi. Sistem güvenliği gereği yoklama işlemi gizli sekmelerden yapılamaz. Lütfen normal tarayıcı modunu kullanın.");
-        return;
+        console.warn('[QR] gizli sekme sinyali (engellenmedi):', incognito.flags.join(','));
       }
       
       // 5. Auto-Login Check (hardware ID ile eşleştir)
       const saved = await getAutoLogin(composite.hardwareId);
-      if (saved && incognito.score >= 50) {
+      if (saved) {
+        /* Tanimli cihaz güncel karekodu okuttugunda gecis otomatik islenir.
+           Eski ya da degistirilmis karekodlar bu noktaya ulassa bile sunucu
+           timestamp + nonce kontrolunde, veri yazmadan once reddeder. */
         setAutoLoginStudent(saved);
-        // If coming from QR Camera scan with active session, auto-process attendance immediately!
-        const urlParamsNow = new URLSearchParams(window.location.search);
-        const activeSession = urlParamsNow.get('sessionId');
-        if (activeSession && activeSession !== 'web_fallback') {
-          setTimeout(() => {
-            processAttendance(saved);
-          }, 300);
-        }
+        setIsVerifying(true);
+        processAttendance(saved);
       }
       setAutoLoginReady(true);
       
@@ -902,17 +967,9 @@ const QRCodeRedirect = () => {
       const urlParamsForClaim = new URLSearchParams(window.location.search);
       const urlSessionId = urlParamsForClaim.get('sessionId');
       
-      if (urlSessionId && urlSessionId !== 'web_fallback') {
-        try {
-          const urlClaimRef = doc(db, 'url_claims', urlSessionId);
-          await setDoc(urlClaimRef, {
-            hardwareId: composite.hardwareId,
-            claimedAt: serverTimestamp(),
-            localClaimedAt: Date.now(),
-            ipAddress: ip
-          }, { merge: true });
-        } catch { /* Ağ hatası */ }
-      }
+      // URL sahiplenme kaydi kaldirildi: karekod jetonu artik sunucuda TEK
+      // KULLANIMLIK olarak tuketiliyor (/api/qr/scan). Istemcinin yazdigi bir
+      // sahiplenme belgesi bundan daha zayif bir garantiydi.
       
       setIsLinkValidated(true);
     };
@@ -926,21 +983,12 @@ const QRCodeRedirect = () => {
     if (qrType && sessionId && sessionId !== 'web_fallback') {
       const checkAndClaimLink = async () => {
          try {
-           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
-           const qrAction = urlParams.get('action') || 'entry';
-           const nonceKey = qrAction === 'exit' ? 'current_exit' : 'current_entry';
-           const activeSnap = await Promise.race([getDoc(doc(db, 'active_qr_nonce', nonceKey)), timeoutPromise]).catch(() => null);
-           
-           const data = activeSnap && activeSnap.exists ? activeSnap.data() : null;
+           // Bu yalnizca ERKEN UYARIDIR: eski bir fotograf okutulduysa kullanici
+           // bosuna beklemesin. Asil koruma sunucuda: jeton tek kullanimlik.
            const qrTimestamp = parseInt(urlParams.get('timestamp') || "0", 10);
            const nowSec = Math.floor(Date.now() / 1000);
            const age = qrTimestamp > 0 ? (nowSec - qrTimestamp) : 0;
-           
-           // Geçerlilik: Ya son 15 dakika içinde üretilmiş (900 sn), ya da aktif nonce listesinde
-           const isFresh = qrTimestamp > 0 && Math.abs(age) < 900;
-           const isValidNonce = data && (data.nonce === sessionId || (data.validNonces && data.validNonces.includes(sessionId)));
-
-           if (qrTimestamp > 0 && !isFresh && !isValidNonce) {
+           if (qrTimestamp > 0 && Math.abs(age) >= 900) {
               setPageError(`Bu karekodun süresi dolmuş veya başkası tarafından çekilmiş bir fotoğraf. Lütfen güncel karekodu okutun.`);
               return;
            }
@@ -951,59 +999,11 @@ const QRCodeRedirect = () => {
       checkAndClaimLink();
     }
 
-    // === PRE-FETCH STUDENTS (ONBELLEK -> VDS API -> FIRESTORE) ===
-    const prefetchStudents = async () => {
-      // 0. Once onbellek: ekran ilk karede kullanilabilir hâle gelsin.
-      try {
-        const onbellek = await readUsersCache();
-        if (onbellek) setCachedStudents(onbellek);
-      } catch { /* onbellek okunamadi, ag yolundan devam */ }
-
-      try {
-        const res = await fetch('https://updates.chenki.net:8443/api/users?limit=1000');
-        if (res.ok) {
-          const json = await res.json();
-          if (json && Array.isArray(json.users) && json.users.length > 0) {
-            setCachedStudents(json.users);
-            saveUsersCache(json.users);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn("VDS fetch notice:", err);
-      }
-
-      try {
-        const q = query(collection(db, "users"));
-        const snap = await getDocs(q);
-        const students = [];
-        window.__bgz_image_cache__ = window.__bgz_image_cache__ || [];
-
-        snap.forEach(doc => {
-          const data = doc.data();
-          students.push({ id: doc.id, ...data });
-
-          const nameKeys = ["full_name", "fullName", "name", "displayName", "display_name"];
-          let name = "İsimsiz";
-          for (let k of nameKeys) {
-            if (data[k]) { name = data[k]; break; }
-          }
-          
-          const photoUrl = data.profile_image || data.profileImageUrl || data.profileImage || 
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1e3a8a&color=fff&size=200&bold=true`;
-          
-          const img = new Image();
-          img.src = photoUrl;
-          window.__bgz_image_cache__.push(img);
-        });
-        
-        setCachedStudents(students);
-        saveUsersCache(students);
-      } catch (err) {
-        console.error("Öğrenciler önbelleğe alınamadı:", err);
-      }
-    };
-    prefetchStudents();
+    // Ogrenci listesi ONCEDEN INDIRILMIYOR.
+    // Onceden bu ekran tum kullanici kadrosunu tarayiciya cekip eslestirmeyi
+    // yerel yapiyordu; herkese acik bir sayfada butun okulun listesi demekti.
+    // Artik yalnizca girilen deger sunucuya gider (/api/qr/kim), geriye
+    // sadece eslesen kisi(ler) doner.
 
     // === ADVANCED OS & HARDWARE DETECTION ===
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -1015,7 +1015,10 @@ const QRCodeRedirect = () => {
       setOsName('iOS');
     }
 
-    // === 60s EXPIRY TIMER ===
+    /* 60 saniyelik gecerlilik sayaci.
+       Sayac yalnizca KAREKOD BEKLERKEN calisir. Sonuc ya da hata ekrani
+       gorunurken saniyede bir durum guncellemek tum agaci yeniden cizdiriyor,
+       giris animasyonlari bastan basliyor ve ekran yanip sonuyordu. */
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -1026,6 +1029,7 @@ const QRCodeRedirect = () => {
         return prev - 1;
       });
     }, 1000);
+    sayacRef.current = timer;
 
     return () => {
       clearInterval(timer);
@@ -1053,21 +1057,7 @@ const QRCodeRedirect = () => {
     setGeoStatus('checking');
     
     try {
-      const settingsRef = doc(db, 'system_settings', 'general');
-      const settingsSnap = await getDoc(settingsRef);
-      
-      let TARGET_LAT = 41.0422;
-      let TARGET_LNG = 29.0083;
-      
-      if (settingsSnap.exists()) {
-        const data = settingsSnap.data();
-        if (data.institutionLat && data.institutionLng) {
-          TARGET_LAT = parseFloat(data.institutionLat);
-          TARGET_LNG = parseFloat(data.institutionLng);
-        }
-      }
-
-      // location checks bypassed per user request
+      // Konum kontrolu kurum karariyla devre disi; ayar okumaya gerek yok.
       setGeoStatus('allowed');
     } catch {
       setGeoStatus('allowed');
@@ -1098,7 +1088,20 @@ const QRCodeRedirect = () => {
   // ============================================================
   // PROCESS ATTENDANCE (ortak fonksiyon: hem TC girişi hem auto-login)
   // ============================================================
-  const processAttendance = async (foundStudent) => {
+  /**
+   * Gecis islemi.
+   * @param onay Sunucu "emin misin" diye sorduysa (onay_gerekli) kullanicinin
+   *             verdigi karar. Ikinci cagride true gonderilir.
+   */
+  const processAttendance = async (foundStudent, onay = false) => {
+    /* CIHAZ KISIYI HATIRLAR.
+       Kimlik cozuldugu anda kaydedilir — gecis kabul edilse de edilmese de.
+       Tanima ile yetki ayri seylerdir: gec kalip iceri alinmayan biri de
+       bir dahaki okutmada numarasini tekrar yazmak zorunda kalmamali.
+       Kayit donanim kimligine baglidir; baska cihazda gecerli olmaz. */
+    if (foundStudent?.name) {
+      try { await saveAutoLogin(foundStudent, hardwareId); } catch { /* depolama kapali */ }
+    }
     const dogrulamaBasi = Date.now();
     try {
       const studentId = String(foundStudent?.id || foundStudent?._id || (foundStudent?.schoolNumber ? `std_${foundStudent.schoolNumber}` : `user_${Date.now()}`));
@@ -1108,10 +1111,10 @@ const QRCodeRedirect = () => {
       // Sticky ID Check: If device is bound to another TC, reject
       try {
         const boundTc = localStorage.getItem('__bgz_bound_user_tc');
+        /* CIHAZ-KIMLIK KILIDI KAPALI (idare karari, 16 Eylul 2026): ayni
+           telefonu kullanan kardesler/arkadaslar kapida kaliyordu. Sadece log. */
         if (boundTc && studentTc && boundStudentTcMismatch(boundTc, studentTc)) {
-          setPageError("Güvenlik Uyarısı: Bu cihaz başka bir kullanıcıya bağlanmıştır. Farklı bir hesapla geçiş yapılamaz.");
-          setIsVerifying(false);
-          return;
+          console.warn('[QR] cihaz baska kimlige bagli (engellenmedi)');
         }
         if (studentTc) {
           localStorage.setItem('__bgz_bound_user_tc', studentTc);
@@ -1127,173 +1130,82 @@ const QRCodeRedirect = () => {
       let finalMessage = "Yoklamanız başarıyla alındı.";
       let newStatus = "present";
 
-      // === HARD BLOCK: Incognito tespit edilmişse GEÇİŞ YOK ===
-      if (incognitoScore <= 50) {
-        setPageError("Gizli sekme (incognito/özel tarama) kullanımı tespit edildi. Güvenlik nedeniyle gizli sekmeden yoklama alınamaz. Lütfen normal tarayıcı modunu kullanın.");
-        setIsVerifying(false);
-        return;
-      }
+      // Gizli sekme korumasi kapali: skor engellemez (bkz. yukaridaki not).
 
       if (qrType === 'institution' || qrType === 'kurum' || qrType === 'institution_gate') {
         const qrAction = urlParams.get('action');
+        const qrTimestamp = Number(urlParams.get('timestamp'));
 
-        // 1. VDS (HTTPS) & RTDB Gate status kontrolü (Çift kaynaklı, anlık)
-        let currentStatus = "outside";
-        let isAlready = false;
-
+        /* Gecis kaydi TEK istekle alinir.
+         *
+         * Onceden burada kapi durumu uc ayri dis kaynaktan okunur, giris mi cikis mi oldugu TARAYICIDA karara
+         * baglanir, sonra iki yere yazilirdi. Kaynaklar birbirini tutmadiginda
+         * ayni ogrenci iki kez sayilabiliyordu. Artik karar sunucuda: ayni
+         * yonu tekrar okutmak yeni kayit uretmez. */
+        let yanit;
         try {
-          const checkPromises = [
-            fetch(`https://updates.chenki.net:8443/api/gate-status/${studentId}`).then(r => r.ok ? r.json() : null).catch(() => null),
-            get(ref(rtdb, `qr_system/gate_status/${studentId}`)).then(snap => snap.exists() ? snap.val() : null).catch(() => null),
-            getDoc(doc(db, "gate_status", studentId)).then(snap => snap.exists() ? snap.data() : null).catch(() => null)
-          ];
-
-          const [vdsData, rtdbVal, fsVal] = await Promise.race([
-            Promise.all(checkPromises),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-          ]);
-
-          if (vdsData && (vdsData.status === 'entry' || vdsData.status === 'inside')) {
-            currentStatus = 'entry';
-          } else if (rtdbVal && (rtdbVal.status === 'entry' || rtdbVal.status === 'inside') && rtdbVal.date === todayStr) {
-            currentStatus = 'entry';
-          } else if (fsVal && (fsVal.status === 'entry' || fsVal.status === 'inside') && fsVal.date === todayStr) {
-            currentStatus = 'entry';
-          }
+          yanit = await vds.post('/api/qr/scan', {
+            nonce: sessionId && sessionId !== 'web_fallback' ? sessionId : undefined,
+            timestamp: Number.isFinite(qrTimestamp) && qrTimestamp > 0 ? qrTimestamp : undefined,
+            okulNo: foundStudent?.schoolNumber || undefined,
+            tamAd: foundStudent?.schoolNumber ? undefined : studentName,
+            rol: foundStudent?.pool || undefined,
+            cihazId: (() => { try { return localStorage.getItem('__bgz_hardware_id') || undefined; } catch { return undefined; } })(),
+            yon: qrAction === 'entry' ? 'giris' : qrAction === 'exit' ? 'cikis' : undefined,
+            onay,
+          });
         } catch (err) {
-          console.warn("gate_status check notice:", err?.message);
+          /* Kural gerecgi reddedildi (zaten iceride, cok sik okutma, jeton
+             kullanilmis...). Sunucunun mesaji oldugu gibi gosterilir. */
+          await tabanSureyiBekle(dogrulamaBasi);
+          setPageError([err?.baslik, err?.mesaj || err?.message, err?.govde?.ayrinti]
+                       .filter(Boolean).join('\n') || 'Geçiş kaydedilemedi.');
+          setIsVerifying(false);
+          return;
         }
 
-        // 2. Durum ve Mesaj Kararı
-        if (qrAction === 'entry') {
-          if (currentStatus === 'entry') {
-            finalMessage = "Zaten giriş yapıldı.";
-            newStatus = "entry";
-            isAlready = true;
-          } else {
-            finalMessage = "Kurum girişi yapıldı.";
-            newStatus = "entry";
-          }
-        } else if (qrAction === 'exit') {
-          if (currentStatus === 'exit' || currentStatus === 'outside') {
-            finalMessage = "Zaten çıkış yapıldı.";
-            newStatus = "exit";
-            isAlready = true;
-          } else {
-            finalMessage = "Kurumdan çıkıldı.";
-            newStatus = "exit";
-          }
-        } else {
-          if (currentStatus === 'entry') {
-            finalMessage = "Kurumdan çıkıldı.";
-            newStatus = "exit";
-          } else {
-            finalMessage = "Kurum girişi yapıldı.";
-            newStatus = "entry";
-          }
+        /* Sunucu "emin misin" diyorsa (cikis saatin gelmedi gibi) kullaniciya
+           sorulur; onaylarsa ayni istek onay:true ile tekrarlanir. */
+        if (yanit?.onay_gerekli) {
+          await tabanSureyiBekle(dogrulamaBasi);
+          setIsVerifying(false);
+          setKabul(false);
+          setOnaySorusu({
+            kod: yanit.kod,
+            baslik: yanit.baslik || 'Onayınız Gerekiyor',
+            mesaj: yanit.mesaj || '',
+            ayrinti: yanit.ayrinti || '',
+            ogrenci: foundStudent,
+          });
+          return;
         }
+
+        if (yanit?.success === false) {
+          await tabanSureyiBekle(dogrulamaBasi);
+          /* Reddedilen gecis: sunucunun BASLIK'i da gosterilir.
+             "Rehber Öğretmeninizle Görüşün" gibi bir yonlendirme,
+             kuru bir hata metniyle gecistirilmemeli. */
+          setPageError([yanit.baslik, yanit.mesaj, yanit.ayrinti].filter(Boolean).join('\n'));
+          setIsVerifying(false);
+          return;
+        }
+
+        newStatus = yanit?.yon === 'cikis' ? 'exit' : 'entry';
+        finalMessage = yanit?.mesaj || 'Geçişiniz alındı.';
 
         await tabanSureyiBekle(dogrulamaBasi);
         setSuccessMessage(finalMessage);
+        /* Gecis kaydedildi ama uyari var (gec giris -> rehberlik).
+           Basari ekraninin ustunde ayri ve dikkat ceken bir kart gosterilir;
+           siradan bir "hos geldiniz" gibi gecistirilmemeli. */
+        setGecisAyrinti({
+          baslik: yanit?.baslik, ayrinti: yanit?.ayrinti, saat: yanit?.saat,
+          rehberlik: Boolean(yanit?.rehberlik), gec: Boolean(yanit?.gec),
+        });
         setStudent({ ...foundStudent, id: studentId, name: studentName });
         setIsVerifying(false);
 
-        const hw = localStorage.getItem('__bgz_hardware_id');
-        if (hw && incognitoScore >= 50) {
-          try { saveAutoLogin(foundStudent, hw); } catch (e) {}
-        }
-
-        // 3. VDS API, RTDB ve Firestore Bildirimi (Yalnızca yeni geçişse)
-        if (!isAlready) {
-          try {
-            fetch('https://updates.chenki.net:8443/api/attendance/manual', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                studentId: studentId,
-                studentName: studentName,
-                action: newStatus,
-                role: foundStudent?.role || 'student',
-                method: 'web_qr'
-              })
-            }).catch(() => {});
-          } catch (e) {}
-
-          try {
-            fetch('https://updates.chenki.net:8443/api/qr/scan', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                tc: studentTc,
-                schoolNumber: foundStudent?.schoolNumber || '',
-                sessionId,
-                qrType,
-                action: newStatus,
-                deviceId: hw || 'unknown',
-                hardwareId: hw || 'unknown',
-                incognitoScore
-              })
-            }).catch(() => {});
-          } catch (e) {}
-
-          // 2. Realtime Database
-          try {
-            const dateString = new Date().toISOString().split('T')[0];
-            const rtdbData = {
-              sessionId: sessionId || "web_fallback",
-              type: qrType || "web_qr",
-              action: newStatus,
-              status: newStatus,
-              studentId: studentId,
-              userId: studentId,
-              studentName: studentName,
-              userName: studentName,
-              profileImageUrl: foundStudent?.profileImage || foundStudent?.profileImageUrl || "",
-              timestamp: rtdbServerTimestamp(),
-              date: dateString
-            };
-
-            const newLogRef = push(ref(rtdb, `qr_system/attendance_logs/${dateString}`));
-            const updates = {};
-            updates[`qr_system/attendance_logs/${dateString}/${newLogRef.key}`] = rtdbData;
-            updates[`qr_system/live_scans/${newLogRef.key}`] = rtdbData;
-            updates[`qr_system/gate_status/${studentId}`] = {
-              status: newStatus,
-              date: dateString,
-              timestamp: rtdbServerTimestamp(),
-              name: studentName,
-              role: foundStudent?.role || "student"
-            };
-
-            update(ref(rtdb), updates).catch(() => {});
-          } catch (e) {}
-
-          // 3. Firestore (non-blocking)
-          try {
-            const statusRef = doc(db, "gate_status", studentId);
-            setDoc(statusRef, {
-              status: newStatus,
-              date: todayStr,
-              timestamp: serverTimestamp()
-            }).catch(() => {});
-
-            addDoc(collection(db, "attendance_logs"), {
-              studentId: studentId,
-              studentName: studentName,
-              type: qrType,
-              action: qrAction || "toggle",
-              status: newStatus,
-              sessionId: sessionId,
-              timestamp: serverTimestamp()
-            }).catch(() => {});
-          } catch (e) {}
-
-          // 4. WhatsApp
-          try {
-            sendWhatsAppNotification(studentId, studentName, newStatus, new Date());
-          } catch (waErr) {}
-        }
-      } else {
+            } else {
         finalMessage = "Yoklamanız başarıyla alındı.";
         newStatus = "present";
         await tabanSureyiBekle(dogrulamaBasi);
@@ -1319,7 +1231,7 @@ const QRCodeRedirect = () => {
     setTcInput(numaraliHavuz(roleMode) ? ham.replace(/\D/g, '').slice(0, PIN_UZUNLUK) : ham);
   };
 
-  /** Firestore ve VDS kaydini gecis akisinin bekledigi sade nesneye cevirir. */
+  /** Kullanici kaydini gecis akisinin bekledigi sade nesneye cevirir. */
   const toPersonPayload = (u) => {
     const uId = String(u?._id || u?.id || (studentNumberOf(u) ? `std_${studentNumberOf(u)}` : `user_${Date.now()}`));
     const uName = personName(u) || u?.full_name || u?.fullName || u?.name || 'İsimsiz Kullanıcı';
@@ -1344,6 +1256,39 @@ const QRCodeRedirect = () => {
     setCandidates(null);
     setIsVerifying(true);
     await processAttendance(payload);
+  };
+
+  /**
+   * Yeniden dene.
+   *
+   * Sayfayi BASTAN YUKLEMEZ. `window.location.reload()` guvenlik motorunu,
+   * parmak izi hesabini ve acilis animasyonunu bastan calistiriyordu; ekran
+   * birkac kez beyazlayip yeniden kuruluyor, "sistem restart atti" hissi
+   * veriyordu. Burada yalnizca ekran durumu sifirlanir; cihaz kisiyi
+   * hatirliyorsa gecis dogrudan yeniden denenir.
+   */
+  const yenidenDene = () => {
+    setPageError('');
+    setStudent(null);
+    setCandidates(null);
+    setGecisAyrinti(null);
+    setOnaySorusu(null);
+    setKabul(false);
+    setTcInput('');
+    if (autoLoginStudent) {
+      setIsVerifying(true);
+      processAttendance(autoLoginStudent);
+    } else {
+      setIsVerifying(false);
+    }
+  };
+
+  /** Cihazdaki kayitli kisiyi unutur — baska biri kullanacaksa. */
+  const kisiyiUnut = async () => {
+    try { localStorage.removeItem('__bgz_auto_login'); } catch { /* depolama kapali */ }
+    try { await idbSet('auto_login', null); } catch { /* depolama kapali */ }
+    setAutoLoginStudent(null);
+    setAutoLoginReady(false);
   };
 
   /**
@@ -1374,62 +1319,20 @@ const QRCodeRedirect = () => {
     setIsVerifying(true);
 
     try {
-      let allUsers = cachedStudents || [];
-      if (allUsers.length === 0) {
-        try {
-          const res = await fetch('https://updates.chenki.net:8443/api/users?limit=1000');
-          if (res.ok) {
-            const json = await res.json();
-            if (json && Array.isArray(json.users) && json.users.length > 0) {
-              allUsers = json.users;
-              setCachedStudents(json.users);
-              saveUsersCache(json.users);
-            }
-          }
-        } catch (e) {}
-      }
-
-      if (allUsers.length === 0) {
-        try {
-          const snap = await getDocs(query(collection(db, 'users')));
-          allUsers = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        } catch (e) {}
-      }
-
-      // Havuzlar burada ayrilir; arama secilen havuzun disina cikmaz.
-      const pools = { [POOL_STUDENT]: [], [POOL_TEACHER]: [], [POOL_ADMIN]: [], [POOL_PARENT]: [] };
-      for (const u of allUsers) {
-        const pool = resolvePool(u);
-        if (pool) pools[pool].push(u);
-      }
+      /* Eslestirme SUNUCUDA yapilir. Havuz ayrimi (ogrenci/veli/personel),
+         okul numarasi, TC son 4 hane, cocugun numarasi ve Turkce'ye uygun
+         ad karsilastirmasi orada tanimlidir; boylece istemcinin kadro
+         listesini indirmesi gerekmez. */
+      const havuz = roleMode === POOL_STUDENT ? 'ogrenci'
+                  : roleMode === POOL_PARENT  ? 'veli'
+                  : roleMode === POOL_ADMIN   ? 'idare' : 'ogretmen';
 
       let matches = [];
-
-      if (roleMode === POOL_STUDENT) {
-        const digits = raw.replace(/\D/g, '');
-        if (digits) {
-          matches = pools[POOL_STUDENT].filter((u) => studentNumberOf(u) === digits);
-        }
-        // Yedek: okul numarasi girilmemis ogrenciler icin TC son 4 hane.
-        // Yalnizca ogrenci havuzunda arar, personele asla tasmaz.
-        if (matches.length === 0 && /^\d{4}$/.test(digits)) {
-          matches = pools[POOL_STUDENT].filter((u) => tcOf(u).endsWith(digits));
-        }
-      } else if (roleMode === POOL_PARENT) {
-        /* Veli, cocugunun okul numarasini yazar. Iki cocugu ayni okulda olan
-           veli tek kayittir; numaralardan herhangi biri eslesirse bulunur. */
-        const digits = raw.replace(/\D/g, '');
-        if (digits) {
-          matches = pools[POOL_PARENT].filter((u) => childNumbersOf(u).includes(digits));
-        }
-      } else {
-        matches = matchByName(pools[roleMode], raw);
-        // Sekme yanlis secilmis olabilir; diger PERSONEL havuzuna da bakilir.
-        // Rol kaydin kendisinden geldigi icin bu havuzlari karistirmaz.
-        if (matches.length === 0) {
-          const otherStaffPool = roleMode === POOL_TEACHER ? POOL_ADMIN : POOL_TEACHER;
-          matches = matchByName(pools[otherStaffPool], raw);
-        }
+      try {
+        const yanit = await vds.post('/api/qr/kim', { havuz, girdi: raw });
+        matches = Array.isArray(yanit?.adaylar) ? yanit.adaylar : [];
+      } catch (e) {
+        if (e?.durum !== 404) throw e;   // 404 = eslesme yok, digerleri gercek hata
       }
 
       if (matches.length === 1) {
@@ -1449,7 +1352,9 @@ const QRCodeRedirect = () => {
     } catch (error) {
       console.error('Geçiş sorgu hatası:', error);
       setIsVerifying(false);
-      alert('Geçiş sorgulanırken bir hata oluştu: ' + (error?.message || ''));
+      alert(error?.ad === 'zaman_asimi' || error?.ad === 'ag'
+        ? 'Bağlantı yavaş olduğu için işlem tamamlanamadı. “Yeniden dene” ile tekrar deneyebilirsiniz.'
+        : 'Geçiş sorgulanırken bir hata oluştu: ' + (error?.message || ''));
     } finally {
       setIsVerifying(false);
     }
@@ -1462,25 +1367,12 @@ const QRCodeRedirect = () => {
   const perde = splashBitti ? null : <GateSplash />;
 
   /** Hata ve bilgi ekranlari: tek parca lacivert, ortada tek sutun. */
-  const DurumEkrani = ({ ikon, baslik, metin, cocuk }) => (
-    <>
-      <GateSolid>
-        <div className="gate-in gate-in--1"><IconRing tone="danger">{ikon}</IconRing></div>
-        <h1 className="gate__result-title gate-in gate-in--2">{baslik}</h1>
-        {metin && <p className="gate__result-text gate-in gate-in--3" style={{ maxWidth: 300 }}>{metin}</p>}
-        {cocuk}
-        <Footer />
-      </GateSolid>
-      {perde}
-    </>
-  );
-
   // ============================================================
   // RENDER: SURESI DOLMUS KAREKOD
   // ============================================================
   if (isExpired) {
     return (
-      <DurumEkrani
+      <DurumEkrani perde={perde}
         ikon={<IconClock size={30} />}
         baslik="Süre doldu"
         metin="Her karekod 60 saniye geçerlidir. Turnikedeki ekrandan yeni bir karekod okutmanız yeterli."
@@ -1493,13 +1385,21 @@ const QRCodeRedirect = () => {
   // ============================================================
   if (pageError) {
     return (
-      <DurumEkrani
+      <DurumEkrani perde={perde}
         ikon={<IconAlert size={30} />}
         baslik="Geçiş yapılamadı"
         cocuk={
-          <div className="gate-in gate-in--3" style={{ width: '100%', marginTop: 22 }}>
-            <Note tone="danger">{pageError}</Note>
-            <Button variant="ghost" onClick={() => window.location.reload()}>Yeniden dene</Button>
+          <div className="gate-in gate-in--3" style={{ width: '100%', marginTop: 10 }}>
+            <EngelAnimasyonu size={268} />
+            {/* Kirmizi kutu kalkti: turnike zaten reddi anlatiyor, ustune bir
+                de uyari kutusu koymak ekrani agirlastiriyordu. Metin cıplak
+                duruyor; ilk satir (baslik) daha belirgin. */}
+            <div className="gate__engel-metin">
+              {String(pageError).split('\n').filter(Boolean).map((satir, i) => (
+                <p key={i} className={i === 0 ? 'gate__engel-metin-bas' : undefined}>{satir}</p>
+              ))}
+            </div>
+            <Button variant="silindir" onClick={yenidenDene}>Yeniden dene</Button>
           </div>
         }
       />
@@ -1598,11 +1498,17 @@ const QRCodeRedirect = () => {
 
   let govde;
 
-  if (isVerifying) {
+  /* Kimlik cozulmeden numara ekrani GOSTERILMEZ.
+     Onceden guvenlik motoru arka planda calisirken form bir an gorunuyor,
+     cihaz kisiyi tanidiginda hemen kayboluyordu — acilista goz yoran bir
+     sicrama olusuyordu. */
+  if (!autoLoginReady || isVerifying) {
     govde = (
       <div className="gate-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '6px 0 14px' }}>
-        <Utya size={104} />
-        <p style={{ margin: 0, fontSize: 15, color: 'var(--on-navy)' }}>Geçişiniz doğrulanıyor…</p>
+        <DogrulamaAnimasyonu size={108} />
+        <p style={{ margin: 0, fontSize: 15, color: 'var(--on-navy)' }}>
+          {isVerifying ? 'Geçişiniz doğrulanıyor…' : 'Hazırlanıyor…'}
+        </p>
       </div>
     );
 
@@ -1623,7 +1529,7 @@ const QRCodeRedirect = () => {
             || (autoLoginStudent.schoolNumber ? `No ${autoLoginStudent.schoolNumber}` : '')].filter(Boolean).join(' · ')}
         />
         <Button onClick={handleAutoLoginConfirm}>Girişi onayla</Button>
-        <button type="button" className="gate__link gate__link--quiet" onClick={() => setAutoLoginStudent(null)}>
+        <button type="button" className="gate__link gate__link--quiet" onClick={kisiyiUnut}>
           Bu ben değilim
         </button>
       </div>
@@ -1711,6 +1617,9 @@ const QRCodeRedirect = () => {
     );
   }
 
+  /* Sunucunun sordugu onay penceresi.
+     Kurallar sunucuda oldugu icin burada yeniden karar VERILMEZ; yalnizca
+     kullanicinin cevabi geri gonderilir. */
   return (
     <>
       <GateShell top={<GateHeader />} seconds={timeLeft}>
@@ -1718,6 +1627,39 @@ const QRCodeRedirect = () => {
         <Footer />
       </GateShell>
       {perde}
+      <OnayPenceresi
+        onaySorusu={onaySorusu}
+        kabul={kabul}
+        setKabul={setKabul}
+        kapat={() => { setOnaySorusu(null); setKabul(false); setIsVerifying(false); }}
+        devamEt={() => {
+          const o = onaySorusu?.ogrenci;
+          setOnaySorusu(null); setKabul(false); setIsVerifying(true);
+          processAttendance(o, true);
+        }}
+      />
+      {gecisAyrinti?.rehberlik && (
+        <div style={{
+          position: 'fixed', left: 16, right: 16, bottom: 20, zIndex: 9998,
+          margin: '0 auto', maxWidth: 380, borderRadius: 16, overflow: 'hidden',
+          boxShadow: '0 12px 34px rgba(0,0,0,0.28)',
+        }}>
+          <div style={{ background: '#c0392b', padding: '14px 18px', display: 'flex',
+                        alignItems: 'center', gap: 12 }}>
+            <span style={{ display: 'flex', color: '#fff', flexShrink: 0 }}>
+              <IconAlert size={24} />
+            </span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: '#fff', fontSize: 15, fontWeight: 800, letterSpacing: '-0.2px' }}>
+                {gecisAyrinti.baslik || 'Rehber Öğretmeninizle Görüşün'}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12.5, marginTop: 3, lineHeight: 1.45 }}>
+                {gecisAyrinti.ayrinti || 'Derse girmeden önce rehber öğretmeninize uğrayınız.'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
