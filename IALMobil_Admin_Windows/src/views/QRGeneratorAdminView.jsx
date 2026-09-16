@@ -23,11 +23,11 @@ const QRGeneratorAdminView = () => {
   const cycleStartRef = useRef(Date.now());
   const isRefreshingRef = useRef(false);
 
-  /* Karekod 15 saniyede bir doner. Onceden 3,5 saniyeydi: telefon kamerasi
+  /* Karekod 5 saniyede bir doner. Onceden 3,5 saniyeydi: telefon kamerasi
      kodu cozup baglantiyi gosterene kadar kod degisiyor, kullanici "link
      bazen cikiyor bazen cikmiyor" diyordu. Guvenlik donusten degil,
      sunucudaki tek kullanimlik nonce + 5 dk tazelik kontrolunden gelir. */
-  const CYCLE_DURATION = 15000;
+  const CYCLE_DURATION = 5000;
   const NONCE_HISTORY = 20;
   const isDark = qrTheme === 'dark';
 
@@ -69,13 +69,15 @@ const QRGeneratorAdminView = () => {
         if (remaining <= 0) {
           isRefreshingRef.current = true;
           setIsRefreshing(true);
-          setCurrentSessionId(uuidv4());
-          cycleStartRef.current = Date.now();
-          if (secondsTextRef.current) secondsTextRef.current.textContent = '15 saniye kaldı';
           setTimeout(() => {
-            isRefreshingRef.current = false;
-            setIsRefreshing(false);
-          }, 150);
+            setCurrentSessionId(uuidv4());
+            cycleStartRef.current = Date.now();
+            if (secondsTextRef.current) secondsTextRef.current.textContent = '5 saniye kaldı';
+            setTimeout(() => {
+              isRefreshingRef.current = false;
+              setIsRefreshing(false);
+            }, 50);
+          }, 300);
         }
       }
       updateClock();
@@ -127,10 +129,12 @@ const QRGeneratorAdminView = () => {
   const refreshQR = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    setCurrentSessionId(uuidv4());
-    cycleStartRef.current = Date.now();
-    if (secondsTextRef.current) secondsTextRef.current.textContent = '15 saniye kaldı';
-    setTimeout(() => setIsRefreshing(false), 150);
+    setTimeout(() => {
+      setCurrentSessionId(uuidv4());
+      cycleStartRef.current = Date.now();
+      if (secondsTextRef.current) secondsTextRef.current.textContent = '5 saniye kaldı';
+      setTimeout(() => setIsRefreshing(false), 50);
+    }, 300);
   };
 
   const toggleFullscreen = () => {
@@ -172,7 +176,7 @@ const QRGeneratorAdminView = () => {
           background: conic-gradient(from -90deg, var(--border-color) var(--progress-angle, 0deg), transparent 0deg);
         }
         .animating-border {
-          animation: sweep 15s linear forwards;
+          animation: sweep 5s linear forwards;
         }
       `}</style>
 
@@ -276,26 +280,26 @@ const QRGeneratorAdminView = () => {
               <div className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)] items-center w-full min-w-0 py-4 transition-all ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-4 sm:gap-8' : 'px-2 sm:px-4 gap-3 sm:gap-6'
                 }`}>
                 
-                <div className="relative flex flex-col items-center justify-center min-w-0 w-full">
+                <div className="relative flex flex-col items-center justify-center min-w-0 max-w-full">
                   <div
                     key={currentSessionId}
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#10b981' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all w-full ${isFullscreen ? 'max-w-[330px]' : 'max-w-[250px]'} ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
+                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all max-w-full ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
                     }`}>
                     <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-emerald-500 uppercase`}>GİRİŞ YAP</span>
-                    <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden w-full">
-                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-90' : 'opacity-100'}`}>
+                    <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden max-w-full">
+                      <div className={`max-w-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                         {qrDataEntry ? (
-                          <QRCode value={qrDataEntry} size={256} style={{ width: '100%', height: 'auto', maxWidth: isFullscreen ? 255 : 175 }} level="M" fgColor="#0f172a" bgColor="#ffffff" />
+                          <QRCode value={qrDataEntry} size={isFullscreen ? 255 : 175} style={{ maxWidth: '100%', height: 'auto' }} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
                           <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[175px] h-[175px]'}`}>
                             <RefreshCcw className="animate-spin text-emerald-600" size={32} />
                           </div>
                         )}
                       </div>
-                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 opacity-0 -z-10 pointer-events-none`}>
+                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 ${isRefreshing ? 'opacity-100 z-10' : 'opacity-0 -z-10 pointer-events-none'}`}>
                         <RefreshCcw className="animate-spin text-emerald-600" size={32} />
                       </div>
                     </div>
@@ -348,31 +352,31 @@ const QRGeneratorAdminView = () => {
                   >
                     <RefreshCcw size={13} className={`transition-transform ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
                     <span ref={selectedType === 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums tracking-wide">
-                      15 saniye kaldı
+                      5 saniye kaldı
                     </span>
                   </button>
                 </div>
 
-                <div className="relative flex flex-col items-center justify-center min-w-0 w-full">
+                <div className="relative flex flex-col items-center justify-center min-w-0 max-w-full">
                   <div
                     key={currentSessionId}
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#ef4444' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all w-full ${isFullscreen ? 'max-w-[330px]' : 'max-w-[250px]'} ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
+                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all max-w-full ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
                     }`}>
                     <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-rose-500 uppercase`}>ÇIKIŞ YAP</span>
-                    <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden w-full">
-                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-90' : 'opacity-100'}`}>
+                    <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden max-w-full">
+                      <div className={`max-w-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                         {qrDataExit ? (
-                          <QRCode value={qrDataExit} size={256} style={{ width: '100%', height: 'auto', maxWidth: isFullscreen ? 255 : 175 }} level="M" fgColor="#0f172a" bgColor="#ffffff" />
+                          <QRCode value={qrDataExit} size={isFullscreen ? 255 : 175} style={{ maxWidth: '100%', height: 'auto' }} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
                           <div className={`flex items-center justify-center ${isFullscreen ? 'w-[255px] h-[255px]' : 'w-[175px] h-[175px]'}`}>
                             <RefreshCcw className="animate-spin text-rose-600" size={32} />
                           </div>
                         )}
                       </div>
-                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 opacity-0 -z-10 pointer-events-none`}>
+                      <div className={`absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-[24px] transition-all duration-500 ${isRefreshing ? 'opacity-100 z-10' : 'opacity-0 -z-10 pointer-events-none'}`}>
                         <RefreshCcw className="animate-spin text-rose-600" size={32} />
                       </div>
                     </div>
@@ -390,7 +394,7 @@ const QRGeneratorAdminView = () => {
                   }`}>
                   <span className="text-[20px] font-black tracking-widest text-indigo-500 mb-5 uppercase">YOKLAMA</span>
                   <div className="relative p-5 bg-white rounded-[26px] shadow-md flex items-center justify-center overflow-hidden">
-                    <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-90' : 'opacity-100'}`}>
+                    <div className={`max-w-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                       {qrData ? (
                         <QRCode value={qrData} size={isFullscreen ? 300 : 210} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                       ) : (
@@ -419,7 +423,7 @@ const QRGeneratorAdminView = () => {
               >
                 <RefreshCcw size={13} className={`transition-transform ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
                 <span ref={selectedType !== 'institution_gate' ? secondsTextRef : undefined} className="tabular-nums tracking-wide">
-                  15 saniye kaldı
+                  5 saniye kaldı
                 </span>
               </button>
             </div>
