@@ -169,11 +169,17 @@ const QRGeneratorAdminView = () => {
              orta  : baslik ustte, giris + cikis yan yana
              genis : giris | baslik | cikis */
         .qr-cq { container-type: inline-size; width: 100%; }
-        .qr-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
-        .qr-grid > .qr-baslik { order: -1; }
-        @container (min-width: 620px) {
-          .qr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .qr-grid > .qr-baslik { grid-column: 1 / -1; }
+        /* Giris ve Cikis HER ZAMAN yan yana. Dar alanda baslik uste cikar,
+           kartlar ic bosluklarini azaltir; karekod ancak gerekirse kucultulur. */
+        .qr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; justify-items: center; }
+        .qr-grid > .qr-baslik { order: -1; grid-column: 1 / -1; }
+        .qr-grid > .qr-kart { min-width: 0; max-width: 100%; }
+        .qr-grid .qr-kutu, .qr-grid .qr-beyaz, .qr-grid .qr-gecis { max-width: 100%; }
+        .qr-grid .qr-beyaz svg { max-width: 100%; height: auto; }
+        @container (max-width: 700px) {
+          .qr-grid { column-gap: 12px; }
+          .qr-grid .qr-kutu { padding: 12px !important; border-radius: 22px; }
+          .qr-grid .qr-beyaz { padding: 8px !important; border-radius: 16px; }
         }
         @container (min-width: 1040px) {
           .qr-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr); }
@@ -299,17 +305,17 @@ const QRGeneratorAdminView = () => {
               <div className={`qr-grid w-full py-4 transition-all ${isFullscreen ? 'px-3 sm:px-8 lg:px-12 gap-4 sm:gap-8' : 'px-2 sm:px-4 gap-4 sm:gap-6'
                 }`}>
                 
-                <div className="relative flex flex-col items-center justify-center">
+                <div className="qr-kart relative flex flex-col items-center justify-center">
                   <div
                     key={currentSessionId}
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#10b981' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
+                  <div className={`qr-kutu relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-emerald-50/70 border-emerald-100'
                     }`}>
                     <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-emerald-500 uppercase`}>GİRİŞ YAP</span>
-                    <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
-                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+                    <div className="qr-beyaz relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
+                      <div className={`qr-gecis transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                         {qrDataEntry ? (
                           <QRCode value={qrDataEntry} size={isFullscreen ? 255 : 175} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
@@ -376,17 +382,17 @@ const QRGeneratorAdminView = () => {
                   </button>
                 </div>
 
-                <div className="relative flex flex-col items-center justify-center">
+                <div className="qr-kart relative flex flex-col items-center justify-center">
                   <div
                     key={currentSessionId}
                     className={`absolute -inset-4 rounded-[36px] pointer-events-none opacity-40 progress-border ${!isRefreshing ? 'animating-border' : ''}`}
                     style={{ '--border-color': '#ef4444' }}
                   />
-                  <div className={`relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
+                  <div className={`qr-kutu relative z-10 rounded-[30px] ${isFullscreen ? 'p-7' : 'p-5'} shadow-2xl flex flex-col items-center border transition-all ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-red-50/70 border-red-100'
                     }`}>
                     <span className={`${isFullscreen ? 'text-[18px] mb-5' : 'text-[15px] mb-3'} font-black tracking-widest text-rose-500 uppercase`}>ÇIKIŞ YAP</span>
-                    <div className="relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
-                      <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+                    <div className="qr-beyaz relative p-4 bg-white rounded-[24px] shadow-md flex items-center justify-center overflow-hidden">
+                      <div className={`qr-gecis transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                         {qrDataExit ? (
                           <QRCode value={qrDataExit} size={isFullscreen ? 255 : 175} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                         ) : (
@@ -414,7 +420,7 @@ const QRGeneratorAdminView = () => {
                   }`}>
                   <span className="text-[20px] font-black tracking-widest text-indigo-500 mb-5 uppercase">YOKLAMA</span>
                   <div className="relative p-5 bg-white rounded-[26px] shadow-md flex items-center justify-center overflow-hidden">
-                    <div className={`transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+                    <div className={`qr-gecis transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isRefreshing ? 'opacity-0 blur-md scale-90' : 'opacity-100 blur-0 scale-100'}`}>
                       {qrData ? (
                         <QRCode value={qrData} size={isFullscreen ? 300 : 210} level="M" fgColor="#0f172a" bgColor="#ffffff" />
                       ) : (
