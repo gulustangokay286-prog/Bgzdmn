@@ -8,7 +8,7 @@ import {
   LayoutDashboard, BrainCircuit, QrCode, RadioTower, DoorOpen, CalendarX2, ClipboardList, UserX,
   UserSquare, Briefcase, FileEdit, HeartHandshake, Users, UserCheck, Megaphone, BellRing, MessageSquare,
   CalendarClock, Bus, Coffee, Globe, Inbox, ShieldAlert, Smartphone, HeartPulse,
-  Settings, Building, Key, LogOut, ChevronDown, Moon, Sun, Menu, X
+  Settings, Building, Key, LogOut, ChevronDown, Moon, Sun, Menu
 } from 'lucide-react';
 import logo from './assets/logo.png';
 
@@ -161,9 +161,6 @@ const Sidebar = ({ isOpen, onClose }) => {
         />
       )}
       <div className={`sidebar fixed inset-y-0 left-0 z-[100] transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <button onClick={onClose} className="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white bg-white/5 w-9 h-9 flex items-center justify-center rounded-full z-[110]">
-          <X size={20} />
-        </button>
         <div className="drag-region-top hidden md:block" />
       <div 
         className="sidebar-header relative flex items-center gap-2.5 pt-10 pb-4 px-4 select-none"
