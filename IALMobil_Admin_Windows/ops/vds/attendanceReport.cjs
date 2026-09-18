@@ -31,7 +31,7 @@ async function dailyReport(requestedDate, personId = null) {
                     s.seviye::text AS class_id,
                     'ogrenci'::text AS rol, NULL::text AS brans
                FROM ogrenciler o
-               JOIN kisiler k ON k.id = o.kisi_id AND k.aktif
+               JOIN kisiler k ON k.id = o.kisi_id AND k.aktif AND NOT COALESCE(k.gizli, false)
           LEFT JOIN siniflar s ON s.id = o.sinif_id
               UNION ALL
              SELECT k.id AS kisi_id, NULL::text AS okul_no, k.tam_ad, k.tc AS tc_kimlik, NULL::text AS sinif,
@@ -41,7 +41,7 @@ async function dailyReport(requestedDate, personId = null) {
                FROM kisiler k
                JOIN kisi_rolleri r ON r.kisi_id = k.id
           LEFT JOIN personel g ON g.kisi_id = k.id
-              WHERE k.aktif AND r.rol IN ('ogretmen', 'idare')
+              WHERE k.aktif AND NOT COALESCE(k.gizli, false) AND r.rol IN ('ogretmen', 'idare')
            GROUP BY k.id, k.tam_ad, k.tc) roster
               WHERE ($1::bigint IS NULL OR roster.kisi_id = $1)
            ORDER BY rol, sinif NULLS LAST, tam_ad`, [personId]);
@@ -217,8 +217,27 @@ async function history(personId) {
         'SELECT * FROM devamsizlik WHERE ogrenci_id=$1 ORDER BY tarih DESC, id DESC', [personId]);
     const gecisler = await hepsi(
         'SELECT id,kisi_id,tarih,yon,kaynak,zaman,not_ FROM gecisler WHERE kisi_id=$1 ORDER BY zaman DESC,id DESC', [personId]);
+    /* O gun veliye giden SMS'ler: ekran "bugun mesaj gitti mi" sorusuna
+       buradan cevap verir. Denetim tablosundan okunur, gonderim yapmaz. */
+    const smsSatirlari = await hepsi(`
+        SELECT id, (created_at AT TIME ZONE 'Europe/Istanbul')::date::text AS tarih,
+               to_char(created_at AT TIME ZONE 'Europe/Istanbul','HH24:MI') AS saat,
+               kind AS tur, status AS durum, phone AS telefon, reason_code AS sebep,
+               split_part(replace(body, E'\\n', ' '), 'Boğaziçi Koleji', 1) AS ozet
+          FROM sms_audit WHERE student_id=$1 ORDER BY created_at DESC`, [personId]);
+    const smsGune = new Map();
+    for (const r of smsSatirlari) {
+        if (!smsGune.has(r.tarih)) smsGune.set(r.tarih, []);
+        smsGune.get(r.tarih).push({ id: r.id, saat: r.saat, tur: r.tur, durum: r.durum, telefon: r.telefon,
+            ozet: String(r.ozet || '').replace(/^Sayın Velimiz,\s*/, '').trim().slice(0, 140) });
+    }
+    for (const k of kayitlar) {
+        const liste = smsGune.get(String(k.tarih).slice(0, 10)) || [];
+        k.sms = liste;
+        k.sms_gonderildi = liste.some((x) => x.durum === 'sent');
+    }
     return { success: true, kisi_id: personId, bugun: today, kayitlar, ham_devamsizlik, gecisler,
-             guncellendi: new Date().toISOString() };
+             sms_gecmisi: smsSatirlari, guncellendi: new Date().toISOString() };
 }
 return { dailyReport, history };
 };

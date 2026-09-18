@@ -103,9 +103,16 @@ async function otomatikCikisBildir(kisiId, dakika, gun) {
  */
 async function topluCikis(gun, dakika, not, cfg, tip) {
     const kisiler = await iceridekiler(gun);
+    /* KISI BASINA GUNDE BIR KEZ. Otomasyon 30 saniyede bir calisir; isaret
+       olmadan, cikis penceresi icinde GIREN kisi hemen tekrar cikariliyor ve
+       velisine yanlis SMS gidiyordu (14 Eylul 13:10-14:06). */
+    const yapilan = await isaretleriOku(gun);
+    const yeniIsaretler = [];
     let count = 0;
     for (const k of kisiler) {
         try {
+            const isaret = `${tip || 'cikis'}_cikis_${k.kisi_id}`;
+            if (yapilan.includes(isaret) || yeniIsaretler.includes(isaret)) continue;
             if (cfg && tip) {
                 const kisi = await tek('SELECT * FROM api_users WHERE kisi_id = $1', [k.kisi_id]);
                 const resolved = denemeGunleri.resolveForPerson(cfg, gun, kisi || { kisi_id: k.kisi_id, role: 'ogrenci' });
@@ -120,11 +127,13 @@ async function topluCikis(gun, dakika, not, cfg, tip) {
             await cikisYaz(k.kisi_id, gun, dakika, not);
             await yoklama.devamsizligiYaz(k.kisi_id, gun, cfg);
             await otomatikCikisBildir(k.kisi_id, dakika, gun);
+            yeniIsaretler.push(isaret);
             count++;
         } catch (e) {
             console.error('[OTOMASYON] cikis yazilamadi', k.kisi_id, e.message);
         }
     }
+    if (yeniIsaretler.length) await isaretleriYaz(gun, yeniIsaretler);
     return count;
 }
 
@@ -250,7 +259,8 @@ async function devamsizligiTamamla(gun, cfg, suAnDk) {
                 EXISTS (SELECT 1 FROM kisi_rolleri x
                          WHERE x.kisi_id = k.id AND x.rol = 'ogrenci') AS ogrenci
            FROM kisiler k JOIN kisi_rolleri r ON r.kisi_id = k.id
-          WHERE k.aktif AND r.rol IN ('ogrenci', 'ogretmen', 'idare', 'personel')`);
+          WHERE k.aktif AND NOT COALESCE(k.gizli, false)
+            AND r.rol IN ('ogrenci', 'ogretmen', 'idare', 'personel')`);
 
     const yapilan = await isaretleriOku(gun);
     const yeniIsaretler = [];
@@ -320,7 +330,8 @@ async function canliYoklama(gun, cfg) {
     if (gun < '2026-09-08' || !cfg.autoAttendanceEnabled) return;
     const persons = await hepsi(`SELECT DISTINCT k.id AS kisi_id
         FROM kisiler k JOIN kisi_rolleri r ON r.kisi_id=k.id
-        WHERE k.aktif AND r.rol IN ('ogrenci','ogretmen','idare','personel')`);
+        WHERE k.aktif AND NOT COALESCE(k.gizli, false)
+          AND r.rol IN ('ogrenci','ogretmen','idare','personel')`);
     for (const person of persons) await yoklama.devamsizligiYaz(person.kisi_id, gun, cfg);
 }
 
@@ -405,7 +416,9 @@ async function tur() {
     }
 
     // 13:00 — sabah oturumu kapandi: ogleden once gelmeyen / gec gelen veliye bildirilir.
-    if (cfg.autoAttendanceEnabled && dk >= yoklama.pencereler(cfg).ogleCikis && !yapilan.includes('ogle_sms_tamam')) {
+    /* Gunun ogle saati (Cuma 12:10 gibi gune ozel saat varsa o). */
+    const gunCfg = denemeGunleri.gunSaatleriUygula(cfg, gun);
+    if (cfg.autoAttendanceEnabled && dk >= yoklama.pencereler(gunCfg).ogleCikis && !yapilan.includes('ogle_sms_tamam')) {
         const n = await ogleBildirimi(gun, cfg);
         console.log(`[OTOMASYON] ${gun} öğle veli bildirimi: ${n} mesaj`);
         await isaretYaz(gun, 'ogle_sms_tamam');

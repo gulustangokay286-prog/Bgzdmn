@@ -22,6 +22,7 @@ const { Server } = require('socket.io');
 const { createClient } = require('redis');
 
 const { degisiklikleriDinle, tek, hepsi, sorgu, islem } = require('./db');
+const islem_ = islem;
 const yoklama = require('./yoklama');
 const denemeGunleri = require('./denemeGunleri.live.cjs');
 const veri = require('./veri');
@@ -680,6 +681,85 @@ app.post('/api/devamsizlik', verifyAdmin, async (req, res) => {
     } catch (e) { hata(res, e); }
 });
 
+/* ------------------------------------------ DEVAMSIZLIK YONETIMI ------ */
+/**
+ * Toplu devamsizlik islemi — idare kararini iki yerde kilitler:
+ *   yoklama_uzlastirma (kilitli, sabah + ogleden sonra) ve devamsizlik (manuel).
+ *   izinli   : gun izinli/raporlu (agirlik 0)
+ *   mevcut   : devamsizlik silinir, gun mevcut sayilir
+ *   otomatik : idare kaydi kaldirilir, gun gecislerden yeniden hesaplanir
+ * SMS gondermez. Izinli gunde otomasyon da veliye mesaj atmaz.
+ */
+app.post('/api/devamsizlik/toplu', verifyAdmin, async (req, res) => {
+    try {
+        const { ogrenciId, tarihler, islem, sebep } = req.body || {};
+        const u = await veri.kullanici.bul(ogrenciId);
+        if (!u) return res.status(404).json({ success: false, error: 'Kişi bulunamadı.' });
+        const gunler = [...new Set((Array.isArray(tarihler) ? tarihler : [tarihler])
+            .map((t) => String(t || '').slice(0, 10)).filter((t) => /^\d{4}-\d{2}-\d{2}$/.test(t)))];
+        if (!gunler.length) return res.status(400).json({ success: false, error: 'En az bir tarih seçin.' });
+        if (!['izinli', 'mevcut', 'otomatik'].includes(islem))
+            return res.status(400).json({ success: false, error: 'Geçersiz işlem.' });
+        const cfg = await yoklama.ayarlariAl();
+        const bugun = yoklama.gunAnahtari(new Date(), cfg.saatDilimi);
+        if (gunler.some((g) => g > bugun)) return res.status(400).json({ success: false, error: 'Gelecek tarihe işlem yapılamaz.' });
+        const aciklama = String(sebep || '').trim().slice(0, 200)
+            || (islem === 'izinli' ? 'İzinli / raporlu (idare)' : islem === 'mevcut' ? 'Devamsızlık idare tarafından silindi' : '');
+        const sonuc = [];
+        for (const gun of gunler) {
+            await islem_(async (t) => {
+                await t.query(`SET LOCAL app.kilit_ac = 'evet'`); // idare kararı: kilitli satırlar bu transaction'da değişebilir
+                if (islem === 'otomatik') {
+                    await t.query(`DELETE FROM devamsizlik WHERE ogrenci_id=$1 AND tarih=$2::date AND NOT otomatik`, [u.kisi_id, gun]);
+                    await t.query(`DELETE FROM yoklama_uzlastirma WHERE kisi_id=$1 AND tarih=$2::date AND kilitli`, [u.kisi_id, gun]);
+                    await t.query(`DELETE FROM devamsizlik WHERE ogrenci_id=$1 AND tarih=$2::date AND otomatik`, [u.kisi_id, gun]);
+                    await t.query(`DELETE FROM yoklama_uzlastirma WHERE kisi_id=$1 AND tarih=$2::date AND NOT kilitli`, [u.kisi_id, gun]);
+                    return;
+                }
+                const durum = islem === 'izinli' ? 'izinli' : 'var';
+                for (const oturum of ['sabah', 'ogleden_sonra']) {
+                    await t.query(`INSERT INTO yoklama_uzlastirma (kisi_id,tarih,oturum,durum,agirlik,sebep,kaynak,kilitli,olusturan)
+                         VALUES ($1,$2::date,$3,$4,0,$5,'manuel_uzlastirma',true,$6)
+                         ON CONFLICT (kisi_id,tarih,oturum) DO UPDATE
+                           SET durum=EXCLUDED.durum, agirlik=0, sebep=EXCLUDED.sebep, kaynak='manuel_uzlastirma',
+                               kilitli=true, olusturan=EXCLUDED.olusturan, guncellendi=now()`,
+                        [u.kisi_id, gun, oturum, durum, aciklama, req.user.kisi_id]);
+                }
+                await t.query(`DELETE FROM devamsizlik WHERE ogrenci_id=$1 AND tarih=$2::date`, [u.kisi_id, gun]);
+                await t.query(`INSERT INTO devamsizlik (ogrenci_id, tarih, durum, ders_saati, agirlik, sebep, otomatik, kaydeden_id)
+                     VALUES ($1,$2::date,$3,0,0,$4,false,$5)`, [u.kisi_id, gun, durum, aciklama, req.user.kisi_id]);
+            });
+            let h = null;
+            try { h = await yoklama.devamsizligiYaz(u.kisi_id, gun, cfg); } catch (e) { console.warn('[DEVAMSIZLIK] yeniden hesap', gun, e.message); }
+            sonuc.push({ tarih: gun, durum: h?.durum || null });
+        }
+        await veri.guvenlik.yaz({ olay: 'devamsizlik_toplu', kisiId: req.user.kisi_id, ip: req.ip,
+                                  detay: { ogrenciId: u.kisi_id, islem, tarihler: gunler, sebep: aciklama } });
+        res.json({ success: true, islem, sonuc });
+    } catch (e) { hata(res, e); }
+});
+
+/** Tek ham devamsizlik satirini siler; gun gecislerden yeniden hesaplanir. */
+app.delete('/api/devamsizlik/:id', verifyAdmin, async (req, res) => {
+    try {
+        const satir = await tek(`DELETE FROM devamsizlik WHERE id=$1 RETURNING ogrenci_id, tarih::text AS tarih, durum, otomatik`, [Number(req.params.id)]);
+        if (!satir) return res.status(404).json({ success: false, error: 'Kayıt bulunamadı.' });
+        const kalanManuel = await tek(`SELECT 1 FROM devamsizlik WHERE ogrenci_id=$1 AND tarih=$2::date AND NOT otomatik LIMIT 1`, [satir.ogrenci_id, satir.tarih]);
+        if (!kalanManuel) {
+            // Idare kaydi kalmadiysa kilitli uzlastirma da kaldirilir; gun otomatige doner.
+            await islem_(async (t) => {
+                await t.query(`SET LOCAL app.kilit_ac = 'evet'`);
+                await t.query(`DELETE FROM yoklama_uzlastirma WHERE kisi_id=$1 AND tarih=$2::date AND kilitli`, [satir.ogrenci_id, satir.tarih]);
+            });
+        }
+        let h = null;
+        try { h = await yoklama.devamsizligiYaz(satir.ogrenci_id, satir.tarih); } catch (e) { console.warn('[DEVAMSIZLIK] yeniden hesap', e.message); }
+        await veri.guvenlik.yaz({ olay: 'devamsizlik_silindi', kisiId: req.user.kisi_id, ip: req.ip,
+                                  detay: { id: Number(req.params.id), ogrenciId: satir.ogrenci_id, tarih: satir.tarih, durum: satir.durum } });
+        res.json({ success: true, silinen: satir, yeniDurum: h?.durum || null });
+    } catch (e) { hata(res, e); }
+});
+
 /* ------------------------------------------------------------ SMS ------ */
 /* Gonderim netgsmService icindeki kilitle engellenir (SMS_GONDERIM_ACIK).
    Uclar yine de yalnizca yoneticiye acik. */
@@ -767,6 +847,10 @@ app.get('/api/yoklama/ayarlar', verifyAuth, async (_q, res) => {
             ayarlar.tatilKurallari = ayarlar.specialDays;
             ayarlar.customSchedules = Array.isArray(ayarlar.ozelProgramlar) ? ayarlar.ozelProgramlar : (ayarlar.customSchedules || []);
             ayarlar.ozelProgramlar = ayarlar.customSchedules;
+            ayarlar.gradeExits = Array.isArray(ayarlar.seviyeCikislari) ? ayarlar.seviyeCikislari : (ayarlar.gradeExits || []);
+            ayarlar.seviyeCikislari = ayarlar.gradeExits;
+            ayarlar.weekdayHours = Array.isArray(ayarlar.gunSaatleri) ? ayarlar.gunSaatleri : (ayarlar.weekdayHours || []);
+            ayarlar.gunSaatleri = ayarlar.weekdayHours;
         }
         res.json({ success: true, ayarlar, pencereler: yoklama.pencereler(ayarlar) });
     }
@@ -800,6 +884,8 @@ app.put('/api/yoklama/ayarlar', verifyAdmin, async (req, res) => {
             breakMinutes: 'teneffusDk', staffFlexibleHours: 'personelSaatSerbest',
             closedDays: 'kapaliGunler', holidays: 'tatiller', examDays: 'denemeGunleri',
             specialDays: 'tatilKurallari', customSchedules: 'ozelProgramlar',
+            gradeExits: 'seviyeCikislari',
+            weekdayHours: 'gunSaatleri',
         };
         for (const [istemciAlani, motorAlani] of Object.entries(alanEsleme)) {
             if (Object.prototype.hasOwnProperty.call(gelen, istemciAlani)) {
@@ -821,6 +907,10 @@ app.put('/api/yoklama/ayarlar', verifyAdmin, async (req, res) => {
         cozulmus.tatilKurallari = cozulmus.specialDays;
         cozulmus.customSchedules = Array.isArray(cozulmus.ozelProgramlar) ? cozulmus.ozelProgramlar : (cozulmus.customSchedules || []);
         cozulmus.ozelProgramlar = cozulmus.customSchedules;
+        cozulmus.gradeExits = Array.isArray(cozulmus.seviyeCikislari) ? cozulmus.seviyeCikislari : (cozulmus.gradeExits || []);
+        cozulmus.seviyeCikislari = cozulmus.gradeExits;
+        cozulmus.weekdayHours = Array.isArray(cozulmus.gunSaatleri) ? cozulmus.gunSaatleri : (cozulmus.weekdayHours || []);
+        cozulmus.gunSaatleri = cozulmus.weekdayHours;
 
         const r = await tek(
             `INSERT INTO ayarlar (anahtar, deger) VALUES ('institution', $1)

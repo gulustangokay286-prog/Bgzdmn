@@ -239,8 +239,38 @@ function gradeOf(person) {
     return match ? match[1] : '';
 }
 
-function resolveForPerson(baseConfig, date, person) {
+/**
+ * HAFTANIN GUNUNE OZEL SAATLER. Or. Cuma ogle arasi 12:10-13:30. Kural
+ * yalnizca yazdigi alanlari ezer; deneme/tatil/ozel program bunun ustune
+ * uygulanir. Tum tuketiciler (kapi karari, otomasyon, rapor, SMS)
+ * resolveForPerson uzerinden gectigi icin tek noktadan uygulanir.
+ */
+const GUN_SAAT_ALANLARI = ['gunBaslangici', 'sabahGiris', 'sabahMusaadeDk', 'sabahSonGirisSaati',
+    'ogleCikis', 'ogleCikisMusaadeDk', 'yarimGunSiniri', 'ogledenSonraGiris', 'ogledenSonraMusaadeDk',
+    'ogledenSonraSonGirisSaati', 'okulCikis', 'kesilmeSaati', 'gunSonu'];
+
+function gunSaatKurali(config, date) {
+    const dayNorm = normalizeDayName(weekdayName(date));
+    if (!dayNorm) return null;
+    const list = Array.isArray(config?.gunSaatleri) ? config.gunSaatleri
+        : (Array.isArray(config?.weekdayHours) ? config.weekdayHours : []);
+    return list.find((k) => k && k.aktif !== false && Array.isArray(k.gunler)
+        && k.gunler.some((g) => normalizeDayName(g) === dayNorm)) || null;
+}
+
+function gunSaatleriUygula(config, date) {
+    const kural = gunSaatKurali(config, date);
+    if (!kural) return config;
+    const out = { ...config, gunSaatKurali: kural };
+    for (const a of GUN_SAAT_ALANLARI) {
+        if (kural[a] !== undefined && kural[a] !== null && kural[a] !== '') out[a] = kural[a];
+    }
+    return out;
+}
+
+function resolveForPerson(temelConfig, date, person) {
     const key = String(date || '');
+    const baseConfig = gunSaatleriUygula(temelConfig, key);
     const rule = ruleFor(baseConfig, key);
     const holidayRule = holidayRuleFor(baseConfig, key);
     const customRule = customRuleFor(baseConfig, key);
@@ -275,15 +305,25 @@ function resolveForPerson(baseConfig, date, person) {
         && (customRule ? customIncluded && customRule.ogrenciSms : !closed)
     );
 
-    /* Saatler dogrudan Kurum Kurallari'ndan gelir; kisiye ozel grup/saat yoktur.
-       Gun sonu kesimi: ogrenci kurumun kesilmeSaati'ni (otomatik cikis),
-       personel kendi devamsizlik saatini kullanir. */
+    /* SINIF SEVIYESINE GORE CIKIS. 9-10 erken, 11-12 gec biter; kural yoksa
+       kurum geneli gecerlidir. Kesim kisi bazlidir: otomatik cikis, yoklama
+       kesimi ve veli mesaji her seviye icin kendi saatinde uygulanir.
+       Personel kendi devamsizlik saatini kullanir. */
+    const seviyeKurali = ogrenci && grade
+        ? (Array.isArray(baseConfig.seviyeCikislari) ? baseConfig.seviyeCikislari : [])
+            .find((k) => Array.isArray(k.seviyeler)
+                && k.seviyeler.map(String).includes(String(grade)))
+        : null;
+    const seviyeOkulCikis = (seviyeKurali && seviyeKurali.okulCikis) || baseConfig.okulCikis;
     const kesilmeSaati = ogrenci
-        ? (baseConfig.kesilmeSaati || baseConfig.okulCikis)
+        ? ((seviyeKurali && (seviyeKurali.kesilmeSaati || seviyeKurali.okulCikis))
+            || baseConfig.kesilmeSaati || baseConfig.okulCikis)
         : (baseConfig.staffAbsenceCutoffHour || baseConfig.okulCikis);
     const ortakConfig = {
         ...baseConfig,
+        okulCikis: seviyeOkulCikis,
         kesilmeSaati,
+        seviyeCikisKurali: seviyeKurali || null,
         kapaliGunEngelle: closed && transitionAllowed ? false : baseConfig.kapaliGunEngelle,
         tatilGunu: closed,
         tatilKural: holidayRule,
@@ -523,6 +563,8 @@ function computeSingleSession(passages, config, now = null) {
 }
 
 module.exports = {
+    gunSaatKurali,
+    gunSaatleriUygula,
     normalizeRules,
     normalizeHolidayRules,
     normalizeCustomRules,
