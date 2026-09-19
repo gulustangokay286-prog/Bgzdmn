@@ -156,10 +156,18 @@ function normalizeRules(raw) {
             .filter((grade) => SINIFLAR.includes(grade)))]
             .sort((a, b) => Number(a) - Number(b));
 
+        /* Serbest seviyeler: kapsam disi ama kapidan gecebilen siniflar;
+           yoklama ve veli SMS'i onlar icin kapali. Kapsamla cakisan atilir. */
+        const serbestSeviyeler = [...new Set((item.serbestSeviyeler || item.freeGrades || [])
+            .map((grade) => String(grade).replace(/\D/g, ''))
+            .filter((grade) => SINIFLAR.includes(grade) && !sinifSeviyeleri.includes(grade)))]
+            .sort((a, b) => Number(a) - Number(b));
+
         byDate.set(tarih, {
             tarih,
             ad: String(item.ad || item.name || 'Deneme Sınavı').trim().slice(0, 80) || 'Deneme Sınavı',
             sinifSeviyeleri,
+            serbestSeviyeler,
             baslangicSaati: saat(baslangic),
             gecMusaadeDk: sayi(item.gecMusaadeDk ?? item.graceMinutes, 0, 0, 240),
             sinavSuresiDk: sure,
@@ -279,6 +287,8 @@ function resolveForPerson(temelConfig, date, person) {
     const grade = ogrenci ? gradeOf(person) : '';
 
     const examIncluded = Boolean(rule && (!ogrenci || rule.sinifSeviyeleri.includes(grade)));
+    const examFree = Boolean(rule && ogrenci && !examIncluded
+        && Array.isArray(rule.serbestSeviyeler) && rule.serbestSeviyeler.includes(grade));
     const customIncluded = Boolean(customRule
         && (!ogrenci || customRule.sinifSeviyeleri.includes(grade))
         && eslesiyor(customRule.izinliRoller, person));
@@ -287,7 +297,7 @@ function resolveForPerson(temelConfig, date, person) {
     let transitionAllowed;
     let attendanceEnabled;
     if (rule) {
-        transitionAllowed = examIncluded || !closed;
+        transitionAllowed = examIncluded || examFree || !closed;
         attendanceEnabled = examIncluded;
     } else if (customRule) {
         transitionAllowed = customIncluded;
@@ -300,9 +310,11 @@ function resolveForPerson(temelConfig, date, person) {
         attendanceEnabled = !closed;
     }
 
+    /* Deneme kapsamindaki ogrenciye kapali gunde de SMS gider; serbest
+       seviyeye hic gitmez. Diger durumlar eskisi gibi. */
     const smsAllowed = !ogrenci || Boolean(
-        !holidayRule
-        && (customRule ? customIncluded && customRule.ogrenciSms : !closed)
+        !holidayRule && !examFree
+        && ((rule && examIncluded) || (customRule ? customIncluded && customRule.ogrenciSms : !closed))
     );
 
     /* SINIF SEVIYESINE GORE CIKIS. 9-10 erken, 11-12 gec biter; kural yoksa
@@ -423,6 +435,10 @@ function resolveForPerson(temelConfig, date, person) {
             config: {
                 ...ortakConfig, denemeGunu: true, denemeKural: rule,
                 denemeSinifSeviyesi: grade, yoklamaKapali: true,
+                /* Serbest seviye esnek saatte gelir: gec giris engeli/onayi/
+                   rehberlik uyarisi uygulanmaz. */
+                ...(examFree ? { gecGirisEngelle: false, gecGirisOnayIster: false,
+                                 gecGirisRehberlikUyar: false } : {}),
             },
             rule, holidayRule, customRule, grade, included: false, excluded: true,
             transitionAllowed, transitionDenied: !transitionAllowed,

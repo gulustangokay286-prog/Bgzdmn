@@ -974,3 +974,223 @@ tr:hover td {
   .nova-kare { animation: none; }
   .nova-kare:nth-of-type(1) { opacity: 1; }
 }
+
+/* ----------------------------------------------------------------
+   YONETICI SOHBET — WhatsApp duzeni + liquid glass (ChatView.jsx)
+   Yalnizca giris kutulari ve yuvarlak butonlar cam: arka plani SVG
+   feTurbulence/feDisplacementMap ile kirar (backdrop-filter: url(#lg-liquid)).
+----------------------------------------------------------------*/
+.wa-root {
+  /* Panelin eski temasi: lacivert zemin, slate metin, indigo vurgu. */
+  --wa-bg: #0b1120; --wa-panel: #131c31; --wa-panel-2: #1e293b;
+  --wa-line: rgba(30, 41, 59, .8); --wa-text: #f1f5f9; --wa-muted: #94a3b8;
+  --wa-green: #34d399; --wa-accent: #6366f1; --wa-accent-2: #818cf8;
+  --wa-wall: #080d1a;
+  background: var(--wa-bg);
+  color: var(--wa-text);
+}
+.wa-title { color: var(--wa-text); }
+.wa-text { color: var(--wa-text); }
+.wa-muted { color: var(--wa-muted); }
+.wa-green { color: var(--wa-green); }
+.wa-bg-green { background: var(--wa-green); }
+.wa-input { color: var(--wa-text); }
+.wa-input::placeholder { color: var(--wa-muted); }
+
+.wa-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.wa-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 6px; }
+.wa-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .2); }
+.wa-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* --- sol panel --- */
+.wa-left { background: var(--wa-bg); border-right: 1px solid var(--wa-line); }
+.wa-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 9999px; color: var(--wa-muted);
+  transition: background .15s ease, color .15s ease; cursor: pointer;
+}
+.wa-icon-btn:hover { background: rgba(255, 255, 255, .08); color: var(--wa-text); }
+.wa-icon-btn--on { background: rgba(255, 255, 255, .12); color: var(--wa-text); }
+
+.wa-chips { scrollbar-width: none; }
+.wa-chips::-webkit-scrollbar { display: none; }
+.wa-chip {
+  flex: none; height: 30px; padding: 0 12px; border-radius: 9999px;
+  font-size: 13px; font-weight: 500; color: var(--wa-muted);
+  background: var(--wa-panel); border: 1px solid transparent;
+  display: inline-flex; align-items: center; gap: 6px; transition: all .15s ease;
+}
+.wa-chip:hover { background: var(--wa-panel-2); color: var(--wa-text); }
+.wa-chip--on { background: rgba(99, 102, 241, .22); color: #e0e7ff; border-color: rgba(129, 140, 248, .45); }
+.wa-chip-badge {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9999px;
+  background: var(--wa-accent); color: #fff; font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+.wa-row {
+  display: flex; align-items: center; gap: 14px; padding: 0 12px 0 13px; height: 72px;
+  cursor: pointer; transition: background .12s ease;
+}
+.wa-row:hover { background: var(--wa-panel); }
+.wa-row--active { background: var(--wa-panel-2); }
+.wa-row-body {
+  flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: center;
+  border-bottom: 1px solid var(--wa-line); padding-right: 2px;
+}
+.wa-row:last-child .wa-row-body { border-bottom-color: transparent; }
+.wa-row-name { font-size: 16px; color: var(--wa-text); }
+.wa-row-time { font-size: 12px; color: var(--wa-muted); flex: none; }
+.wa-row-time--unread { color: var(--wa-accent-2); }
+.wa-row-preview { font-size: 13.5px; color: var(--wa-muted); min-width: 0; }
+.wa-tick { color: var(--wa-muted); }
+.wa-badge {
+  flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 9999px;
+  background: var(--wa-accent); color: #fff; font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.wa-role { font-size: 12.5px; font-weight: 500; }
+.wa-role--ogrenci { color: #60a5fa; }
+.wa-role--veli { color: #34d399; }
+.wa-role--ogretmen { color: #c084fc; }
+.wa-role--personel { color: #2dd4bf; }
+.wa-role--diger { color: var(--wa-muted); }
+.wa-avatar { background: #1e293b; box-shadow: 0 0 0 1px rgba(51, 65, 85, .6); }
+.wa-avatar-fallback { background: linear-gradient(to top right, #4f46e5, #7c3aed); color: #fff; }
+
+.wa-row-skel { display: flex; gap: 14px; align-items: center; height: 72px; padding: 0 13px; }
+.wa-skel-av { width: 49px; height: 49px; border-radius: 9999px; background: var(--wa-panel); animation: wa-skel 1.2s ease-in-out infinite; }
+.wa-skel-lines { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+.wa-skel-lines i { display: block; height: 12px; border-radius: 6px; background: var(--wa-panel); animation: wa-skel 1.2s ease-in-out infinite; }
+.wa-skel-lines i:first-child { width: 52%; }
+.wa-skel-lines i:last-child { width: 78%; }
+@keyframes wa-skel { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+.wa-menu {
+  /* Liquid glass acilir menu: govde koyu cam, kenar isigi .lg-glass::after'dan. */
+  position: absolute !important; /* .lg-glass'in position:relative'i Tailwind .absolute'u ezmesin */
+  border-radius: 14px; overflow: hidden;
+  /* Kirilma filtresi YOK: menunun altindaki metin sekilsiz gorunuyordu. */
+  background: rgba(15, 23, 42, .84) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.3) !important;
+  backdrop-filter: blur(22px) saturate(1.3) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .55) !important;
+}
+.wa-menu-item {
+  width: 100%; text-align: left; padding: 9px 16px; font-size: 14px; color: var(--wa-text);
+  display: flex; align-items: center; gap: 10px;
+}
+.wa-menu-item:hover { background: rgba(255, 255, 255, .07); }
+.wa-menu-item--danger { color: #fb7185; }
+
+/* --- sag panel --- */
+.wa-main { background: var(--wa-wall); }
+.wa-float-head {
+  /* iOS gezinme cubugu gibi: kutu yok, mesajlar altindan kayar. Chromium
+     backdrop-filter'a mask uygulamadigi icin yumusak gecis ust uste binen
+     ince katmanlarla kurulur (.wa-blur-stack): her katman 4px bulaniklik
+     ekler, ustte birikir, altta tek katmanla kaybolur; sert cizgi olusmaz. */
+  padding-bottom: 44px;
+  background: linear-gradient(to bottom, rgba(8, 13, 26, .70) 0%, rgba(8, 13, 26, .55) 40%, rgba(8, 13, 26, .32) 62%, rgba(8, 13, 26, .14) 80%, rgba(8, 13, 26, .04) 92%, rgba(8, 13, 26, 0) 100%);
+  /* DIKKAT: isolation:isolate / opacity / mask KULLANMA — Chromium'da backdrop
+     koku olusturur, katmanlar altindaki mesajlari degil yalnizca bu kutuyu
+     bulaniklastirir (sert cizginin sebebi buydu). */
+  pointer-events: none;
+  -webkit-app-region: no-drag; /* Electron ust surukleme seridi butonlari yutmasin */
+}
+.wa-float-head > * { pointer-events: auto; -webkit-app-region: no-drag; }
+.wa-blur-stack { position: absolute; inset: 0; z-index: -1; pointer-events: none !important; }
+.wa-blur-stack i {
+  position: absolute; left: 0; right: 0; top: 0; display: block;
+  -webkit-backdrop-filter: blur(2.5px); backdrop-filter: blur(2.5px);
+}
+.wa-blur-stack i:nth-child(1) { bottom: 0; }
+.wa-blur-stack i:nth-child(2) { bottom: 7%; }
+.wa-blur-stack i:nth-child(3) { bottom: 14%; }
+.wa-blur-stack i:nth-child(4) { bottom: 21%; }
+.wa-blur-stack i:nth-child(5) { bottom: 28%; }
+.wa-blur-stack i:nth-child(6) { bottom: 35%; }
+.wa-blur-stack i:nth-child(7) { bottom: 42%; }
+.wa-blur-stack i:nth-child(8) { bottom: 49%; }
+.wa-blur-stack i:nth-child(9) { bottom: 56%; }
+/* Alt (yazma alani) icin ayna: katmanlar alttan baslar, yukari dogru azalir. */
+.wa-blur-stack--alt i:nth-child(1) { top: 0;   bottom: 0; }
+.wa-blur-stack--alt i:nth-child(2) { top: 7%;  bottom: 0; }
+.wa-blur-stack--alt i:nth-child(3) { top: 14%; bottom: 0; }
+.wa-blur-stack--alt i:nth-child(4) { top: 21%; bottom: 0; }
+.wa-blur-stack--alt i:nth-child(5) { top: 28%; bottom: 0; }
+.wa-blur-stack--alt i:nth-child(6) { top: 35%; bottom: 0; }
+.wa-blur-stack--alt i:nth-child(7) { top: 42%; bottom: 0; }
+.wa-blur-stack--alt i:nth-child(8) { top: 49%; bottom: 0; }
+.wa-blur-stack--alt i:nth-child(9) { top: 56%; bottom: 0; }
+.wa-wallpaper, .wa-intro { background-color: var(--wa-wall); }
+.wa-composer {
+  /* Naked: duvar yok, mesajlar altindan kayar; ustte hafif bulanik kuyruk. */
+  background: linear-gradient(to top, rgba(8, 13, 26, .55) 0%, rgba(8, 13, 26, .3) 45%, rgba(8, 13, 26, .08) 80%, rgba(8, 13, 26, 0) 100%);
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+.wa-composer > * { pointer-events: auto; }
+.wa-intro-art { padding: 26px 40px; color: var(--wa-muted); }
+.wa-file-card { background: #1e293b; border: 1px solid rgba(51, 65, 85, .5); border-radius: 12px; }
+
+.wa-sys-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+  font-size: 11.5px; font-weight: 500; color: #cbd5e1; border-radius: 9999px;
+  background: rgba(30, 41, 59, .9); border: 1px solid rgba(51, 65, 85, .6);
+}
+
+/* --- liquid glass --- */
+.lg-glass {
+  position: relative; isolation: isolate;
+  background: rgba(255, 255, 255, .06);
+  -webkit-backdrop-filter: url(#lg-liquid) blur(1.5px);
+  backdrop-filter: url(#lg-liquid) blur(1.5px);
+  /* Govde temiz; kenar isigi ::after halkasindan gelir. */
+  box-shadow: 0 6px 18px -12px rgba(0, 0, 0, .55);
+  color: var(--wa-text);
+  transition: background .2s ease, box-shadow .25s ease, transform .15s ease;
+}
+.lg-glass::after {
+  /* KENAR ISIGI: duz bir cizgi degil, isik kaynagina bakan kenarlar
+     (sol-ust) parlak, karsi kenar (sag-alt) daha sonuk yansima, kalan
+     kisimlar silik. Halka 1px; icerige dokunmaz. */
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, .62) 0%, rgba(255, 255, 255, .28) 18%,
+    rgba(255, 255, 255, .06) 42%, rgba(255, 255, 255, .05) 58%,
+    rgba(255, 255, 255, .22) 84%, rgba(255, 255, 255, .40) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity .25s ease;
+}
+.lg-glass:hover, .lg-glass:focus-within {
+  background: rgba(255, 255, 255, .085);
+  box-shadow: 0 8px 20px -12px rgba(0, 0, 0, .6);
+}
+.lg-glass:hover::after, .lg-glass:focus-within::after { opacity: 1.25; }
+.lg-glass--pill { border-radius: 9999px; }
+.lg-glass--pill::after {
+  /* Genis hap: isik ust kenarda hafif, alt kenarda daha hafif yansima;
+     uclar silik. Yatay boyunca yumusak dagilir, tek noktada toplanmaz. */
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, .30) 0%, rgba(255, 255, 255, .10) 30%,
+    rgba(255, 255, 255, .04) 50%,
+    rgba(255, 255, 255, .07) 72%, rgba(255, 255, 255, .20) 100%);
+}
+.lg-glass--round { border-radius: 9999px; width: 44px; height: 44px; flex: none; }
+.lg-glass--green {
+  background: rgba(99, 102, 241, .55); color: #fff;
+  box-shadow: 0 6px 18px -12px rgba(99, 102, 241, .5);
+}
+.lg-glass--green:hover, .lg-glass--green:focus-within { background: rgba(99, 102, 241, .6); }
+.lg-glass--danger {
+  background: rgba(240, 80, 90, .22);
+  box-shadow: 0 6px 18px -12px rgba(240, 80, 90, .45);
+}
+.wa-glass-btn { display: inline-flex; align-items: center; justify-content: center; color: var(--wa-text); }
+.wa-glass-btn:active { transform: scale(.93); }
+@media (prefers-reduced-motion: reduce) { .lg-glass, .wa-glass-btn { transition: none; } }

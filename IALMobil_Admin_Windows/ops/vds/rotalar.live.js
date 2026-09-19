@@ -129,9 +129,22 @@ module.exports = function rotalariBagla(app, { verifyAuth, verifyAdmin }) {
     /* ------------------------------------------------------- MESAJLAR --- */
     app.get('/api/sohbetler', verifyAuth, async (req, r, n) => {
         try { r.json({ success: true, kayitlar: await hepsi(
-            `SELECT s.*, sk.okunmamis FROM sohbetler s
+            `SELECT s.*, sk.okunmamis,
+                    (SELECT k2.kisi_id FROM sohbet_katilimci k2
+                      WHERE k2.sohbet_id = s.id AND k2.kisi_id <> $1 LIMIT 1) AS karsi_kisi_id,
+                    sm.icerik AS son_mesaj, sm.zaman AS son_mesaj_zaman, sm.gonderen_id AS son_mesaj_gonderen
+               FROM sohbetler s
                JOIN sohbet_katilimci sk ON sk.sohbet_id=s.id AND sk.kisi_id=$1
+          LEFT JOIN LATERAL (SELECT icerik, zaman, gonderen_id FROM mesajlar m
+                              WHERE m.sohbet_id = s.id ORDER BY m.zaman DESC, m.id DESC LIMIT 1) sm ON true
            ORDER BY s.guncellendi DESC`, [req.user.kisi_id]) }); } catch (e) { n(e); } });
+    /** Sohbeti okundu isaretle: cagiranin okunmamis sayaci sifirlanir. */
+    app.post('/api/sohbetler/:id/okundu', verifyAuth, async (req, r, n) => {
+        try {
+            await sorgu(`UPDATE sohbet_katilimci SET okunmamis = 0 WHERE sohbet_id=$1 AND kisi_id=$2`,
+                        [req.params.id, req.user.kisi_id]);
+            r.json({ success: true });
+        } catch (e) { n(e); } });
     /**
      * Sohbet ac ya da var olani getir.
      * Iki kisi arasinda ikinci bir sohbet ACILMAZ; ayni ikili icin hep ayni
@@ -176,6 +189,9 @@ module.exports = function rotalariBagla(app, { verifyAuth, verifyAdmin }) {
             const m = await tek(`INSERT INTO mesajlar (sohbet_id, gonderen_id, icerik) VALUES ($1,$2,$3) RETURNING *`,
                                 [req.params.id, req.user.kisi_id, String(req.body?.icerik || '').slice(0, 4000)]);
             await sorgu(`UPDATE sohbetler SET guncellendi=now() WHERE id=$1`, [req.params.id]);
+            // Karsi tarafin okunmamis rozeti; gonderenin kendi sayaci degismez.
+            await sorgu(`UPDATE sohbet_katilimci SET okunmamis = COALESCE(okunmamis, 0) + 1
+                          WHERE sohbet_id=$1 AND kisi_id<>$2`, [req.params.id, req.user.kisi_id]);
             r.json({ success: true, kayit: m });
         } catch (e) { n(e); } });
 
